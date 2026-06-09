@@ -98,7 +98,6 @@ void ConfigPortal::configureWebServerRoutes() {
     _webServer.on("/scan", HTTP_GET, [this]() { handleScan(); });
     _webServer.on("/save", HTTP_GET, [this]() { handleSave(); });
     _webServer.on("/status", HTTP_GET, [this]() { handleStatus(); });
-#if ENABLE_OTA
     _webServer.on("/update", HTTP_GET, [this]() { handleUpdateForm(); });
     _webServer.on("/update", HTTP_POST, [this]() {
         _webServer.send(200, "text/plain", "Update processing...");
@@ -111,7 +110,6 @@ void ConfigPortal::configureWebServerRoutes() {
         }
     }, [this]() { handleUpdateUpload(); });
     _webServer.on("/update/status", HTTP_GET, [this]() { handleUpdateStatus(); });
-#endif
     _webServer.onNotFound([this]() { handleNotFound(); });
 }
 
@@ -335,11 +333,9 @@ void ConfigPortal::handleRoot() {
             Save Settings
         </button>
 
-#if ENABLE_OTA
         <button class="btn btn-secondary" onclick="window.location.href='/update'" style="margin-top: 16px;">
             Firmware Update >>
         </button>
-#endif
     </div>
     <script>
         let selectedSSID = '';
@@ -986,8 +982,6 @@ bool ConfigPortal::isUpdating() {
     return _otaUpdate;
 }
 
-#if ENABLE_OTA
-
 void ConfigPortal::handleUpdateForm() {
     const char* html = R"rawliteral(
 <!DOCTYPE html>
@@ -1218,4 +1212,4 @@ void ConfigPortal::handleUpdateStatus() {
     _webServer.send(200, "application/json", json);
 }
 
-#endif // ENABLE_OTA
+
