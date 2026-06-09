@@ -1,0 +1,219 @@
+#include "SettingsStore.h"
+
+const char* SettingsStore::PREFS_NAMESPACE = "settings";
+const char* SettingsStore::KEY_SSID = "ssid";
+const char* SettingsStore::KEY_PASSWORD = "password";
+const char* SettingsStore::KEY_TIMEZONE_MINUTES = "tz_min";
+const char* SettingsStore::KEY_TIMEZONE_NAME = "tz_name";
+const char* SettingsStore::KEY_DISPLAY_MODE = "display";
+const char* SettingsStore::KEY_DATE_STYLE = "date_style";
+const char* SettingsStore::KEY_BELL_MODE = "bell";
+const char* SettingsStore::KEY_TIME_FORMAT = "time_fmt";
+const char* SettingsStore::KEY_NIGHT_MODE = "night";
+const char* SettingsStore::KEY_MANUAL_TIME_ENABLED = "manual_enabled";
+const char* SettingsStore::KEY_MANUAL_EPOCH = "manual_epoch";
+const char* SettingsStore::MENU_PREFS_NAMESPACE = "menu";
+const char* SettingsStore::KEY_BRIGHTNESS = "bright";
+const char* SettingsStore::KEY_MENU_INDEX = "last_idx";
+const char* SettingsStore::TIMER_PREFS_NAMESPACE = "timer";
+const char* SettingsStore::KEY_COUNTDOWN_PRESET = "cdpreset";
+
+AppSettings SettingsStore::load() {
+    AppSettings settings;
+    Preferences prefs;
+
+    if (!prefs.begin(PREFS_NAMESPACE, true)) {
+        return settings;
+    }
+
+    settings.network.ssid = prefs.getString(KEY_SSID, "");
+    settings.network.password = prefs.getString(KEY_PASSWORD, "");
+    settings.timezone.offsetMinutes = prefs.getShort(KEY_TIMEZONE_MINUTES, -300);
+    settings.timezone.name = prefs.getString(KEY_TIMEZONE_NAME, "Eastern Time");
+    settings.displayMode = clampDisplayMode(
+        prefs.getUChar(KEY_DISPLAY_MODE, (uint8_t)DisplayMode::LargeDigitsOnly));
+    settings.dateStyle = clampDateStyle(
+        prefs.getUChar(KEY_DATE_STYLE, (uint8_t)DateStyle::Date));
+    settings.bellMode = clampBellMode(prefs.getUChar(KEY_BELL_MODE, (uint8_t)BellMode::Off));
+    settings.timeFormat = clampTimeFormat(prefs.getUChar(KEY_TIME_FORMAT, (uint8_t)TimeFormat::Hours24));
+    settings.nightMode = clampNightMode(prefs.getUChar(KEY_NIGHT_MODE, (uint8_t)NightMode::Off));
+    settings.manualTime.enabled = prefs.getBool(KEY_MANUAL_TIME_ENABLED, false);
+    settings.manualTime.epoch = prefs.getULong(KEY_MANUAL_EPOCH, 0);
+
+    prefs.end();
+    return settings;
+}
+
+bool SettingsStore::save(const AppSettings& settings) {
+    Preferences prefs;
+    if (!prefs.begin(PREFS_NAMESPACE, false)) {
+        return false;
+    }
+
+    prefs.putString(KEY_SSID, settings.network.ssid);
+    prefs.putString(KEY_PASSWORD, settings.network.password);
+    prefs.putShort(KEY_TIMEZONE_MINUTES, settings.timezone.offsetMinutes);
+    prefs.putString(KEY_TIMEZONE_NAME, settings.timezone.name);
+    prefs.putUChar(KEY_DISPLAY_MODE, (uint8_t)settings.displayMode);
+    prefs.putUChar(KEY_DATE_STYLE, (uint8_t)settings.dateStyle);
+    prefs.putUChar(KEY_BELL_MODE, (uint8_t)settings.bellMode);
+    prefs.putUChar(KEY_TIME_FORMAT, (uint8_t)settings.timeFormat);
+    prefs.putUChar(KEY_NIGHT_MODE, (uint8_t)settings.nightMode);
+    prefs.putBool(KEY_MANUAL_TIME_ENABLED, settings.manualTime.enabled);
+    prefs.putULong(KEY_MANUAL_EPOCH, settings.manualTime.epoch);
+
+    prefs.end();
+    return true;
+}
+
+bool SettingsStore::saveDisplayMode(DisplayMode mode) {
+    Preferences prefs;
+    if (!prefs.begin(PREFS_NAMESPACE, false)) {
+        return false;
+    }
+
+    prefs.putUChar(KEY_DISPLAY_MODE, (uint8_t)clampDisplayMode((int)mode));
+    prefs.end();
+    return true;
+}
+
+bool SettingsStore::saveDateStyle(DateStyle style) {
+    Preferences prefs;
+    if (!prefs.begin(PREFS_NAMESPACE, false)) {
+        return false;
+    }
+
+    prefs.putUChar(KEY_DATE_STYLE, (uint8_t)clampDateStyle((int)style));
+    prefs.end();
+    return true;
+}
+
+bool SettingsStore::saveBellMode(BellMode mode) {
+    Preferences prefs;
+    if (!prefs.begin(PREFS_NAMESPACE, false)) {
+        return false;
+    }
+
+    prefs.putUChar(KEY_BELL_MODE, (uint8_t)clampBellMode((int)mode));
+    prefs.end();
+    return true;
+}
+
+bool SettingsStore::saveTimeFormat(TimeFormat format) {
+    Preferences prefs;
+    if (!prefs.begin(PREFS_NAMESPACE, false)) {
+        return false;
+    }
+
+    prefs.putUChar(KEY_TIME_FORMAT, (uint8_t)clampTimeFormat((int)format));
+    prefs.end();
+    return true;
+}
+
+bool SettingsStore::saveNightMode(NightMode mode) {
+    Preferences prefs;
+    if (!prefs.begin(PREFS_NAMESPACE, false)) {
+        return false;
+    }
+
+    prefs.putUChar(KEY_NIGHT_MODE, (uint8_t)clampNightMode((int)mode));
+    prefs.end();
+    return true;
+}
+
+int8_t SettingsStore::loadBrightness(int8_t defaultBrightness) {
+    Preferences prefs;
+    if (!prefs.begin(MENU_PREFS_NAMESPACE, true)) {
+        return defaultBrightness;
+    }
+
+    int8_t brightness = (int8_t)prefs.getChar(KEY_BRIGHTNESS, defaultBrightness);
+    prefs.end();
+    if (brightness < 0) brightness = 0;
+    if (brightness > 15) brightness = 15;
+    return brightness;
+}
+
+bool SettingsStore::saveBrightness(int8_t brightness) {
+    if (brightness < 0) brightness = 0;
+    if (brightness > 15) brightness = 15;
+
+    Preferences prefs;
+    if (!prefs.begin(MENU_PREFS_NAMESPACE, false)) {
+        return false;
+    }
+
+    prefs.putChar(KEY_BRIGHTNESS, brightness);
+    prefs.end();
+    return true;
+}
+
+uint8_t SettingsStore::loadMenuIndex(uint8_t itemCount, uint8_t defaultIndex) {
+    if (itemCount == 0) {
+        return 0;
+    }
+    if (defaultIndex >= itemCount) {
+        defaultIndex = 0;
+    }
+
+    Preferences prefs;
+    if (!prefs.begin(MENU_PREFS_NAMESPACE, true)) {
+        return defaultIndex;
+    }
+
+    uint8_t index = prefs.getUChar(KEY_MENU_INDEX, defaultIndex);
+    prefs.end();
+    return index < itemCount ? index : defaultIndex;
+}
+
+bool SettingsStore::saveMenuIndex(uint8_t index) {
+    Preferences prefs;
+    if (!prefs.begin(MENU_PREFS_NAMESPACE, false)) {
+        return false;
+    }
+
+    prefs.putUChar(KEY_MENU_INDEX, index);
+    prefs.end();
+    return true;
+}
+
+uint8_t SettingsStore::loadCountdownPreset(uint8_t presetCount, uint8_t defaultPresetIndex) {
+    if (presetCount == 0) {
+        return 0;
+    }
+    if (defaultPresetIndex >= presetCount) {
+        defaultPresetIndex = 0;
+    }
+
+    Preferences prefs;
+    if (!prefs.begin(TIMER_PREFS_NAMESPACE, true)) {
+        return defaultPresetIndex;
+    }
+
+    uint8_t presetIndex = prefs.getUChar(KEY_COUNTDOWN_PRESET, defaultPresetIndex);
+    prefs.end();
+    return presetIndex < presetCount ? presetIndex : defaultPresetIndex;
+}
+
+bool SettingsStore::saveCountdownPreset(uint8_t presetIndex) {
+    Preferences prefs;
+    if (!prefs.begin(TIMER_PREFS_NAMESPACE, false)) {
+        return false;
+    }
+
+    prefs.putUChar(KEY_COUNTDOWN_PRESET, presetIndex);
+    prefs.end();
+    return true;
+}
+
+bool SettingsStore::clearManualTime() {
+    Preferences prefs;
+    if (!prefs.begin(PREFS_NAMESPACE, false)) {
+        return false;
+    }
+
+    prefs.remove(KEY_MANUAL_TIME_ENABLED);
+    prefs.remove(KEY_MANUAL_EPOCH);
+    prefs.end();
+    return true;
+}
