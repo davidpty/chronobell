@@ -6,28 +6,28 @@ An ESP32-powered LED matrix clock with capacitive touch controls, a ship's bell,
 
 ## What makes ChronoBell different
 
-**Ship's bell striking** - ChronoBell can ring the traditional 1–8 strike pattern used aboard vessels, plus five other bell modes (hour count, half-hour, single ding, pair). The menu lets you preview each mode live before selecting it - something no other ESP32 matrix clock offers.
+**Ship's bell striking** - ChronoBell can ring the traditional 1-8 strike pattern used aboard vessels, plus five other bell modes (hour count, half-hour, single ding, pair). The menu lets you preview each mode live before selecting it.
 
-**Capacitive touch controls** - Three CAP1188 capacitive pads (left, center, right) handle all interaction: tap to navigate, hold for menus, longer hold for the config portal. No physical buttons to wear out. Auto-repeat on held left/right makes menu scrolling fast.
+**8 display modes + 5 date styles** - Big digits, seconds, deciseconds, date overlay, word clock, roman numerals, binary, or random cycling. Date modes include numeric, ISO year/week, moon phase, Western zodiac, and chinese zodiac. Switch temporarily with a tap, or set your default in the menu.
 
 **Guest WiFi display** - Fetches a guest network password from an HTTP endpoint at boot, then shows it in the view cycle. No phone lookup, no "what's the WiFi password?" - it's right there on the clock. Perfect for lobbies, cafes, and offices.
 
 **Two ways to configure** - Hold the center touch pad for 1.5 seconds to open the on-device menu (bell mode, display style, time format, night mode, brightness, date style). Hold for 3 seconds to open the WiFi config portal in your browser. Or press the BOOT button. No USB reflash needed for day-to-day changes.
 
-**8 display modes + 5 date styles** - Big digits, seconds, deciseconds, date overlay, word clock, Roman numerals, binary, or random cycling. Date modes include numeric, ISO year/week, moon phase, Western zodiac, and Chinese zodiac. Switch temporarily with a tap, or set your default in the menu.
+**Capacitive touch controls** - Three CAP1188 capacitive pads (left, center, right) handle all interaction: tap to navigate, hold for menus, longer hold for the config portal. No physical buttons to wear out. Auto-repeat on held left/right makes menu scrolling fast.
 
 ---
 
 ## All features
 
-- **Bell** – Off, ding, hour count, half-hour, pair, and ship's bell. Audible preview in menu.
-- **Timer** – Stopwatch and countdown with multiple saved presets. Bell rings when time's up.
-- **Night mode** – Dim, dark, mute, or combined modes on a schedule. Touch-to-wake when suppressed.
-- **On-device menu** – Configure bell, style, time format, night mode, brightness, and date style via touch.
-- **Web config portal** – Scan WiFi networks, set timezone, upload firmware - all in-browser.
-- **Atomic time sync** – NTP over WiFi (traceable to atomic clocks) with DS1307/DS3231 RTC backup on I2C. Works fully offline - the RTC keeps accurate time when WiFi is unavailable, and the config portal supports manually setting the time.
-- **OTA updates** – ArduinoOTA at `chronobell.local`. Wireless firmware pushes.
-- **Persistence** – Display mode, brightness, bell mode, night mode, countdown preset - all survive power loss (NVS).
+- **Bell** - Off, ding, hour count, half-hour, pair, and ship's bell. Audible preview in menu.
+- **Timer** - Stopwatch and countdown with multiple saved presets. Bell rings when time's up.
+- **Night mode** - Dim, dark, mute, or combined modes on a schedule. Touch-to-wake when suppressed.
+- **On-device menu** - Configure bell, style, time format, night mode, brightness, and date style via touch.
+- **Web config portal** - Scan WiFi networks, set timezone, upload firmware - all in-browser.
+- **Atomic time sync** - NTP over WiFi (traceable to atomic clocks) with DS1307/DS3231 RTC backup on I2C. Works fully offline - the RTC keeps accurate time when WiFi is unavailable, and the config portal supports manually setting the time.
+- **OTA updates** - ArduinoOTA at `chronobell.local`. Wireless firmware pushes.
+- **Persistence** - Display mode, brightness, bell mode, night mode, countdown preset - all survive power loss (NVS).
 
 ## Hardware
 
@@ -73,7 +73,7 @@ arduino-cli upload --fqbn esp32:esp32:esp32
 
 1. **Build and upload** to your ESP32 using either method above.
 2. **Connect to the `ChronoBell`** access point on first boot and open `http://192.168.4.1` in your browser.
-4. **Scan for WiFi networks**, enter credentials, choose your timezone, and save.
+3. **Scan for WiFi networks**, enter credentials, choose your timezone, and save.
 
 The clock will reboot, connect to your network, sync time via NTP, and start running.
 
@@ -107,7 +107,7 @@ When night mode has the display suppressed, the first touch wakes it for 60 seco
 | STYLE | RND / BIG / SEC / DECI / DATE / WORD / ROMA / BIN | Display mode (RND cycles all modes randomly) |
 | HOUR | 24H / 12H | Time format |
 | NIGHT | OFF / LOW (dim only) / LOW+MUTE / DARK (off) / DARK+MUTE / MUTE (bell off) | Night mode |
-| BRIGHT | 0–15 | LED matrix brightness |
+| BRIGHT | 0-15 | LED matrix brightness |
 | DATE | DATE / YEAR / MOON / ZOD / CZOD | Date style |
 
 Hold center to enter the menu, left/right to browse, tap center to edit a value, tap center again to confirm.
@@ -119,7 +119,7 @@ Key constants in `Config.h`:
 | Setting | Default | Notes |
 |---------|---------|-------|
 | `CAP1188_TOUCH_THRESHOLD` | `0x35` | Touch sensitivity; lower = more sensitive |
-| `DISPLAY_BRIGHTNESS` | `4` | Default brightness (0–15) |
+| `DISPLAY_BRIGHTNESS` | `4` | Default brightness (0-15) |
 | `DISPLAY_FLIP` | `0` | Set to `1` to rotate display 180° |
 | `BELL_PULSE_MS` | `500` | Bell coil-on duration |
 | `NIGHT_DIM_START_HOUR` | `19` (7 PM) | Night dimming begins |
