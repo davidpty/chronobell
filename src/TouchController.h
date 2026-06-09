@@ -2,6 +2,7 @@
 #define TOUCH_CONTROLLER_H
 
 #include <Arduino.h>
+#include "Config.h"
 
 struct TouchPadConfig {
     void (*onPress)(uint8_t pad) = nullptr;
