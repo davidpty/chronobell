@@ -29,6 +29,7 @@ ConfigPortal::ConfigPortal(SettingsStore& settingsStore)
     , _webServer(80)
     , _configModeStation(false)
     , _otaUpdate(false)
+    , _otaExpectedSize(0)
     , _statusContext(nullptr)
     , _connectedCallback(nullptr)
     , _inConfigModeCallback(nullptr)
@@ -123,81 +124,93 @@ void ConfigPortal::handleRoot() {
     <title>ChronoBell Setup</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
+        html { font-size: clamp(16px, min(2.4vw, 2.35vh), 24px); }
         body { font-family: 'Courier New', Courier, monospace;
-               background: #000000; color: #ff3333; min-height: 100vh; padding: 20px;
+               background: #000000; color: #ff3333; min-height: 100vh; padding: 0.45em; overflow-x: hidden;
                background-image:
-                   linear-gradient(rgba(20, 0, 0, 0.8) 1px, transparent 1px),
-                   linear-gradient(90deg, rgba(20, 0, 0, 0.8) 1px, transparent 1px),
-                   radial-gradient(ellipse at center, rgba(10, 0, 0, 0.95) 0%, #000000 100%);
-               background-size: 4px 4px, 4px 4px, 100% 100%;
-               text-shadow: 0 0 10px #ff0000, 0 0 20px #ff0000, 0 0 30px #ff0000; }
-        .container { max-width: 400px; margin: 0 auto; }
-        h1 { text-align: center; margin-bottom: 24px; color: #ff0000; font-size: 28px;
-             text-shadow: 0 0 10px #ff0000, 0 0 20px #ff0000, 0 0 40px #ff0000; }
-        .card { background: rgba(20, 0, 0, 0.7); border: 2px solid #330000; border-radius: 4px;
-                padding: 16px; margin-bottom: 16px; box-shadow: inset 0 0 20px rgba(50, 0, 0, 0.5); }
-        .btn { width: 100%; padding: 12px; border: 2px solid #ff0000; border-radius: 4px; cursor: pointer;
-               font-size: 14px; font-weight: bold; margin-top: 12px; transition: all 0.2s;
+                    linear-gradient(rgba(50, 0, 0, 0.9) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(50, 0, 0, 0.9) 1px, transparent 1px),
+                    radial-gradient(ellipse at center, rgba(10, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0.4) 100%);
+               background-size: 0.25em 0.25em, 0.25em 0.25em, 100% 100%;
+               text-shadow: 0 0 0.6em #ff0000, 0 0 1.2em #ff0000, 0 0 2em #ff0000; }
+        .container { width: min(96vw, 42em); margin: 0 auto; }
+        h1 { text-align: center; margin-bottom: 0.35em; color: #ff0000; font-size: 2.6em;
+             text-shadow: 0 0 0.4em #ff0000, 0 0 0.8em #ff0000, 0 0 1.6em #ff0000; }
+        .card { background: rgba(20, 0, 0, 0.7); border: 2px solid #330000; border-radius: 0.25em;
+                padding: 0.55em; margin-bottom: 0.35em; box-shadow: 0 0 1.5em rgba(255, 0, 0, 0.4), 0 0 3.5em rgba(255, 0, 0, 0.15), inset 0 0 1.2em rgba(50, 0, 0, 0.5); }
+        .btn { width: 100%; padding: 0.62em; border: 2px solid #ff0000; border-radius: 0.25em; cursor: pointer;
+               font-size: 1em; font-weight: bold; margin-top: 0.5em; transition: all 0.2s;
                font-family: 'Courier New', Courier, monospace; text-transform: uppercase; }
-        .btn:hover { background: #ff0000; color: #000000; box-shadow: 0 0 20px #ff0000; }
+        .btn:disabled { opacity: 0.55; cursor: wait; }
         .btn-primary { background: transparent; color: #ff0000; }
+        .btn-primary:hover:not(:disabled) { background: #ff0000; color: #000000; box-shadow: 0 0 1.2em #ff0000; }
         .btn-secondary { background: transparent; color: #cc0000; border-color: #cc0000; }
-        select, input:not([type="file"]) { width: 100%; padding: 10px; border: 2px solid #330000; border-radius: 4px;
-                background: #0a0000; color: #ff3333; font-size: 14px; margin-top: 8px;
-                font-family: 'Courier New', Courier, monospace; }
-        input[type="file"] {
-            display: block;
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #ff0000;
-            border-radius: 4px;
-            background: #0a0000;
-            color: #ff3333;
-            font-size: 16px;
-            margin-top: 8px;
-            cursor: pointer;
-            -webkit-tap-highlight-color: transparent;
-        }
-        input[type="file"]::-webkit-file-upload-button {
-            background: #ff0000;
-            color: #000000;
-            padding: 8px 16px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: bold;
-            margin-right: 12px;
-        }
-        select:focus, input:focus { outline: none; border-color: #ff0000; box-shadow: 0 0 10px #ff0000; }
-        label { font-size: 12px; color: #aa0000; text-transform: uppercase; letter-spacing: 2px; }
-        #status { text-align: center; padding: 12px; border-radius: 4px; margin-bottom: 16px;
-                  font-size: 14px; display: none; border: 2px solid; }
-        #status.success { background: rgba(0, 50, 0, 0.8); color: #00ff00; border-color: #00ff00;
-                         text-shadow: 0 0 10px #00ff00; display: block; }
-        #status.error { background: rgba(50, 0, 0, 0.8); color: #ff0000; border-color: #ff0000;
-                        text-shadow: 0 0 10px #ff0000; display: block; }
-        #status.loading { background: rgba(30, 20, 0, 0.8); color: #ffaa00; border-color: #ffaa00;
-                          text-shadow: 0 0 10px #ffaa00; display: block; }
+        .btn-secondary:hover { background: #cc0000; color: #000000; box-shadow: 0 0 1.2em #cc0000; }
+        select, input:not([type="file"]) { width: 100%; padding: 0.46em; border: 2px solid #330000; border-radius: 0.25em;
+                        background: #0a0000; color: #ff3333; font-size: 1em;
+                        font-family: 'Courier New', Courier, monospace; }
+        select:focus, input:focus { outline: none; border-color: #ff0000; box-shadow: 0 0 0.6em #ff0000; }
+        label { font-size: 0.95em; color: #ff0000; text-transform: uppercase; letter-spacing: 0.12em; display: block; margin-top: 0.4em; text-shadow: none; }
+        .setting-row { display: flex; align-items: center; gap: 0.6em; margin-top: 0.42em; }
+        .setting-row .setting-label { font-size: 0.95em; color: #ff0000; text-transform: uppercase;
+                                      letter-spacing: 0.12em; text-shadow: none; white-space: nowrap; min-width: 6.7em; }
+        .setting-row select { flex: 1; min-width: 0; }
+        .toggle-group { display: flex; gap: 0.4em; flex: 1; }
+        .toggle-btn { flex: 1; padding: 0.46em 0.8em; border: 2px solid #ff0000; border-radius: 0.25em;
+                      cursor: pointer; font-family: 'Courier New', monospace; font-size: 0.95em;
+                      text-transform: uppercase; font-weight: bold; transition: all 0.2s;
+                      background: transparent; color: #ff0000; }
+        .toggle-btn.active { background: #ff0000; color: #000000; box-shadow: 0 0 0.6em #ff0000; }
+        .panel-row { display: flex; gap: 0.6em; margin-top: 0.42em; }
+        .panel-row.hidden, .hidden { display: none; }
+        .setup-spacer { min-width: 6.7em; }
         .network-item { display: flex; justify-content: space-between; align-items: center;
-                        padding: 10px; background: rgba(10, 0, 0, 0.8); border-radius: 4px; margin-bottom: 8px;
+                        padding: 0.65em; background: rgba(10, 0, 0, 0.8); border-radius: 0.25em; margin-bottom: 0.4em;
                         cursor: pointer; border: 1px solid #330000; transition: all 0.2s; }
         .network-item:hover { border-color: #ff0000; background: rgba(30, 0, 0, 0.8); }
         .network-item.selected { border-color: #ff0000; background: rgba(40, 0, 0, 0.8);
-                                box-shadow: 0 0 15px rgba(255, 0, 0, 0.3); }
-        .network-item.selected::after { content: '[X]'; color: #ff0000; font-size: 14px;
-                                         text-shadow: 0 0 10px #ff0000; }
-        .network-name { font-weight: bold; color: #ff3333; }
-        .network-signal { font-size: 11px; color: #880000; }
-        .network-sec { font-size: 11px; color: #aa5500; }
-        .hidden { display: none; }
-        .loader { border: 3px solid #330000; border-top: 3px solid #ff0000; border-radius: 50%;
-                  width: 20px; height: 20px; animation: spin 1s linear infinite; margin: 0 auto;
-                  box-shadow: 0 0 10px #ff0000; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .section-title { font-size: 12px; color: #ff0000; margin-bottom: 12px; text-transform: uppercase;
-                         letter-spacing: 2px; text-shadow: 0 0 10px #ff0000; border-bottom: 1px solid #330000;
-                         padding-bottom: 8px; }
-        h2 { font-size: 16px; color: #cc0000; margin-bottom: 16px; text-transform: uppercase; letter-spacing: 2px; }
+                                box-shadow: 0 0 1em rgba(255, 0, 0, 0.3); }
+        .network-item.selected::after { content: '[X]'; color: #ff0000; font-size: 0.85em; text-shadow: 0 0 0.6em #ff0000; margin-left: 0.4em; }
+        .btn-scan { padding: 0.46em 0.5em; border: 2px solid #cc0000; border-radius: 0.25em;
+                     background: transparent; color: #cc0000; font-family: 'Courier New',monospace;
+                     font-size: 0.95em; font-weight: bold; text-transform: uppercase; cursor: pointer;
+                     white-space: nowrap; transition: all 0.2s; width: 5.2em; text-align: center; }
+        .btn-scan:hover:not(:disabled) { background: #cc0000; color: #000000; box-shadow: 0 0 1em #cc0000; }
+        .btn-scan:disabled { opacity: 0.9; cursor: default; }
+        .row { display: flex; gap: 0.55em; margin-top: 0.15em; }
+        .row input { flex: 1; min-width: 0; }
+        .network-name { font-weight: bold; color: #ff3333; font-size: 1em; }
+        .network-signal { font-size: 0.9em; color: #880000; }
+        .network-sec { font-size: 0.9em; color: #aa5500; }
+        #status { text-align: center; padding: 0.46em; border-radius: 0.25em; margin-top: 0.42em;
+                  font-size: 0.85em; display: none; border: 2px solid; text-shadow: none; }
+        #status.success { background: rgba(0, 50, 0, 0.8); color: #00ff00; border-color: #00ff00;
+                         text-shadow: 0 0 0.6em #00ff00; display: block; }
+        #status.error { background: rgba(50, 0, 0, 0.8); color: #ff0000; border-color: #ff0000;
+                        text-shadow: 0 0 0.6em #ff0000; display: block; }
+        #status.loading { background: rgba(30, 20, 0, 0.8); color: #ffaa00; border-color: #ffaa00;
+                          text-shadow: 0 0 0.6em #ffaa00; display: block; }
+        .btn-update-link { display: block; width: 100%; padding: 0.38em; margin-top: 0.35em;
+                           border: 1px solid #660000; border-radius: 0.25em; background: transparent;
+                           color: #880000; font-size: 0.68em; font-weight: bold;
+                           font-family: 'Courier New', monospace; text-transform: uppercase;
+                           letter-spacing: 0.08em; text-align: center; text-decoration: none;
+                           text-shadow: none; cursor: pointer; transition: all 0.2s; }
+        .btn-update-link:hover { color: #cc0000; border-color: #cc0000;
+                                 box-shadow: 0 0 0.5em rgba(255,0,0,0.4); }
+        @media (min-width: 900px) and (min-height: 700px) {
+            html { font-size: clamp(17px, min(2.4vw, 2.25vh), 25px); }
+        }
+        @media (min-width: 1400px) and (min-height: 850px) {
+            html { font-size: clamp(18px, min(2.25vw, 2.15vh), 26px); }
+        }
+        @media (max-width: 520px) {
+            html { font-size: 15px; }
+            body { padding: 0.6em; }
+            .container { width: 100%; }
+            .setting-row { gap: 0.4em; }
+            .setting-row .setting-label, .setup-spacer { min-width: 5.5em; }
+        }
     </style>
 </head>
 <body>
@@ -205,347 +218,292 @@ void ConfigPortal::handleRoot() {
         <h1>ChronoBell</h1>
 
         <div class="card">
-            <div class="section-title">Timezone</div>
-            <label for="timezone">Select your timezone:</label>
-            <select id="timezone">
-                <option value="-12">UTC-12:00 (Baker Island)</option>
-                <option value="-11">UTC-11:00 (Samoa)</option>
-                <option value="-10">UTC-10:00 (Hawaii)</option>
-                <option value="-9">UTC-09:00 (Alaska)</option>
-                <option value="-8">UTC-08:00 (Pacific Time)</option>
-                <option value="-7">UTC-07:00 (Mountain Time)</option>
-                <option value="-6">UTC-06:00 (Central Time)</option>
-                <option value="-5" selected>UTC-05:00 (Eastern Time)</option>
-                <option value="-4">UTC-04:00 (Atlantic Time)</option>
-                <option value="-3">UTC-03:00 (Brazil)</option>
-                <option value="-2">UTC-02:00 (Mid-Atlantic)</option>
-                <option value="-1">UTC-01:00 (Azores)</option>
-                <option value="0">UTC+00:00 (London, Lisbon)</option>
-                <option value="1">UTC+01:00 (Paris, Berlin, Rome)</option>
-                <option value="2">UTC+02:00 (Cairo, Jerusalem)</option>
-                <option value="3">UTC+03:00 (Moscow, Istanbul)</option>
-                <option value="4">UTC+04:00 (Dubai)</option>
-                <option value="5">UTC+05:00 (Karachi)</option>
-                <option value="5.5">UTC+05:30 (Mumbai, Delhi)</option>
-                <option value="6">UTC+06:00 (Dhaka)</option>
-                <option value="7">UTC+07:00 (Bangkok)</option>
-                <option value="8">UTC+08:00 (Beijing, Singapore)</option>
-                <option value="9">UTC+09:00 (Tokyo, Seoul)</option>
-                <option value="9.5">UTC+09:30 (Adelaide)</option>
-                <option value="10">UTC+10:00 (Sydney)</option>
-                <option value="11">UTC+11:00 (Solomon Islands)</option>
-                <option value="12">UTC+12:00 (Auckland)</option>
-            </select>
+            <div class="setting-row">
+                <div class="setting-label">Timezone</div>
+                <select id="timezone">
+                    <option value="-12">UTC-12:00 (Baker Island)</option>
+                    <option value="-11">UTC-11:00 (Samoa)</option>
+                    <option value="-10">UTC-10:00 (Hawaii)</option>
+                    <option value="-9">UTC-09:00 (Alaska)</option>
+                    <option value="-8">UTC-08:00 (Pacific Time)</option>
+                    <option value="-7">UTC-07:00 (Mountain Time)</option>
+                    <option value="-6">UTC-06:00 (Central Time)</option>
+                    <option value="-5" selected>UTC-05:00 (Eastern Time)</option>
+                    <option value="-4">UTC-04:00 (Atlantic Time)</option>
+                    <option value="-3">UTC-03:00 (Brazil)</option>
+                    <option value="-2">UTC-02:00 (Mid-Atlantic)</option>
+                    <option value="-1">UTC-01:00 (Azores)</option>
+                    <option value="0">UTC+00:00 (London, Lisbon)</option>
+                    <option value="1">UTC+01:00 (Paris, Berlin, Rome)</option>
+                    <option value="2">UTC+02:00 (Cairo, Jerusalem)</option>
+                    <option value="3">UTC+03:00 (Moscow, Istanbul)</option>
+                    <option value="4">UTC+04:00 (Dubai)</option>
+                    <option value="5">UTC+05:00 (Karachi)</option>
+                    <option value="5.5">UTC+05:30 (Mumbai, Delhi)</option>
+                    <option value="6">UTC+06:00 (Dhaka)</option>
+                    <option value="7">UTC+07:00 (Bangkok)</option>
+                    <option value="8">UTC+08:00 (Beijing, Singapore)</option>
+                    <option value="9">UTC+09:00 (Tokyo, Seoul)</option>
+                    <option value="9.5">UTC+09:30 (Adelaide)</option>
+                    <option value="10">UTC+10:00 (Sydney)</option>
+                    <option value="11">UTC+11:00 (Solomon Islands)</option>
+                    <option value="12">UTC+12:00 (Auckland)</option>
+                </select>
+            </div>
+
+            <div class="setting-row">
+                <div class="setting-label">Clock</div>
+                <select id="style">
+                    <option value="0" selected>RND - Daily random style</option>
+                    <option value="1">BIG - Large HH:MM, no seconds</option>
+                    <option value="2">SEC - HH:MM with seconds below</option>
+                    <option value="3">DECI - HH:MM with SS.d below</option>
+                    <option value="4">DATE - HH:MM with date below</option>
+                    <option value="5">WORD - Experimental mixed-size word clock</option>
+                    <option value="6">ROMA - Roman numeral clock</option>
+                    <option value="7">BIN - Binary clock</option>
+                </select>
+            </div>
+
+            <div class="setting-row">
+                <div class="setting-label">Date</div>
+                <select id="datestyle">
+                    <option value="0" selected>DATE - Weekday and month/day</option>
+                    <option value="1">YEAR - ISO week and day-of-year</option>
+                    <option value="2">MOON - Lunar phase preview</option>
+                    <option value="3">ZOD - Western zodiac</option>
+                    <option value="4">CZOD - Chinese zodiac</option>
+                </select>
+            </div>
+
+            <div class="setting-row">
+                <div class="setting-label">Hour</div>
+                <select id="timefmt">
+                    <option value="0" selected>24-HOUR - 00:00 to 23:59</option>
+                    <option value="1">AM/PM - 12:00 to 11:59</option>
+                </select>
+            </div>
+
+            <div class="setting-row">
+                <div class="setting-label">Bell</div>
+                <select id="bellmode">
+                    <option value="0" selected>NO BELL - Silent</option>
+                    <option value="1">SINGLE HOURLY - One bell every full hour</option>
+                    <option value="2">HOUR COUNT - Count full hours only</option>
+                    <option value="3">HOUR COUNT + HALF - Count full hours, one bell at half hour</option>
+                    <option value="4">PAIR - Hour count grouped in pairs</option>
+                    <option value="5">SHIP'S BELL - Traditional 4-hour watch cycle</option>
+                </select>
+            </div>
+
+            <div class="setting-row">
+                <div class="setting-label">Night</div>
+                <select id="nightmode">
+                    <option value="0" selected>OFF - No night mode</option>
+                    <option value="1">LOW - Dim display 18:00-06:00</option>
+                    <option value="2">LOW+MUTE - Dim display 18:00-06:00, bell muted 22:00-06:00</option>
+                    <option value="3">DARK - Dim 18:00-22:00, off 22:00-06:00</option>
+                    <option value="4">DARK+MUTE - Dim 18:00-22:00, off + bell muted 22:00-06:00</option>
+                    <option value="5">MUTE - Bell muted 22:00-06:00 only</option>
+                </select>
+            </div>
+
+            <div class="setting-row">
+                <div class="setting-label">Time</div>
+                <div class="toggle-group">
+                    <button class="toggle-btn active" id="wifiAuto" onclick="setWifiMode('auto')">ATOMIC</button>
+                    <button class="toggle-btn" id="wifiManual" onclick="setWifiMode('manual')">MANUAL</button>
+                </div>
+            </div>
+
+            <div id="autoWifiPanel" class="panel-row">
+                <div class="setup-spacer"></div>
+                <div style="flex:1; min-width:0;">
+                    <div class="row">
+                        <input type="text" id="ssidInput" placeholder="Enter network name">
+                        <button class="btn-scan" id="scanBtn" onclick="scanNetworks()">SCAN</button>
+                    </div>
+                    <div id="networkList" style="margin-top: 0.25em;"></div>
+                    <input type="password" id="password" placeholder="Enter password" style="margin-top: 0.25em;">
+                </div>
+            </div>
+
+            <div id="manualPanel" class="panel-row hidden">
+                <div class="setup-spacer"></div>
+                <div style="flex:1; min-width:0;">
+                    <input type="date" id="manualDate" style="margin-top: 0;">
+                    <input type="time" id="manualTime" style="margin-top: 0.2em;">
+                </div>
+            </div>
+
+            <div id="status"></div>
+
+            <button class="btn btn-primary" id="saveBtn" onclick="saveConfig()" style="margin-top: 0.45em;">Save Settings</button>
+            <a href="/update" class="btn-update-link">Firmware Update</a>
         </div>
-
-        <div class="card">
-            <div class="section-title">Clock Style</div>
-            <label for="style">Choose your clock style:</label>
-            <select id="style">
-                <option value="0" selected>RND - Daily random style</option>
-                <option value="1">BIG - Large HH:MM, no seconds</option>
-                <option value="2">SEC - HH:MM with seconds below</option>
-                <option value="3">DECI - HH:MM with SS.d below</option>
-                <option value="4">DATE - HH:MM with date below</option>
-                <option value="5">WORD - Experimental mixed-size word clock</option>
-                <option value="6">ROMA - Roman numeral clock</option>
-                <option value="7">BIN - Binary clock</option>
-            </select>
-        </div>
-
-        <div class="card">
-            <div class="section-title">Date Style</div>
-            <label for="datestyle">Choose your permanent date style:</label>
-            <select id="datestyle">
-                <option value="0" selected>DATE - weekday and month/day</option>
-                <option value="1">YEAR - ISO week and day-of-year</option>
-                <option value="2">MOON - lunar phase preview</option>
-                <option value="3">ZOD - Western zodiac</option>
-                <option value="4">CZOD - Chinese zodiac</option>
-            </select>
-        </div>
-
-        <div class="card">
-            <div class="section-title">Hour Format</div>
-            <label for="timefmt">Choose your hour format:</label>
-            <select id="timefmt">
-                <option value="0" selected>24-HOUR - 00:00 to 23:59</option>
-                <option value="1">AM/PM - 12:00 to 11:59 (no indicator)</option>
-            </select>
-        </div>
-
-        <div class="card">
-            <div class="section-title">Bell Mode</div>
-            <label for="bellmode">Choose your bell schedule:</label>
-            <select id="bellmode">
-                <option value="0" selected>NO BELL - Silent</option>
-                <option value="1">SINGLE HOURLY - One bell every full hour</option>
-                <option value="2">HOUR COUNT - Count full hours only</option>
-                <option value="3">HOUR COUNT + HALF - Count full hours, one bell at half hour</option>
-                <option value="4">PAIR - Hour count grouped in pairs</option>
-                <option value="5">SHIP'S BELL - Traditional 4-hour watch cycle</option>
-            </select>
-        </div>
-
-        <div class="card">
-            <div class="section-title">Night Mode</div>
-            <label for="nightmode">Choose your night-mode preset:</label>
-            <select id="nightmode">
-                <option value="0" selected>OFF - no night mode</option>
-                <option value="1">LOW - low display 18:00-06:00</option>
-                <option value="2">LOW+MUTE - low display 18:00-06:00, bell muted 22:00-06:00</option>
-                <option value="3">DARK - low 18:00-22:00, off 22:00-06:00</option>
-                <option value="4">DARK+MUTE - low 18:00-22:00, off + bell muted 22:00-06:00</option>
-                <option value="5">MUTE - bell muted 22:00-06:00 only</option>
-            </select>
-        </div>
-
-        <div class="card">
-            <div class="section-title">Manual Time Setting</div>
-            <p style="font-size: 12px; color: #666; margin-bottom: 12px;">
-                Only needed if atomic clock is not available.
-            </p>
-            <label for="manualDate">Date:</label>
-            <input type="date" id="manualDate">
-            <label for="manualTime" style="margin-top: 12px;">Time:</label>
-            <input type="time" id="manualTime">
-
-        </div>
-
-        <div class="card">
-            <div class="section-title">Automatic Time Setting</div>
-            <p style="font-size: 12px; color: #666; margin-bottom: 12px;">
-                Time syncs with the atomic clock online when connected.
-            </p>
-            <button class="btn btn-secondary" id="scanBtn" onclick="scanNetworks()">
-                Scan Networks
-            </button>
-            <div id="networkList" style="margin-top: 16px;"></div>
-
-            <label for="password" style="margin-top: 16px; display: block;">Password</label>
-            <input type="password" id="password" placeholder="Enter password" disabled>
-            <p style="font-size: 12px; color: #666; margin-top: 8px;">
-                Leave empty for open networks
-            </p>
-        </div>
-
-        <button class="btn btn-primary" id="saveBtn" onclick="saveConfig()">
-            Save Settings
-        </button>
-
-        <button class="btn btn-secondary" onclick="window.location.href='/update'" style="margin-top: 16px;">
-            Firmware Update >>
-        </button>
     </div>
+
     <script>
         let selectedSSID = '';
         let isScanning = false;
         let storedSsid = '';
         let storedPassword = '';
+        let wifiMode = 'auto';
 
-        // Load current settings on page load
+        function htmlEscape(value) {
+            return String(value).replace(/[&<>"']/g, function(ch) {
+                return {'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[ch];
+            });
+        }
+
+        function setWifiMode(mode) {
+            wifiMode = mode;
+            document.getElementById('wifiAuto').classList.toggle('active', mode === 'auto');
+            document.getElementById('wifiManual').classList.toggle('active', mode === 'manual');
+            document.getElementById('autoWifiPanel').classList.toggle('hidden', mode !== 'auto');
+            document.getElementById('manualPanel').classList.toggle('hidden', mode !== 'manual');
+            // Keep SSID/password values when switching between ATOMIC and MANUAL.
+            // Hidden fields are ignored when manual mode is saved, but restored when returning to ATOMIC.
+        }
+
         async function loadSettings() {
-            console.log('[DEBUG] loadSettings() called');
             try {
                 const response = await fetch('/status');
-                const responseText = await response.text();
-                console.log('[DEBUG] Raw /status response:', responseText);
-                const data = JSON.parse(responseText);
-                console.log('[DEBUG] /status parsed successfully');
+                const data = await response.json();
 
-                // Set timezone dropdown
-                const timezoneSelect = document.getElementById('timezone');
-                for (let i = 0; i < timezoneSelect.options.length; i++) {
-                    if (timezoneSelect.options[i].value === String(data.timezone)) {
-                        timezoneSelect.selectedIndex = i;
-                        break;
-                    }
-                }
-
-                // Set clock style dropdown
-                const styleSelect = document.getElementById('style');
-                for (let i = 0; i < styleSelect.options.length; i++) {
-                    if (String(data.style) === styleSelect.options[i].value) {
-                        styleSelect.selectedIndex = i;
-                        break;
-                    }
-                }
-
-                // Set date style dropdown
-                const dateStyleSelect = document.getElementById('datestyle');
-                for (let i = 0; i < dateStyleSelect.options.length; i++) {
-                    if (String(data.datestyle) === dateStyleSelect.options[i].value) {
-                        dateStyleSelect.selectedIndex = i;
-                        break;
-                    }
-                }
-
-                // Set hour format dropdown
-                const timefmtSelect = document.getElementById('timefmt');
-                for (let i = 0; i < timefmtSelect.options.length; i++) {
-                    if (String(data.timefmt) === timefmtSelect.options[i].value) {
-                        timefmtSelect.selectedIndex = i;
-                        break;
-                    }
-                }
-
-                // Set bell mode dropdown
-                const bellModeSelect = document.getElementById('bellmode');
-                for (let i = 0; i < bellModeSelect.options.length; i++) {
-                    if (String(data.bellmode) === bellModeSelect.options[i].value) {
-                        bellModeSelect.selectedIndex = i;
-                        break;
-                    }
-                }
-
-                // Set night mode dropdown
-                const nightModeSelect = document.getElementById('nightmode');
-                if (nightModeSelect && data.nightmode !== undefined) {
-                    for (let i = 0; i < nightModeSelect.options.length; i++) {
-                        if (String(data.nightmode) === nightModeSelect.options[i].value) {
-                            nightModeSelect.selectedIndex = i;
+                const selects = [
+                    ['timezone', data.timezone],
+                    ['style', data.style],
+                    ['datestyle', data.datestyle],
+                    ['timefmt', data.timefmt],
+                    ['bellmode', data.bellmode],
+                    ['nightmode', data.nightmode]
+                ];
+                selects.forEach(function(item) {
+                    const el = document.getElementById(item[0]);
+                    if (!el || item[1] === undefined) return;
+                    const value = String(item[1]);
+                    for (let i = 0; i < el.options.length; i++) {
+                        if (el.options[i].value === value) {
+                            el.selectedIndex = i;
                             break;
                         }
                     }
-                }
-                console.log('[DEBUG] Loaded settings: timezone=' + data.timezone + ' (' + data.tzname + '), style=' + data.style + ', datestyle=' + data.datestyle + ', timefmt=' + data.timefmt + ', bellmode=' + data.bellmode + ', nightmode=' + data.nightmode);
+                });
 
-                // Pre-fill manual time with browser's current time
                 const now = new Date();
-                const dateInput = document.getElementById('manualDate');
-                const timeInput = document.getElementById('manualTime');
+                document.getElementById('manualDate').value = now.getFullYear() + '-' +
+                    String(now.getMonth() + 1).padStart(2, '0') + '-' +
+                    String(now.getDate()).padStart(2, '0');
+                document.getElementById('manualTime').value = String(now.getHours()).padStart(2, '0') + ':' +
+                    String(now.getMinutes()).padStart(2, '0');
 
-                // Format date as YYYY-MM-DD
-                const year = now.getFullYear();
-                const month = String(now.getMonth() + 1).padStart(2, '0');
-                const day = String(now.getDate()).padStart(2, '0');
-                dateInput.value = year + '-' + month + '-' + day;
-
-                // Format time as HH:MM
-                const hours = String(now.getHours()).padStart(2, '0');
-                const minutes = String(now.getMinutes()).padStart(2, '0');
-                timeInput.value = hours + ':' + minutes;
-
-                console.log('[DEBUG] Browser time pre-filled:', dateInput.value, timeInput.value);
-
-                // Store credentials
                 storedSsid = data.storedSsid || '';
                 storedPassword = data.storedPassword || '';
-                console.log('[DEBUG] storedSsid:', storedSsid, 'storedPassword:', storedPassword ? '***' : 'empty');
-
-                // If we have stored credentials, pre-select and enable save
                 if (storedSsid) {
-                    console.log('[DEBUG] Stored network found, setting selectedSSID');
                     selectedSSID = storedSsid;
-                    document.getElementById('password').disabled = false;
+                    document.getElementById('ssidInput').value = storedSsid;
                     document.getElementById('password').value = storedPassword;
-                    checkSaveReady();
-
-                    // Show that stored network is selected
-                    showStatus('Stored network loaded: ' + storedSsid + ' <<', 'success');
-
-                    // Add stored network to list for visibility
-                    const list = document.getElementById('networkList');
-                    list.innerHTML = '<div class="network-item selected" onclick="clearSelection()">' +
-                        '<div><div class="network-name">' + storedSsid + '</div>' +
-                        '<div class="network-signal">Stored Network</div></div>' +
-                        '<div class="network-sec">&#128274;</div></div>' +
-                        '<p style="font-size: 11px; color: #666; margin-top: 8px;">' +
-                        'Leave password blank to keep current password</p>';
-                } else {
-                    // No stored network, check if a network was selected during scan
-                    console.log('[DEBUG] No stored network, checking selection');
-                    checkSaveReady();
                 }
+                setWifiMode('auto');
             } catch (e) {
                 console.log('Error loading settings:', e);
+                setWifiMode('auto');
             }
-        }
-
-        function clearSelection() {
-            selectedSSID = '';
-            document.querySelectorAll('.network-item').forEach(el => el.classList.remove('selected'));
-            document.getElementById('password').value = '';
-            checkSaveReady();
         }
 
         function showStatus(msg, type) {
             const el = document.getElementById('status');
-            if (!el) return; // Status element not present
+            if (!el) return;
             el.textContent = msg;
-            el.className = type;
-            if (!msg) el.style.display = 'none';
+            el.className = type || '';
+            el.style.display = msg ? 'block' : 'none';
+        }
+
+        function setScanButton(text, disabled) {
+            const btn = document.getElementById('scanBtn');
+            if (!btn) return;
+            btn.textContent = text;
+            btn.disabled = !!disabled;
+        }
+
+        function resetScanButtonSoon() {
+            setTimeout(function() {
+                if (!isScanning) setScanButton('SCAN', false);
+            }, 1800);
         }
 
         function scanNetworks() {
             if (isScanning) return;
             isScanning = true;
-            showStatus('Scanning >> ', 'loading');
-            document.getElementById('scanBtn').innerHTML = '<div class="loader"></div>';
+            showStatus('', '');
+            setScanButton('WAIT', true);
+            document.getElementById('ssidInput').disabled = true;
+            document.getElementById('networkList').innerHTML = '';
+
             fetch('/scan').then(r => r.json()).then(data => {
                 isScanning = false;
-                document.getElementById('scanBtn').textContent = '<< SCAN NETWORKS >>';
-                if (data.networks.length === 0) {
-                    showStatus('No networks found...', 'error');
+                document.getElementById('ssidInput').disabled = false;
+                const networks = data.networks || [];
+                setScanButton(networks.length + ' NETS', false);
+                resetScanButtonSoon();
+                if (networks.length === 0) {
+                    document.getElementById('networkList').innerHTML = '';
+                    window.scannedNetworks = [];
                     return;
                 }
-                const list = data.networks.map(n =>
-                    '<div class="network-item" onclick="selectNetwork(\'' + n.ssid.replace(/'/g, "\\'") + '\', ' + n.secured + ')" id="net-' + n.ssid.replace(/'/g, "\\'") + '">' +
-                    '<div><div class="network-name">' + n.ssid + '</div>' +
-                    '<div class="network-signal">' + n.signal + '%</div></div>' +
-                    (n.secured ? '<div class="network-sec">&#128274;</div>' : '<div class="network-sec">&#128275;</div>') +
-                    '</div>'
-                ).join('');
+                const list = networks.map(function(n, idx) {
+                    const ssid = String(n.ssid || '');
+                    const signal = String(n.signal || '');
+                    return '<div class="network-item" onclick="selectNetworkByIndex(' + idx + ')" data-ssid="' + htmlEscape(ssid) + '">' +
+                        '<div><div class="network-name">' + htmlEscape(ssid) + '</div>' +
+                        '<div class="network-signal">' + htmlEscape(signal) + '</div></div>' +
+                        (n.secured ? '<div class="network-sec">&#128274;</div>' : '<div class="network-sec">&#128275;</div>') +
+                        '</div>';
+                }).join('');
                 document.getElementById('networkList').innerHTML = list;
-                showStatus(data.networks.length + ' networks found <<', 'success');
+                window.scannedNetworks = networks;
             }).catch(() => {
                 isScanning = false;
-                document.getElementById('scanBtn').textContent = '<< SCAN NETWORKS >>';
-                showStatus('Scan failed <<', 'error');
+                document.getElementById('ssidInput').disabled = false;
+                document.getElementById('networkList').innerHTML = '';
+                window.scannedNetworks = [];
+                setScanButton('ERROR', false);
+                resetScanButtonSoon();
             });
         }
 
-        function selectNetwork(ssid, secured) {
-            document.querySelectorAll('.network-item').forEach(el => el.classList.remove('selected'));
-            const el = document.getElementById('net-' + ssid);
-            if (el) el.classList.add('selected');
-            selectedSSID = ssid;
-            document.getElementById('password').disabled = !secured;
-            if (!secured) document.getElementById('password').value = '';
-            checkSaveReady();
+        function selectNetworkByIndex(index) {
+            const n = (window.scannedNetworks || [])[index];
+            if (!n) return;
+            selectNetwork(n.ssid, !!n.secured);
         }
 
-        function checkSaveReady() {
-            const btn = document.getElementById('saveBtn');
-            // Always enable save button - users can save settings without WiFi
-            console.log('[DEBUG] checkSaveReady(): Always enabling save button');
-            btn.disabled = false;
-            console.log('[DEBUG] Save button disabled =', btn.disabled);
+        function selectNetwork(ssid, secured) {
+            document.querySelectorAll('.network-item').forEach(el => {
+                el.classList.toggle('selected', el.getAttribute('data-ssid') === ssid);
+            });
+            selectedSSID = ssid;
+            document.getElementById('ssidInput').value = ssid;
+            document.getElementById('password').disabled = !secured;
+            if (!secured) document.getElementById('password').value = '';
+            document.getElementById('password').focus();
         }
 
         function saveConfig() {
-            let ssidToUse = selectedSSID || storedSsid;
+            let ssidToUse = wifiMode === 'auto' ? (document.getElementById('ssidInput').value || storedSsid) : '';
             let password = document.getElementById('password').value;
             const timezoneSelect = document.getElementById('timezone');
             const timezone = timezoneSelect.value;
-            const timezoneName = timezoneSelect.options[timezoneSelect.selectedIndex].text.split(' ')[1] + ' ' +
-                                 timezoneSelect.options[timezoneSelect.selectedIndex].text.split(' ')[2] || '';
-            const styleSelect = document.getElementById('style');
-            const style = styleSelect.value;
-            const dateStyleSelect = document.getElementById('datestyle');
-            const dateStyle = dateStyleSelect.value;
-            const timefmtSelect = document.getElementById('timefmt');
-            const timefmt = timefmtSelect.value;
-            const bellModeSelect = document.getElementById('bellmode');
-            const bellMode = bellModeSelect.value;
-            const nightModeSelect = document.getElementById('nightmode');
-            const nightMode = nightModeSelect ? nightModeSelect.value : '0';
-
-            // Get manual time if set
+            const timezoneName = timezoneSelect.options[timezoneSelect.selectedIndex].text;
+            const style = document.getElementById('style').value;
+            const dateStyle = document.getElementById('datestyle').value;
+            const timefmt = document.getElementById('timefmt').value;
+            const bellMode = document.getElementById('bellmode').value;
+            const nightMode = document.getElementById('nightmode').value;
             const manualDate = document.getElementById('manualDate').value;
             const manualTime = document.getElementById('manualTime').value;
 
-            // If no password entered and we have a stored SSID, use stored password
             if (!password && ssidToUse === storedSsid) {
                 password = storedPassword;
             }
@@ -562,7 +520,6 @@ void ConfigPortal::handleRoot() {
                          '&bellmode=' + encodeURIComponent(bellMode) +
                          '&nightmode=' + encodeURIComponent(nightMode);
 
-            // Add manual time parameters if set
             if (manualDate && manualTime) {
                 saveUrl += '&manualDate=' + encodeURIComponent(manualDate) +
                            '&manualTime=' + encodeURIComponent(manualTime);
@@ -571,26 +528,23 @@ void ConfigPortal::handleRoot() {
             fetch(saveUrl)
                 .then(r => r.text())
                 .then(html => {
-                    // Replace entire page with reboot message
                     document.body.innerHTML = html;
-                    // Add close button functionality
                     setTimeout(function() {
                         const btn = document.querySelector('.btn');
                         if (btn) {
                             btn.addEventListener('click', function() {
                                 window.close();
-                                document.querySelector('.message').innerHTML = 'You can now close this tab manually.<br>The ChronoBell will continue without Wi-Fi.';
+                                const msg = document.querySelector('.message');
+                                if (msg) msg.innerHTML = 'You can now close this tab manually.<br>ChronoBell is restarting.';
                             });
                         }
                     }, 100);
                 })
                 .catch(() => {
-                    // Connection lost means ESP32 is rebooting
-                    document.body.innerHTML = '<div style="background:#000;color:#0f0;font-family:monospace;padding:20px;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;"><h1>REBOOTING</h1><p>ESP32 is restarting...</p><p>Please wait a few seconds, then close this page.</p></div>';
+                    document.body.innerHTML = '<div style="background:#000;color:#ff3333;font-family:Courier New,monospace;padding:0.45em;min-height:100vh;display:flex;align-items:center;justify-content:center;text-align:center;text-shadow:0 0 0.6em #ff0000;"><div style="width:min(96vw,42em);background:rgba(20,0,0,0.7);border:2px solid #330000;border-radius:0.25em;padding:1em;box-shadow:0 0 1.5em rgba(255,0,0,0.4),inset 0 0 1.2em rgba(50,0,0,0.5);"><h1 style="color:#ff0000;text-transform:uppercase;margin-bottom:0.5em;">Settings Saved</h1><p>ChronoBell is rebooting.</p><p style="margin-top:0.5em;color:#cc0000;">Please close this tab.</p></div></div>';
                 });
         }
 
-        // Load settings when page loads
         window.onload = loadSettings;
     </script>
 </body>
@@ -809,50 +763,64 @@ void ConfigPortal::handleSave() {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rebooting...</title>
+    <title>Settings Saved</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
+        html { font-size: clamp(16px, min(2.4vw, 2.35vh), 24px); }
         body { font-family: 'Courier New', Courier, monospace;
-               background: #000000; color: #00ff00; min-height: 100vh;
-               display: flex; align-items: center; justify-content: center;
+               background: #000000; color: #ff3333; min-height: 100vh; padding: 0.45em; overflow-x: hidden;
                background-image:
-                   linear-gradient(rgba(0, 20, 0, 0.8) 1px, transparent 1px),
-                   linear-gradient(90deg, rgba(0, 20, 0, 0.8) 1px, transparent 1px),
-                   radial-gradient(ellipse at center, rgba(0, 10, 0, 0.95) 0%, #000000 100%);
-               background-size: 4px 4px, 4px 4px, 100% 100%;
-               text-shadow: 0 0 10px #00ff00, 0 0 20px #00ff00, 0 0 30px #00ff00; }
-        .container { text-align: center; padding: 20px; }
-        h1 { font-size: 32px; margin-bottom: 24px; color: #00ff00; }
-        .message { font-size: 18px; margin-bottom: 32px; color: #00cc00; }
-        .checkmark { font-size: 60px; margin: 0 auto 24px; color: #00ff00;
-                   text-shadow: 0 0 20px #00ff00; }
-        .btn { padding: 12px 24px; border: 2px solid #00ff00; border-radius: 4px;
-               background: transparent; color: #00ff00; font-size: 14px;
-               font-family: 'Courier New', Courier, monospace; cursor: pointer;
-               text-transform: uppercase; transition: all 0.2s; }
-        .btn:hover { background: #00ff00; color: #000000; box-shadow: 0 0 20px #00ff00; }
+                    linear-gradient(rgba(50, 0, 0, 0.9) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(50, 0, 0, 0.9) 1px, transparent 1px),
+                    radial-gradient(ellipse at center, rgba(10, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0.4) 100%);
+               background-size: 0.25em 0.25em, 0.25em 0.25em, 100% 100%;
+               text-shadow: 0 0 0.6em #ff0000, 0 0 1.2em #ff0000, 0 0 2em #ff0000;
+               display: flex; align-items: center; justify-content: center; }
+        .container { width: min(96vw, 42em); margin: 0 auto; }
+        .card { background: rgba(20, 0, 0, 0.7); border: 2px solid #330000; border-radius: 0.25em;
+                padding: 0.75em; margin-bottom: 0.35em; text-align: center;
+                box-shadow: 0 0 1.5em rgba(255, 0, 0, 0.4), 0 0 3.5em rgba(255, 0, 0, 0.15), inset 0 0 1.2em rgba(50, 0, 0, 0.5); }
+        h1 { text-align: center; margin-bottom: 0.45em; color: #ff0000; font-size: 2.1em; text-transform: uppercase;
+             text-shadow: 0 0 0.4em #ff0000, 0 0 0.8em #ff0000, 0 0 1.6em #ff0000; }
+        .message { font-size: 1em; color: #ff3333; line-height: 1.35; text-shadow: none; margin-bottom: 0.8em; }
+        .status-icon { font-size: 2.2em; color: #ff0000; margin-bottom: 0.25em; }
+        .btn { width: 100%; padding: 0.62em; border: 2px solid #ff0000; border-radius: 0.25em; cursor: pointer;
+               font-size: 1em; font-weight: bold; margin-top: 0.5em; transition: all 0.2s;
+               font-family: 'Courier New', Courier, monospace; text-transform: uppercase;
+               background: transparent; color: #ff0000; }
+        .btn:hover { background: #ff0000; color: #000000; box-shadow: 0 0 1.2em #ff0000; }
+        @media (min-width: 900px) and (min-height: 700px) {
+            html { font-size: clamp(17px, min(2.4vw, 2.25vh), 25px); }
+        }
+        @media (min-width: 1400px) and (min-height: 850px) {
+            html { font-size: clamp(18px, min(2.25vw, 2.15vh), 26px); }
+        }
+        @media (max-width: 520px) {
+            html { font-size: 15px; }
+            body { padding: 0.6em; }
+            .container { width: 100%; }
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="checkmark">&#10004;</div>
-        <h1>Settings Saved!</h1>
-        <p class="message">ChronoBell is rebooting...</p>
-        <button class="btn" onclick="closeWindow()">Close This Page</button>
+        <div class="card">
+            <div class="status-icon">&#10004;</div>
+            <h1>Settings Saved</h1>
+            <p class="message">ChronoBell is rebooting.</p>
+            <button class="btn" onclick="closeWindow()">Close Page</button>
+        </div>
     </div>
     <script>
         function closeWindow() {
             window.close();
-            // If window.close() doesn't work, show message
-            if (window.opener) {
-                window.close();
-            }
-            document.querySelector('.message').innerHTML = 'You can now close this tab manually.<br>The ChronoBell will continue with the saved settings.';
+            const msg = document.querySelector('.message');
+            if (msg) msg.innerHTML = 'You can now close this tab manually.<br>ChronoBell is restarting.';
         }
 
-        // Auto-show close hint after delay
         setTimeout(function() {
-            document.querySelector('.message').innerHTML = 'ChronoBell is rebooting.<br>It will work with or without Wi-Fi connection.<br>Please close this tab.';
+            const msg = document.querySelector('.message');
+            if (msg) msg.innerHTML = 'ChronoBell is rebooting.<br>Please close this tab.';
         }, 5000);
     </script>
 </body>
@@ -997,104 +965,119 @@ void ConfigPortal::handleUpdateForm() {
     <title>Firmware Update - ChronoBell</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
+        html { font-size: clamp(16px, min(2.4vw, 2.35vh), 24px); }
         body { font-family: 'Courier New', Courier, monospace;
-               background: #000000; color: #ff3333; min-height: 100vh; padding: 20px;
+               background: #000000; color: #ff3333; min-height: 100vh; padding: 0.45em; overflow-x: hidden;
                background-image:
-                   linear-gradient(rgba(20, 0, 0, 0.8) 1px, transparent 1px),
-                   linear-gradient(90deg, rgba(20, 0, 0, 0.8) 1px, transparent 1px),
-                   radial-gradient(ellipse at center, rgba(10, 0, 0, 0.95) 0%, #000000 100%);
-               background-size: 4px 4px, 4px 4px, 100% 100%;
-               text-shadow: 0 0 10px #ff0000, 0 0 20px #ff0000, 0 0 30px #ff0000; }
-        .container { max-width: 400px; margin: 0 auto; }
-        h1 { text-align: center; margin-bottom: 24px; color: #ff0000; font-size: 28px;
-             text-shadow: 0 0 10px #ff0000, 0 0 20px #ff0000, 0 0 40px #ff0000; }
-        .card { background: rgba(20, 0, 0, 0.7); border: 2px solid #330000; border-radius: 4px;
-                padding: 16px; margin-bottom: 16px; box-shadow: inset 0 0 20px rgba(50, 0, 0, 0.5); }
-        .btn { width: 100%; padding: 12px; border: 2px solid #ff0000; border-radius: 4px; cursor: pointer;
-               font-size: 14px; font-weight: bold; margin-top: 12px; transition: all 0.2s;
+                    linear-gradient(rgba(50, 0, 0, 0.9) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(50, 0, 0, 0.9) 1px, transparent 1px),
+                    radial-gradient(ellipse at center, rgba(10, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0.4) 100%);
+               background-size: 0.25em 0.25em, 0.25em 0.25em, 100% 100%;
+               text-shadow: 0 0 0.6em #ff0000, 0 0 1.2em #ff0000, 0 0 2em #ff0000; }
+        .container { width: min(96vw, 42em); margin: 0 auto; }
+        h1 { text-align: center; margin-bottom: 0.35em; color: #ff0000; font-size: 2.6em;
+             text-shadow: 0 0 0.4em #ff0000, 0 0 0.8em #ff0000, 0 0 1.6em #ff0000; }
+        .card { background: rgba(20, 0, 0, 0.7); border: 2px solid #330000; border-radius: 0.25em;
+                padding: 0.55em; margin-bottom: 0.35em; box-shadow: 0 0 1.5em rgba(255, 0, 0, 0.4), 0 0 3.5em rgba(255, 0, 0, 0.15), inset 0 0 1.2em rgba(50, 0, 0, 0.5); }
+        .btn { width: 100%; padding: 0.62em; border: 2px solid #ff0000; border-radius: 0.25em; cursor: pointer;
+               font-size: 1em; font-weight: bold; margin-top: 0.5em; transition: all 0.2s;
                font-family: 'Courier New', Courier, monospace; text-transform: uppercase; }
-        .btn:hover { background: #ff0000; color: #000000; box-shadow: 0 0 20px #ff0000; }
+        .btn:hover:not(:disabled) { background: #ff0000; color: #000000; box-shadow: 0 0 1.2em #ff0000; }
         .btn-primary { background: transparent; color: #ff0000; }
         .btn-secondary { background: transparent; color: #cc0000; border-color: #cc0000; }
-        .btn-back { background: transparent; color: #aa0000; border-color: #aa0000; margin-top: 20px; }
-        input[type="file"] { width: 100%; padding: 10px; border: 2px solid #330000; border-radius: 4px;
-               background: #0a0000; color: #ff3333; font-size: 14px; margin-top: 8px;
+        .btn-back { background: transparent; color: #aa0000; border-color: #aa0000; }
+        .btn-back:hover:not(:disabled) { background: #aa0000; color: #000000; box-shadow: 0 0 1.2em #aa0000; }
+        .button-row { display: flex; gap: 0.55em; margin-top: 0.5em; }
+        .button-row .btn { flex: 1; width: 50%; margin-top: 0; }
+        .btn:disabled { opacity: 0.6; cursor: default; }
+        input[type="file"] { width: 100%; padding: 0.46em; border: 2px solid #330000; border-radius: 0.25em;
+               background: #0a0000; color: #ff3333; font-size: 1em; margin-top: 0.35em;
                font-family: 'Courier New', Courier, monospace; }
         input[type="file"]::file-selector-button {
                background: #330000; color: #ff3333; border: 1px solid #ff0000;
-               padding: 8px 16px; border-radius: 4px; cursor: pointer; margin-right: 10px;
+               padding: 0.42em 0.8em; border-radius: 0.25em; cursor: pointer; margin-right: 0.55em;
                font-family: 'Courier New', Courier, monospace; }
         input[type="file"]::file-selector-button:hover {
                background: #ff0000; color: #000000; }
-        label { font-size: 12px; color: #aa0000; text-transform: uppercase; letter-spacing: 2px; }
-        #status { text-align: center; padding: 12px; border-radius: 4px; margin-bottom: 16px;
-                  font-size: 14px; display: none; border: 2px solid; }
+        label { font-size: 0.95em; color: #ff0000; text-transform: uppercase; letter-spacing: 0.12em; text-shadow: none; }
+        #status { text-align: center; padding: 0.62em; border-radius: 0.25em; margin-top: 0.5em;
+                  font-size: 0.85em; display: none; border: 2px solid; text-shadow: none; }
         #status.success { background: rgba(0, 50, 0, 0.8); color: #00ff00; border-color: #00ff00;
-                         text-shadow: 0 0 10px #00ff00; display: block; }
+                         text-shadow: 0 0 0.6em #00ff00; display: block; }
         #status.error { background: rgba(50, 0, 0, 0.8); color: #ff0000; border-color: #ff0000;
-                       text-shadow: 0 0 10px #ff0000; display: block; }
+                       text-shadow: 0 0 0.6em #ff0000; display: block; }
         #status.loading { background: rgba(30, 20, 0, 0.8); color: #ffaa00; border-color: #ffaa00;
-                         text-shadow: 0 0 10px #ffaa00; display: block; }
-        .warning { background: rgba(50, 30, 0, 0.8); border: 2px solid #ffaa00; border-radius: 4px;
-                  padding: 16px; margin-bottom: 16px; color: #ffaa00; text-shadow: 0 0 10px #ffaa00; }
-        .progress-container { margin-top: 20px; display: none; }
-        .progress-bar { width: 100%; height: 24px; background: #330000; border-radius: 4px; overflow: hidden; }
+                         text-shadow: 0 0 0.6em #ffaa00; display: block; }
+        .warning { background: rgba(50, 30, 0, 0.8); border: 2px solid #ffaa00; border-radius: 0.25em;
+                  padding: 0.55em; margin-bottom: 0.35em; color: #ffaa00; font-size: 0.85em; text-shadow: 0 0 0.6em #ffaa00; }
+        .progress-container { margin-top: 0.5em; display: none; }
+        .progress-bar { width: 100%; height: 1.2em; background: #330000; border-radius: 0.25em; overflow: hidden; }
         .progress-fill { height: 100%; background: #ff0000; width: 0%; transition: width 0.3s;
-                        box-shadow: 0 0 10px #ff0000; }
-        .progress-text { text-align: center; margin-top: 8px; color: #ff3333; font-size: 14px; }
-        .section-title { font-size: 12px; color: #ff0000; margin-bottom: 12px; text-transform: uppercase;
-                        letter-spacing: 2px; text-shadow: 0 0 10px #ff0000; border-bottom: 1px solid #330000;
-                        padding-bottom: 8px; }
-        .loader { border: 3px solid #330000; border-top: 3px solid #ff0000; border-radius: 50%;
-                  width: 20px; height: 20px; animation: spin 1s linear infinite; margin: 0 auto;
-                  box-shadow: 0 0 10px #ff0000; }
+                        box-shadow: 0 0 0.6em #ff0000; }
+        .progress-text { text-align: center; margin-top: 0.35em; color: #ff3333; font-size: 0.85em; }
+        .section-title { font-size: 0.85em; color: #ff0000; margin-bottom: 0.5em; text-transform: uppercase;
+                        letter-spacing: 0.12em; text-shadow: 0 0 0.6em #ff0000; border-bottom: 1px solid #330000;
+                        padding-bottom: 0.3em; }
+        .loader { border: 0.15em solid #330000; border-top: 0.15em solid #ff0000; border-radius: 50%;
+                  width: 1em; height: 1em; animation: spin 1s linear infinite; margin: 0 auto;
+                  box-shadow: 0 0 0.6em #ff0000; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @media (min-width: 900px) and (min-height: 700px) {
+            html { font-size: clamp(17px, min(2.4vw, 2.25vh), 25px); }
+        }
+        @media (min-width: 1400px) and (min-height: 850px) {
+            html { font-size: clamp(18px, min(2.25vw, 2.15vh), 26px); }
+        }
+        @media (max-width: 520px) {
+            html { font-size: 15px; }
+            body { padding: 0.6em; }
+            .container { width: 100%; }
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Firmware Update</h1>
-        <div id="status"></div>
-
         <div class="warning">
             <strong>WARNING:</strong> Updating firmware will overwrite the current firmware.
             Make sure you have a backup if needed. Do not power off during update.
         </div>
 
         <div class="card">
-            <div class="section-title">Select Firmware File</div>
+            <div class="section-title" id="updateTitle">Select Firmware File</div>
             <form id="updateForm" enctype="multipart/form-data">
-                <input type="file" id="firmware" name="firmware" accept=".bin" required onclick="this.click()">
-                <button type="submit" class="btn btn-primary" id="updateBtn">
-                    Start Update
-                </button>
+                <input type="file" id="firmware" name="firmware" accept=".bin" required>
+                <div class="button-row">
+                    <button type="button" class="btn btn-back" id="cancelBtn" onclick="window.location.href='/'">
+                        Cancel
+                    </button>
+                    <button type="submit" class="btn btn-primary" id="updateBtn">
+                        Update
+                    </button>
+                </div>
             </form>
+            <div id="status"></div>
         </div>
 
-        <div class="progress-container" id="progressContainer">
-            <div class="section-title">Upload Progress</div>
-            <div class="progress-bar">
-                <div class="progress-fill" id="progressFill"></div>
-            </div>
-            <div class="progress-text" id="progressText">0%</div>
-        </div>
-
-        <button class="btn btn-back" onclick="window.location.href='/'">
-            << Back to Settings
-        </button>
     </div>
 
     <script>
         const form = document.getElementById('updateForm');
-        const progressContainer = document.getElementById('progressContainer');
-        const progressFill = document.getElementById('progressFill');
-        const progressText = document.getElementById('progressText');
         const updateBtn = document.getElementById('updateBtn');
+        const cancelBtn = document.getElementById('cancelBtn');
         const status = document.getElementById('status');
+        const updateTitle = document.getElementById('updateTitle');
 
         function showStatus(msg, type) {
             status.textContent = msg;
             status.className = type;
+        }
+
+        function showUpdateComplete(msg) {
+            form.style.display = 'none';
+            if (updateTitle) updateTitle.style.display = 'none';
+            updateBtn.textContent = '100%';
+            showStatus(msg || 'Update complete. Device is restarting.', 'success');
         }
 
         form.addEventListener('submit', async function(e) {
@@ -1107,10 +1090,11 @@ void ConfigPortal::handleUpdateForm() {
             }
 
             const file = fileInput.files[0];
-            showStatus('Uploading firmware...', 'loading');
-            progressContainer.style.display = 'block';
+            status.textContent = '';
+            status.className = '';
             updateBtn.disabled = true;
-            updateBtn.innerHTML = '<div class="loader"></div>';
+            cancelBtn.disabled = true;
+            updateBtn.textContent = '0%';
 
             const formData = new FormData();
             formData.append('firmware', file);
@@ -1121,16 +1105,13 @@ void ConfigPortal::handleUpdateForm() {
                 xhr.upload.onprogress = function(e) {
                     if (e.lengthComputable) {
                         const percent = Math.round((e.loaded / e.total) * 100);
-                        progressFill.style.width = percent + '%';
-                        progressText.textContent = percent + '%';
+                        updateBtn.textContent = percent + '%';
                     }
                 };
 
                 xhr.onload = function() {
                     if (xhr.status === 200) {
-                        showStatus('Update successful! Device will restart...', 'success');
-                        progressFill.style.background = '#00ff00';
-                        progressFill.style.boxShadow = '0 0 10px #00ff00';
+                        showUpdateComplete('Update complete. Device is restarting.');
 
                         // Poll for restart
                         let attempts = 0;
@@ -1138,33 +1119,36 @@ void ConfigPortal::handleUpdateForm() {
                             attempts++;
                             fetch('/status').then(() => {
                                 clearInterval(pollInterval);
-                                showStatus('Device restarted successfully!', 'success');
+                                showUpdateComplete('Restart detected. You can close this page.');
                             }).catch(() => {
                                 if (attempts > 30) {
                                     clearInterval(pollInterval);
-                                    showStatus('Update complete. You can now close this page.', 'success');
+                                    showUpdateComplete('Update complete. Device is restarting.');
                                 }
                             });
                         }, 1000);
                     } else {
                         showStatus('Update failed: ' + xhr.responseText, 'error');
                         updateBtn.disabled = false;
-                        updateBtn.textContent = 'Retry Update';
+                        cancelBtn.disabled = false;
+                        updateBtn.textContent = 'Update';
                     }
                 };
 
                 xhr.onerror = function() {
                     showStatus('Network error during upload', 'error');
                     updateBtn.disabled = false;
-                    updateBtn.textContent = 'Retry Update';
+                    cancelBtn.disabled = false;
+                    updateBtn.textContent = 'Update';
                 };
 
-                xhr.open('POST', '/update');
+                xhr.open('POST', '/update?size=' + encodeURIComponent(file.size));
                 xhr.send(formData);
             } catch (e) {
                 showStatus('Error: ' + e.message, 'error');
                 updateBtn.disabled = false;
-                updateBtn.textContent = 'Retry Update';
+                cancelBtn.disabled = false;
+                updateBtn.textContent = 'Update';
             }
         });
     </script>
@@ -1180,8 +1164,14 @@ void ConfigPortal::handleUpdateUpload() {
 
     if (upload.status == UPLOAD_FILE_START) {
         _otaUpdate = true;
-        if (_otaDisplayCb) _otaDisplayCb(true, 0, 100);
-        LOGF("Starting firmware update: %s\n", upload.filename.c_str());
+        _otaExpectedSize = 0;
+
+        if (_webServer.hasArg("size")) {
+            _otaExpectedSize = (size_t)_webServer.arg("size").toInt();
+        }
+
+        if (_otaDisplayCb) _otaDisplayCb(true, 0, (unsigned int)_otaExpectedSize);
+        LOGF("Starting firmware update: %s (%u bytes expected)\n", upload.filename.c_str(), (unsigned int)_otaExpectedSize);
 
         if (!Update.begin(UPDATE_SIZE_UNKNOWN)) {
             LOGLN("Update begin failed");
@@ -1191,13 +1181,19 @@ void ConfigPortal::handleUpdateUpload() {
         if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
             LOGLN("Update write failed");
         }
+
         if (_otaDisplayCb) {
-            float p = Update.progress();
-            _otaDisplayCb(true, (unsigned int)(p * 100.0f), 100);
+            size_t written = Update.progress();
+            size_t total = _otaExpectedSize > 0 ? _otaExpectedSize : upload.totalSize;
+            if (total > 0 && written > total) written = total;
+            _otaDisplayCb(true, (unsigned int)written, (unsigned int)total);
         }
     } else if (upload.status == UPLOAD_FILE_END) {
         // Update finished
-        if (_otaDisplayCb) _otaDisplayCb(true, 100, 100);
+        if (_otaDisplayCb) {
+            size_t total = _otaExpectedSize > 0 ? _otaExpectedSize : upload.totalSize;
+            _otaDisplayCb(true, (unsigned int)total, (unsigned int)total);
+        }
         if (Update.end(true)) {
             LOGF("Update successful! Size: %u bytes\n", upload.totalSize);
         } else {
@@ -1205,9 +1201,11 @@ void ConfigPortal::handleUpdateUpload() {
             _otaUpdate = false;
             if (_otaDisplayCb) _otaDisplayCb(false, 0, 0);
         }
+        _otaExpectedSize = 0;
     } else if (upload.status == UPLOAD_FILE_ABORTED) {
         Update.abort();
         _otaUpdate = false;
+        _otaExpectedSize = 0;
         if (_otaDisplayCb) _otaDisplayCb(false, 0, 0);
         LOGLN("Update aborted");
     }

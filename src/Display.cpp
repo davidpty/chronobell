@@ -110,12 +110,6 @@ void Display::loadBrightnessFromSettings() {
 void Display::showTime() {
     memset(pixelBuffer, 0, sizeof(pixelBuffer));
 
-    if (_wifiManager.isUpdating()) {
-        drawCenteredMediumText("UPDATE", 3);
-        renderBuffer();
-        return;
-    }
-
     bool wasInGuestWifi = _wasGuestWifiView;
     _wasGuestWifiView = false;
 

@@ -45,6 +45,7 @@ private:
     WebServer _webServer;
     bool _configModeStation;
     bool _otaUpdate;
+    size_t _otaExpectedSize;
     std::function<void(bool, unsigned int, unsigned int)> _otaDisplayCb;
     void* _statusContext;
     BoolStatusCallback _connectedCallback;
