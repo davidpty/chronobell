@@ -54,9 +54,23 @@ An ESP32-powered LED matrix clock with capacitive touch controls, a ship's bell,
 
 ## Getting Started
 
-1. **Install PlatformIO** or open the project in VS Code with the PlatformIO extension.
-2. **Build and upload** to your ESP32.
-3. **Connect to the `ChronoBell`** access point on first boot and open `http://192.168.4.1` in your browser.
+### PlatformIO (recommended)
+
+```bash
+pio run --target upload
+```
+
+### Arduino CLI
+
+```bash
+arduino-cli compile --fqbn esp32:esp32:esp32 --build-property "compiler.cpp.extra_flags=-I{source.path}/src"
+arduino-cli upload --fqbn esp32:esp32:esp32
+```
+
+### First boot
+
+1. **Build and upload** to your ESP32 using either method above.
+2. **Connect to the `ChronoBell`** access point on first boot and open `http://192.168.4.1` in your browser.
 4. **Scan for WiFi networks**, enter credentials, choose your timezone, and save.
 
 The clock will reboot, connect to your network, sync time via NTP, and start running.
