@@ -99,7 +99,7 @@ void ClockApp::installTouchHandlers(OnTouchFn onPad1Press,
 void ClockApp::initSerialAndPins() {
     pinMode(BOOT_BUTTON_PIN, INPUT_PULLUP);
     Serial.begin(SERIAL_BAUD);
-    Serial.println("\nESP32 MAX7219 Digital Clock Starting...");
+    LOGLN("\nESP32 MAX7219 Digital Clock Starting...");
     _wifiManager.setNetworkServiceConfig(MDNS_HOSTNAME, ARDUINO_OTA_PASSWORD);
 }
 
@@ -108,26 +108,26 @@ void ClockApp::initDisplay() {
 }
 
 void ClockApp::initI2cAndRtc() {
-    Serial.println("Initializing I2C for RTC...");
+    LOGLN("Initializing I2C for RTC...");
     Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);
     Wire.setClock(I2C_CLOCK_SPEED);
 
     if (_rtcClock.begin()) {
-        Serial.println("RTC initialized successfully");
+        LOGLN("RTC initialized successfully");
         _timeProvider.readRtc();
         ClockTime t = _rtcClock.getTime();
-        Serial.printf("RTC time: %02d:%02d:%02d\n", t.hours, t.minutes, t.seconds);
+        LOGF("RTC time: %02d:%02d:%02d\n", t.hours, t.minutes, t.seconds);
     } else {
-        Serial.println("RTC not available or not responding");
+        LOGLN("RTC not available or not responding");
     }
 }
 
 void ClockApp::initCap1188() {
-    Serial.println("Initializing CAP1188 touch sensor...");
+    LOGLN("Initializing CAP1188 touch sensor...");
     if (_touchController.begin()) {
-        Serial.println("CAP1188 touch sensor initialized successfully");
+        LOGLN("CAP1188 touch sensor initialized successfully");
     } else {
-        Serial.println("CAP1188 not available or not responding");
+        LOGLN("CAP1188 not available or not responding");
     }
 }
 
@@ -141,22 +141,22 @@ void ClockApp::loadSettings() {
     _nightMode        = _appSettings.nightMode;
     syncDisplayModeSelection();
     syncDateStyleSelection();
-    Serial.print("Clock style loaded: ");
-    Serial.println(displayModeLabel(_appSettings.displayMode));
-    Serial.print("Date style loaded: ");
-    Serial.println(dateStyleLabel(_appSettings.dateStyle));
-    Serial.print("Bell mode loaded: ");
-    Serial.println((int)_bellMode);
-    Serial.print("Time format loaded: ");
-    Serial.println(timeFormatLabel(_appSettings.timeFormat));
-    Serial.print("Night mode loaded: ");
-    Serial.println(nightModeLabel(_appSettings.nightMode));
+    LOG("Clock style loaded: ");
+    LOGLN(displayModeLabel(_appSettings.displayMode));
+    LOG("Date style loaded: ");
+    LOGLN(dateStyleLabel(_appSettings.dateStyle));
+    LOG("Bell mode loaded: ");
+    LOGLN((int)_bellMode);
+    LOG("Time format loaded: ");
+    LOGLN(timeFormatLabel(_appSettings.timeFormat));
+    LOG("Night mode loaded: ");
+    LOGLN(nightModeLabel(_appSettings.nightMode));
 }
 
 void ClockApp::loadTimerSettings() {
     uint8_t presetIndex = _settingsStore.loadCountdownPreset(COUNTDOWN_PRESET_COUNT);
     _timerController.begin(COUNTDOWN_PRESET_MINUTES, COUNTDOWN_PRESET_COUNT, presetIndex);
-    Serial.printf("Loaded countdown preset: %u min\n",
+    LOGF("Loaded countdown preset: %u min\n",
                   (unsigned)COUNTDOWN_PRESET_MINUTES[presetIndex]);
 }
 
@@ -189,16 +189,16 @@ void ClockApp::reloadSettings() {
     _nightMode        = _appSettings.nightMode;
     syncDisplayModeSelection();
     syncDateStyleSelection();
-    Serial.print("Clock style loaded: ");
-    Serial.println(displayModeLabel(_appSettings.displayMode));
-    Serial.print("Date style loaded: ");
-    Serial.println(dateStyleLabel(_appSettings.dateStyle));
-    Serial.print("Bell mode loaded: ");
-    Serial.println((int)_bellMode);
-    Serial.print("Time format loaded: ");
-    Serial.println(timeFormatLabel(_appSettings.timeFormat));
-    Serial.print("Night mode loaded: ");
-    Serial.println(nightModeLabel(_appSettings.nightMode));
+    LOG("Clock style loaded: ");
+    LOGLN(displayModeLabel(_appSettings.displayMode));
+    LOG("Date style loaded: ");
+    LOGLN(dateStyleLabel(_appSettings.dateStyle));
+    LOG("Bell mode loaded: ");
+    LOGLN((int)_bellMode);
+    LOG("Time format loaded: ");
+    LOGLN(timeFormatLabel(_appSettings.timeFormat));
+    LOG("Night mode loaded: ");
+    LOGLN(nightModeLabel(_appSettings.nightMode));
 }
 
 void ClockApp::applyManualTime() {
@@ -210,14 +210,14 @@ void ClockApp::applyManualTime() {
         return;
     }
 
-    Serial.println("Applying manual time setting...");
+    LOGLN("Applying manual time setting...");
     _timeProvider.setRtcFromEpoch((time_t)manualEpoch);
     _settingsStore.clearManualTime();
     _appSettings.manualTime.enabled = false;
     _appSettings.manualTime.epoch = 0;
     _timeProvider.readRtc();
     ClockTime t = _rtcClock.getTime();
-    Serial.printf("RTC time after manual set: %02d:%02d:%02d\n",
+    LOGF("RTC time after manual set: %02d:%02d:%02d\n",
                   t.hours, t.minutes, t.seconds);
 }
 
@@ -238,7 +238,7 @@ void ClockApp::pollBootButton() {
 
     if (currentlyInConfigMode && !_inConfigMode) {
         _inConfigMode = true;
-        Serial.println("=== Entered config/AP mode (via WiFiManager) ===");
+        LOGLN("=== Entered config/AP mode (via WiFiManager) ===");
     }
 
     if (buttonPressed && !_buttonWasPressed) {
@@ -248,14 +248,14 @@ void ClockApp::pollBootButton() {
         _buttonWasPressed = false;
 
         if (_inConfigMode || _wifiManager.isInConfigMode()) {
-            Serial.println("Boot button short press in config mode - rebooting ESP32...");
+            LOGLN("Boot button short press in config mode - rebooting ESP32...");
             restartFromConfigMode("Boot button");
             return;
         }
 
-        Serial.print("Boot button short press: ");
-        Serial.print(millis() - _buttonPressStart);
-        Serial.println("ms - opening config portal");
+        LOG("Boot button short press: ");
+        LOG(millis() - _buttonPressStart);
+        LOGLN("ms - opening config portal");
 
         _inConfigMode = true;
         startConfigModePreferStationImmediately();
@@ -271,15 +271,15 @@ void ClockApp::tickWifiManager() {
     if (_inConfigMode && !_wifiManager.isInConfigMode()) {
         _inConfigMode = false;
         _configModeStartMs = 0;
-        Serial.println("Exited config mode");
+        LOGLN("Exited config mode");
     }
 #if CONFIG_MODE_TIMEOUT_MINUTES > 0
     if (_inConfigMode && _configModeStartMs != 0) {
         unsigned long elapsed = (millis() - _configModeStartMs) / 60000UL;
         if (elapsed >= CONFIG_MODE_TIMEOUT_MINUTES) {
-            Serial.print("Config mode timeout (");
-            Serial.print(CONFIG_MODE_TIMEOUT_MINUTES);
-            Serial.println(" min) — rebooting...");
+            LOG("Config mode timeout (");
+            LOG(CONFIG_MODE_TIMEOUT_MINUTES);
+            LOGLN(" min) — rebooting...");
             delay(100);
             ESP.restart();
         }
@@ -341,23 +341,23 @@ void ClockApp::pollLongPress() {
     _t4LongPressHandled = true;
 
     if (_wifiManager.isInConfigMode()) {
-        Serial.println("T4 1.5s: exit hotspot");
+        LOGLN("T4 1.5s: exit hotspot");
         restartFromConfigMode("Touch pad");
         return;
     }
 
     if (_timerController.isCountdownExpired()) {
-        Serial.println("T4 1.5s: acknowledge countdown alert");
+        LOGLN("T4 1.5s: acknowledge countdown alert");
         _timerController.onLongPress();
     } else if (!_menuController.isActive() &&
                (_timerController.isClockView() || _timerController.isDateView() || _timerController.isGuestWifiView())) {
-        Serial.println("T4 1.5s: enter menu");
+        LOGLN("T4 1.5s: enter menu");
         _menuController.enterBrowse();
     } else if (!_menuController.isActive() &&
                _timerController.onLongPress() == TimerLongPressAction::ExitTimerToClock) {
-        Serial.println("T4 1.5s: exit timer to clock");
+        LOGLN("T4 1.5s: exit timer to clock");
     } else {
-        Serial.println("T4 1.5s: cancel & exit");
+        LOGLN("T4 1.5s: cancel & exit");
         if (_menuController.isEdit()) {
             _menuController.cancelEdit();
         }
@@ -469,8 +469,8 @@ void ClockApp::cycleTemporaryDisplayMode(int direction) {
     _displayOverrideExpiresAt =
         millis() + (unsigned long)TEMP_OVERRIDE_MINUTES * 60000UL;
     _displayMode = _overrideDisplayMode;
-    Serial.print("Temporary clock style: ");
-    Serial.println(displayModeLabel(mode));
+    LOG("Temporary clock style: ");
+    LOGLN(displayModeLabel(mode));
 }
 
 void ClockApp::cycleTemporaryDateStyle(int direction) {
@@ -490,8 +490,8 @@ void ClockApp::cycleTemporaryDateStyle(int direction) {
     _dateStyleOverrideExpiresAt =
         millis() + (unsigned long)TEMP_OVERRIDE_MINUTES * 60000UL;
     _activeDateStyle = _temporaryDateStyle;
-    Serial.print("Temporary date style: ");
-    Serial.println(dateStyleLabel(_temporaryDateStyle));
+    LOG("Temporary date style: ");
+    LOGLN(dateStyleLabel(_temporaryDateStyle));
 }
 
 DisplayMode ClockApp::pickRandomConcreteDisplayMode(DisplayMode avoid) const {
@@ -635,10 +635,10 @@ void ClockApp::onTouchMiddleShort(uint8_t pad) {
 
 void ClockApp::onEnterConfigOrExit(uint8_t pad) {
     if (_menuController.isActive()) {
-        Serial.printf("Touch pad %u: held past 3 s, dismissing menu and opening portal\n", pad);
+        LOGF("Touch pad %u: held past 3 s, dismissing menu and opening portal\n", pad);
         _menuController.exit();
     } else {
-        Serial.printf("Touch pad %u: 3 s hold -> config portal\n", pad);
+        LOGF("Touch pad %u: 3 s hold -> config portal\n", pad);
     }
 
     if (_inConfigMode || _wifiManager.isInConfigMode()) {
@@ -715,13 +715,13 @@ void ClockApp::stopBell() {
 
 void ClockApp::restartFromConfigMode(const char* source) {
     if (_wifiManager.isUpdating()) {
-        Serial.print(source);
-        Serial.println(" held during firmware update - ignoring restart");
+        LOG(source);
+        LOGLN(" held during firmware update - ignoring restart");
         return;
     }
 
-    Serial.print(source);
-    Serial.println(" held in config mode - rebooting ESP32...");
+    LOG(source);
+    LOGLN(" held in config mode - rebooting ESP32...");
     delay(100);
     ESP.restart();
 }
@@ -731,31 +731,31 @@ void ClockApp::restartFromConfigMode(const char* source) {
 // =============================================================================
 
 void ClockApp::startConfigModeImmediately() {
-    Serial.println("=== ENTERING CONFIGURATION MODE ===");
-    Serial.print("AP SSID: ");
-    Serial.println(AP_SSID);
-    Serial.println("Connect to this AP to configure WiFi");
-    Serial.println("Press BOOT button, or hold touch pad 4 for 1.5 s, to reboot");
+    LOGLN("=== ENTERING CONFIGURATION MODE ===");
+    LOG("AP SSID: ");
+    LOGLN(AP_SSID);
+    LOGLN("Connect to this AP to configure WiFi");
+    LOGLN("Press BOOT button, or hold touch pad 4 for 1.5 s, to reboot");
 
     _configModeStartMs = millis();
     _display.begin();
     _display.showHotspotSymbol();
 
-    Serial.println("Hotspot symbol displayed");
+    LOGLN("Hotspot symbol displayed");
 
     _wifiManager.startConfigMode();
 }
 
 void ClockApp::startConfigModePreferStationImmediately() {
-    Serial.println("=== ENTERING CONFIGURATION MODE ===");
-    Serial.println("Trying saved WiFi before starting hotspot");
-    Serial.println("Press BOOT button, or hold touch pad 4 for 1.5 s, to reboot");
+    LOGLN("=== ENTERING CONFIGURATION MODE ===");
+    LOGLN("Trying saved WiFi before starting hotspot");
+    LOGLN("Press BOOT button, or hold touch pad 4 for 1.5 s, to reboot");
 
     _configModeStartMs = millis();
     _display.begin();
     _display.showHotspotSymbol();
 
-    Serial.println("Config symbol displayed");
+    LOGLN("Config symbol displayed");
 
     _wifiManager.startConfigModePreferStation();
 }

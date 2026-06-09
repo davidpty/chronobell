@@ -36,7 +36,7 @@ void TimerController::update() {
                 : TimerView::Clock;
             _countdownAlertStartedMs = now;
             _countdownLastAlertMs = 0;
-            Serial.println("Countdown expired");
+            LOGLN("Countdown expired");
         }
     }
 
@@ -49,7 +49,7 @@ void TimerController::update() {
     if (_view == TimerView::Date) {
         if (now - _viewActivityMs >= MENU_TIMEOUT_SHORT_MS) {
             _view = TimerView::Clock;
-            Serial.println("View timeout: date -> clock");
+            LOGLN("View timeout: date -> clock");
         }
         return;
     }
@@ -58,7 +58,7 @@ void TimerController::update() {
 #if GUEST_WIFI_VIEW_TIMEOUT_MS > 0
         if (now - _viewActivityMs >= GUEST_WIFI_VIEW_TIMEOUT_MS) {
             _view = TimerView::Clock;
-            Serial.println("View timeout: guest wifi -> clock");
+            LOGLN("View timeout: guest wifi -> clock");
         }
 #endif
         return;
@@ -67,14 +67,14 @@ void TimerController::update() {
     if (_view == TimerView::Stopwatch && !_stopwatchRunning &&
         now - _viewActivityMs >= MENU_TIMEOUT_SHORT_MS) {
         _view = TimerView::Clock;
-        Serial.println("View timeout: stopwatch -> clock");
+        LOGLN("View timeout: stopwatch -> clock");
         return;
     }
 
     if (_view == TimerView::Countdown && !_countdownRunning &&
         now - _viewActivityMs >= MENU_TIMEOUT_SHORT_MS) {
         _view = TimerView::Clock;
-        Serial.println("View timeout: countdown -> clock");
+        LOGLN("View timeout: countdown -> clock");
         return;
     }
 }
@@ -117,16 +117,16 @@ void TimerController::onLeft() {
         if (_stopwatchRunning) {
             _stopwatchElapsedMs += millis() - _stopwatchStartedMs;
             _stopwatchRunning = false;
-            Serial.println("Stopwatch paused");
+            LOGLN("Stopwatch paused");
         } else {
             if (_countdownRunning) {
                 _countdownRemainingMs = countdownMs();
                 _countdownRunning = false;
-                Serial.println("Countdown paused");
+                LOGLN("Countdown paused");
             }
             _stopwatchStartedMs = millis();
             _stopwatchRunning = true;
-            Serial.println("Stopwatch started");
+            LOGLN("Stopwatch started");
         }
         return;
     }
@@ -135,16 +135,16 @@ void TimerController::onLeft() {
         if (_countdownRunning) {
             _countdownRemainingMs = countdownMs();
             _countdownRunning = false;
-            Serial.println("Countdown paused");
+            LOGLN("Countdown paused");
         } else if (_countdownRemainingMs > 0) {
             if (_stopwatchRunning) {
                 _stopwatchElapsedMs += millis() - _stopwatchStartedMs;
                 _stopwatchRunning = false;
-                Serial.println("Stopwatch paused");
+                LOGLN("Stopwatch paused");
             }
             _countdownStartedMs = millis();
             _countdownRunning = true;
-            Serial.println("Countdown started");
+            LOGLN("Countdown started");
         }
     }
 }
@@ -157,7 +157,7 @@ void TimerController::onRight() {
     if (_view == TimerView::Stopwatch) {
         if (!_stopwatchRunning) {
             _stopwatchElapsedMs = 0;
-            Serial.println("Stopwatch reset");
+            LOGLN("Stopwatch reset");
         }
         return;
     }
@@ -169,14 +169,14 @@ void TimerController::onRight() {
 
         if (!countdownAtFullPreset()) {
             _countdownRemainingMs = countdownPresetMs();
-            Serial.println("Countdown reset");
+            LOGLN("Countdown reset");
             return;
         }
 
         _presetIndex = (_presetIndex + 1) % _presetCount;
         _countdownRemainingMs = countdownPresetMs();
         if (_savePreset) _savePreset(_presetIndex);
-        Serial.printf("Countdown preset: %u min\n",
+        LOGF("Countdown preset: %u min\n",
                       (unsigned)_presetMinutes[_presetIndex]);
     }
 }
@@ -221,7 +221,7 @@ void TimerController::onMiddleShort() {
     }
     _view = nextView;
     noteActivity();
-    Serial.printf("View: %u\n", (unsigned)_view);
+    LOGF("View: %u\n", (unsigned)_view);
 }
 
 TimerLongPressAction TimerController::onLongPress() {
@@ -232,7 +232,7 @@ TimerLongPressAction TimerController::onLongPress() {
     if (_view != TimerView::Clock) {
         _view = TimerView::Clock;
         noteActivity();
-        Serial.println("View: clock");
+        LOGLN("View: clock");
         return TimerLongPressAction::ExitTimerToClock;
     }
     return TimerLongPressAction::None;
@@ -247,7 +247,7 @@ void TimerController::acknowledgeAlert() {
     if (_stopBell) _stopBell();
     _view = _countdownAlertReturnView;
     noteActivity();
-    Serial.println("Countdown alert acknowledged");
+    LOGLN("Countdown alert acknowledged");
 }
 
 bool TimerController::isCountdownExpired() const {

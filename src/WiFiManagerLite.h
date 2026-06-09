@@ -6,6 +6,7 @@
 #ifndef WIFI_MANAGER_LITE_H
 #define WIFI_MANAGER_LITE_H
 
+#include "Config.h"
 #include <WiFi.h>
 #include "ConfigPortal.h"
 #include "SettingsStore.h"
@@ -68,8 +69,12 @@ private:
     void clearCredentials();
     bool connectSTA(const String& ssid, const String& password, int timeoutMs);
     void loadSettings();
+#if ENABLE_MDNS
     void startMDNS();
+#endif
+#if ENABLE_OTA
     void startArduinoOTA();
+#endif
     void stopConfigMode();
 };
 

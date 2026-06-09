@@ -1,10 +1,13 @@
 #ifndef CONFIG_PORTAL_H
 #define CONFIG_PORTAL_H
 
+#include "Config.h"
 #include <Arduino.h>
 #include <DNSServer.h>
 #include <WebServer.h>
+#if ENABLE_OTA
 #include <Update.h>
+#endif
 #include "SettingsStore.h"
 
 class ConfigPortal {
@@ -26,6 +29,12 @@ public:
 
     void startOTAUpdate();
     bool isUpdating();
+
+#if ENABLE_OTA
+    void handleUpdateForm();
+    void handleUpdateUpload();
+    void handleUpdateStatus();
+#endif
 
 private:
     SettingsStore& _settingsStore;
@@ -53,9 +62,6 @@ private:
     String encodeHTML(const String& str);
     String encodeJSON(const String& str);
     int getRSSIPercentage(int rssi);
-    void handleUpdateForm();
-    void handleUpdateUpload();
-    void handleUpdateStatus();
 };
 
 #endif // CONFIG_PORTAL_H

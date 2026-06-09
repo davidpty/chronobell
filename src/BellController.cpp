@@ -144,11 +144,11 @@ void BellController::queue(uint8_t count, uint8_t groupSize, bool force, const c
     _nextStrikeMs = 0;
 
     if (label) {
-        Serial.print(label);
+        LOG(label);
     } else {
-        Serial.print(force ? "Queued timer alert strikes: " : "Queued bell strikes: ");
+        LOG(force ? "Queued timer alert strikes: " : "Queued bell strikes: ");
     }
-    Serial.println(count);
+    LOGLN(count);
 }
 
 void BellController::queuePreview(uint8_t count, uint8_t groupSize) {

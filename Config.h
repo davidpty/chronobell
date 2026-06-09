@@ -2,6 +2,39 @@
 #define CLOCK_CONFIG_H
 
 // =============================================================================
+// Feature flags
+// =============================================================================
+//
+// Set to 0 to disable the feature and reclaim flash used by the library and
+// all associated code paths.
+//
+//   ENABLE_OTA   — ArduinoOTA + mDNS-based OTA update (web UI + Arduino IDE)
+//   ENABLE_MDNS  — mDNS / Bonjour hostname advertisement (hostname.local)
+
+#define ENABLE_OTA               1
+#define ENABLE_MDNS              1
+
+// =============================================================================
+// Debug logging
+// =============================================================================
+//
+// Set DEBUG_SERIAL to 1 to enable Serial.print/println/printf output.
+// When disabled (default), all logging calls compile to nothing, saving
+// flash space used by format strings and call sites.
+
+#define DEBUG_SERIAL             0
+
+#if DEBUG_SERIAL
+  #define LOG(...)     Serial.print(__VA_ARGS__)
+  #define LOGLN(...)   Serial.println(__VA_ARGS__)
+  #define LOGF(...)    Serial.printf(__VA_ARGS__)
+#else
+  #define LOG(...)
+  #define LOGLN(...)
+  #define LOGF(...)
+#endif
+
+// =============================================================================
 // WiFi / NTP
 // =============================================================================
 
@@ -93,7 +126,7 @@
 //
 // Touch pad 4 has two stacked hold thresholds:
 //   MENU_LONG_PRESS_MS     - 1.5 s: context-aware menu action
-//                            (enter menu, ack countdown, exit timer, cancel).
+//                            (enter menu, exit timer, exit countdown, cancel).
 //   MENU_EXTRA_LONG_PRESS  - 3.0 s: enter the WiFi config portal (hotspot).
 //                            Exiting the hotspot uses MENU_LONG_PRESS_MS above.
 //                            (Unit is ms; name lacks the _MS suffix by convention.)

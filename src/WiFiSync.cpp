@@ -22,27 +22,27 @@ WiFiSync::WiFiSync(WiFiManagerLite& wifi,
 
 void WiFiSync::performBootSync() {
 #if ENABLE_WIFI_SYNC == 0
-    Serial.println("WiFi sync is disabled via configuration");
+    LOGLN("WiFi sync is disabled via configuration");
     if (_rtcClock->available()) {
-        Serial.println("Using RTC time");
+        LOGLN("Using RTC time");
     }
     return;
 #else
-    Serial.println("Initializing WiFi...");
+    LOGLN("Initializing WiFi...");
     _wifi->begin();
 
     if (!_wifi->isConnected()) {
         if (_rtcClock->available()) {
-            Serial.println("WiFi not configured - using RTC time");
+            LOGLN("WiFi not configured - using RTC time");
         } else {
-            Serial.println("WiFi not configured and no RTC - clock may show incorrect time");
+            LOGLN("WiFi not configured and no RTC - clock may show incorrect time");
             _timeClient.begin();
         }
         return;
     }
 
-    Serial.print("WiFi connected! IP: ");
-    Serial.println(_wifi->getIPAddress());
+    LOG("WiFi connected! IP: ");
+    LOGLN(_wifi->getIPAddress());
 
 #if KEEP_WIFI_ALIVE == 1
     // Idempotent; safe to call again from the periodic sync path. Powers
@@ -52,19 +52,19 @@ void WiFiSync::performBootSync() {
 
     // Re-read settings in case the timezone was edited.
     *_appSettings = _settings->load();
-    Serial.print("Timezone offset: ");
-    Serial.print((int)_appSettings->timezone.offsetMinutes);
-    Serial.println(" min");
+    LOG("Timezone offset: ");
+    LOG((int)_appSettings->timezone.offsetMinutes);
+    LOGLN(" min");
 
     _timeClient.setTimeOffset(_appSettings->timezone.offsetMinutes * 60);
     _timeClient.begin();
-    Serial.println("NTP client initialized");
+    LOGLN("NTP client initialized");
 
     if (waitForNtp(1)) {
         applySyncedTime();
         _retryDone = true;  // Don't retry this hour
     } else {
-        Serial.println("NTP sync failed - using RTC time");
+        LOGLN("NTP sync failed - using RTC time");
     }
 
 #if KEEP_WIFI_ALIVE == 0
@@ -72,7 +72,7 @@ void WiFiSync::performBootSync() {
     if (_wifi->isNetworkServicesActive()) {
         _wifi->stopNetworkServices();
     }
-    Serial.println("Turning off WiFi after time sync");
+    LOGLN("Turning off WiFi after time sync");
     WiFi.disconnect(true);
     WiFi.mode(WIFI_OFF);
 #endif
@@ -87,7 +87,7 @@ void WiFiSync::maybePeriodicSync() {
     if (_retryDone) return;
     if (millis() - _lastSyncMs < (TIME_SYNC_INTERVAL_MINUTES * 60UL * 1000UL)) return;
 
-    Serial.println("\n=== Hourly WiFi retry ===");
+    LOGLN("\n=== Hourly WiFi retry ===");
     performSyncNow(2);
     _retryDone = true;  // Only one retry per hour
 #endif
@@ -107,14 +107,14 @@ void WiFiSync::performSyncNow(uint8_t timeoutMultiplier) {
         return;
     }
 
-    Serial.println("\n=== WiFi time sync ===");
+    LOGLN("\n=== WiFi time sync ===");
     if (!_wifi->isConnected()) {
-        Serial.println("Connecting WiFi...");
+        LOGLN("Connecting WiFi...");
         _wifi->reconnectSTA((int)WIFI_CONNECT_TIMEOUT * (int)timeoutMultiplier * 500);
     }
 
     if (!waitForConnection(timeoutMultiplier)) {
-        Serial.println("WiFi connection failed");
+        LOGLN("WiFi connection failed");
 #if KEEP_WIFI_ALIVE == 0
         WiFi.disconnect(true);
         WiFi.mode(WIFI_OFF);
@@ -122,8 +122,8 @@ void WiFiSync::performSyncNow(uint8_t timeoutMultiplier) {
         return;
     }
 
-    Serial.print("WiFi connected! IP: ");
-    Serial.println(_wifi->getIPAddress());
+    LOG("WiFi connected! IP: ");
+    LOGLN(_wifi->getIPAddress());
 
     // Idempotent: a no-op if already up (e.g. KEEP_WIFI_ALIVE=1 boot path).
     _wifi->startNetworkServices();
@@ -135,14 +135,14 @@ void WiFiSync::performSyncNow(uint8_t timeoutMultiplier) {
     if (waitForNtp(timeoutMultiplier)) {
         applySyncedTime();
     } else {
-        Serial.println("NTP sync failed");
+        LOGLN("NTP sync failed");
     }
 
 #if KEEP_WIFI_ALIVE == 0
     if (_wifi->isNetworkServicesActive()) {
         _wifi->stopNetworkServices();
     }
-    Serial.println("Turning off WiFi");
+    LOGLN("Turning off WiFi");
     WiFi.disconnect(true);
     WiFi.mode(WIFI_OFF);
 #endif
@@ -153,34 +153,34 @@ bool WiFiSync::waitForConnection(uint8_t timeoutMultiplier) {
     uint8_t maxAttempts = WIFI_CONNECT_TIMEOUT * timeoutMultiplier;
     while (!_wifi->isConnected() && attempts < maxAttempts) {
         delay(500);
-        Serial.print(".");
+        LOG(".");
         attempts++;
     }
-    Serial.println();
+    LOGLN();
     return _wifi->isConnected();
 }
 
 bool WiFiSync::waitForNtp(uint8_t timeoutMultiplier) {
-    Serial.print("Waiting for NTP sync");
+    LOG("Waiting for NTP sync");
     uint8_t attempts = 0;
     uint8_t maxAttempts = NTP_SYNC_TIMEOUT * timeoutMultiplier;
     while (attempts < maxAttempts) {
         if (_timeClient.update()) {
-            Serial.println();
+            LOGLN();
             return true;
         }
         delay(500);
-        Serial.print(".");
+        LOG(".");
         attempts++;
     }
-    Serial.println();
+    LOGLN();
     return false;
 }
 
 void WiFiSync::applySyncedTime() {
-    Serial.println("Time synchronized!");
-    Serial.print("Current time: ");
-    Serial.println(_timeClient.getFormattedTime());
+    LOGLN("Time synchronized!");
+    LOG("Current time: ");
+    LOGLN(_timeClient.getFormattedTime());
 
     _settings->clearManualTime();
     _appSettings->manualTime.enabled = false;
@@ -188,11 +188,11 @@ void WiFiSync::applySyncedTime() {
 
     if (_rtcClock->available()) {
         _timeProvider->setRtcFromEpoch(_timeClient.getEpochTime());
-        Serial.println("RTC updated with NTP time");
+        LOGLN("RTC updated with NTP time");
         _timeProvider->readRtc();
         ClockTime rtcTime = _rtcClock->getTime();
-        Serial.print("RTC time after sync: ");
-        Serial.printf("%02d:%02d:%02d\n", rtcTime.hours, rtcTime.minutes, rtcTime.seconds);
+        LOG("RTC time after sync: ");
+        LOGF("%02d:%02d:%02d\n", rtcTime.hours, rtcTime.minutes, rtcTime.seconds);
     }
 
     _lastSyncMs = millis();

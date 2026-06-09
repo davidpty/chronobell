@@ -20,8 +20,8 @@ bool TouchController::begin() {
     Wire.requestFrom(CAP1188_I2C_ADDRESS, 1);
     if (Wire.available()) {
         uint8_t productId = Wire.read();
-        Serial.print("CAP1188 Product ID: 0x");
-        Serial.println(productId, HEX);
+        LOG("CAP1188 Product ID: 0x");
+        LOGLN(productId, HEX);
     }
 
     Wire.beginTransmission(CAP1188_I2C_ADDRESS);
@@ -39,7 +39,7 @@ bool TouchController::begin() {
     Wire.write(CAP1188_ENABLED_INPUTS);
     Wire.endTransmission();
 
-    Serial.println("CAP1188 inputs 1, 4, and 8 enabled");
+    LOGLN("CAP1188 inputs 1, 4, and 8 enabled");
 
     Wire.beginTransmission(CAP1188_I2C_ADDRESS);
     Wire.write(0x2A);
@@ -65,7 +65,7 @@ bool TouchController::begin() {
     Wire.endTransmission();
     delay(250);
 
-    Serial.println("CAP1188 sensitivity configured");
+    LOGLN("CAP1188 sensitivity configured");
     _available = true;
     return true;
 }
@@ -89,7 +89,7 @@ void TouchController::update() {
     Wire.write(0x03);
     if (Wire.endTransmission(false) != 0) {
         _available = false;
-        Serial.println("CAP1188 communication error");
+        LOGLN("CAP1188 communication error");
         return;
     }
 

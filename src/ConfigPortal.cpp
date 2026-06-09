@@ -2,6 +2,7 @@
  * ConfigPortal - Implementation
  */
 
+#include "Config.h"
 #include "ConfigPortal.h"
 #include <WiFi.h>
 #include <time.h>
@@ -97,18 +98,20 @@ void ConfigPortal::configureWebServerRoutes() {
     _webServer.on("/scan", HTTP_GET, [this]() { handleScan(); });
     _webServer.on("/save", HTTP_GET, [this]() { handleSave(); });
     _webServer.on("/status", HTTP_GET, [this]() { handleStatus(); });
+#if ENABLE_OTA
     _webServer.on("/update", HTTP_GET, [this]() { handleUpdateForm(); });
     _webServer.on("/update", HTTP_POST, [this]() {
         _webServer.send(200, "text/plain", "Update processing...");
         if (Update.hasError()) {
             _webServer.send(500, "text/plain", "Update failed: " + String(Update.errorString()));
         } else {
-            Serial.println("Update complete, rebooting...");
+            LOGLN("Update complete, rebooting...");
             delay(1000);
             ESP.restart();
         }
     }, [this]() { handleUpdateUpload(); });
     _webServer.on("/update/status", HTTP_GET, [this]() { handleUpdateStatus(); });
+#endif
     _webServer.onNotFound([this]() { handleNotFound(); });
 }
 
@@ -332,9 +335,11 @@ void ConfigPortal::handleRoot() {
             Save Settings
         </button>
 
+#if ENABLE_OTA
         <button class="btn btn-secondary" onclick="window.location.href='/update'" style="margin-top: 16px;">
             Firmware Update >>
         </button>
+#endif
     </div>
     <script>
         let selectedSSID = '';
@@ -756,9 +761,9 @@ void ConfigPortal::handleSave() {
         if (epoch > 0) {
             manualEpochTime = (unsigned long)epoch;
             manualTimeEnabled = true;
-            Serial.print("Manual time set: ");
-            Serial.println(manualDate);
-            Serial.println(manualTime);
+            LOG("Manual time set: ");
+            LOGLN(manualDate);
+            LOGLN(manualTime);
         }
     }
 
@@ -775,31 +780,31 @@ void ConfigPortal::handleSave() {
     settings.manualTime.enabled = manualTimeEnabled;
     settings.manualTime.epoch = manualEpochTime;
 
-    Serial.print("Manual time saved: enabled=");
-    Serial.print(manualTimeEnabled);
-    Serial.print(", epoch=");
-    Serial.println(manualEpochTime);
+    LOG("Manual time saved: enabled=");
+    LOG(manualTimeEnabled);
+    LOG(", epoch=");
+    LOGLN(manualEpochTime);
 
     _settingsStore.save(settings);
     _settings = settings;
 
-    Serial.print("Credentials saved for: ");
-    Serial.println(ssid);
-    Serial.print("Timezone saved: ");
-    Serial.print(tzOffsetMinutes);
-    Serial.print(" min (");
-    Serial.print(tzname);
-    Serial.println(")");
-    Serial.print("Clock style: ");
-    Serial.println(displayModeLabel(style));
-    Serial.print("Date style: ");
-    Serial.println(dateStyleLabel(dateStyle));
-    Serial.print("Hour format: ");
-    Serial.println(timeFormatLabel(timeFormat));
-    Serial.print("Bell mode: ");
-    Serial.println((int)bellMode);
-    Serial.print("Night mode: ");
-    Serial.println(nightModeLabel(nightMode));
+    LOG("Credentials saved for: ");
+    LOGLN(ssid);
+    LOG("Timezone saved: ");
+    LOG(tzOffsetMinutes);
+    LOG(" min (");
+    LOG(tzname);
+    LOGLN(")");
+    LOG("Clock style: ");
+    LOGLN(displayModeLabel(style));
+    LOG("Date style: ");
+    LOGLN(dateStyleLabel(dateStyle));
+    LOG("Hour format: ");
+    LOGLN(timeFormatLabel(timeFormat));
+    LOG("Bell mode: ");
+    LOGLN((int)bellMode);
+    LOG("Night mode: ");
+    LOGLN(nightModeLabel(nightMode));
 
     // Return HTML page with reboot message
     const char* rebootHtml = R"rawliteral(
@@ -862,7 +867,7 @@ void ConfigPortal::handleSave() {
 
     // Always reboot to apply all new settings
     delay(1000);
-    Serial.println("Settings saved. Rebooting...");
+    LOGLN("Settings saved. Rebooting...");
     ESP.restart();
 }
 
@@ -974,12 +979,14 @@ int ConfigPortal::getRSSIPercentage(int rssi) {
 
 void ConfigPortal::startOTAUpdate() {
     _otaUpdate = true;
-    Serial.println("OTA update started");
+    LOGLN("OTA update started");
 }
 
 bool ConfigPortal::isUpdating() {
     return _otaUpdate;
 }
+
+#if ENABLE_OTA
 
 void ConfigPortal::handleUpdateForm() {
     const char* html = R"rawliteral(
@@ -1174,28 +1181,28 @@ void ConfigPortal::handleUpdateUpload() {
 
     if (upload.status == UPLOAD_FILE_START) {
         _otaUpdate = true;
-        Serial.printf("Starting firmware update: %s\n", upload.filename.c_str());
+        LOGF("Starting firmware update: %s\n", upload.filename.c_str());
 
         if (!Update.begin(UPDATE_SIZE_UNKNOWN)) {
-            Serial.println("Update begin failed");
+            LOGLN("Update begin failed");
         }
     } else if (upload.status == UPLOAD_FILE_WRITE) {
         // Writing firmware to flash
         if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
-            Serial.println("Update write failed");
+            LOGLN("Update write failed");
         }
     } else if (upload.status == UPLOAD_FILE_END) {
         // Update finished
         if (Update.end(true)) {
-            Serial.printf("Update successful! Size: %u bytes\n", upload.totalSize);
+            LOGF("Update successful! Size: %u bytes\n", upload.totalSize);
         } else {
-            Serial.printf("Update failed: %s\n", Update.errorString());
+            LOGF("Update failed: %s\n", Update.errorString());
             _otaUpdate = false;
         }
     } else if (upload.status == UPLOAD_FILE_ABORTED) {
         Update.abort();
         _otaUpdate = false;
-        Serial.println("Update aborted");
+        LOGLN("Update aborted");
     }
 }
 
@@ -1210,3 +1217,5 @@ void ConfigPortal::handleUpdateStatus() {
 
     _webServer.send(200, "application/json", json);
 }
+
+#endif // ENABLE_OTA

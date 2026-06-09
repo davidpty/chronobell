@@ -29,7 +29,7 @@ void MenuController::enterBrowse() {
     _editValue = _items[_index].getValue(_ctx);
     _originalValue = _editValue;
     markActivity();
-    Serial.printf("Menu: BROWSE on %s (idx=%u)\n", _items[_index].name, _index);
+    LOGF("Menu: BROWSE on %s (idx=%u)\n", _items[_index].name, _index);
 }
 
 void MenuController::enterEdit() {
@@ -41,7 +41,7 @@ void MenuController::enterEdit() {
     _brightPreviewActive = (strcmp(_items[_index].name, "BRIGHT") == 0);
     markActivity();
     previewCurrent();
-    Serial.printf("Menu: EDIT %s (start=%d)\n",
+    LOGF("Menu: EDIT %s (start=%d)\n",
                   _items[_index].name, (int)_editValue);
 }
 
@@ -52,7 +52,7 @@ void MenuController::saveEdit() {
     if (item.commitValue) item.commitValue(_ctx, _editValue);
     _originalValue = _editValue;
     _brightPreviewActive = false;
-    Serial.printf("Menu: SAVED %s = %d\n", item.name, (int)_editValue);
+    LOGF("Menu: SAVED %s = %d\n", item.name, (int)_editValue);
     _state = MenuState::Browse;
     markActivity();
 }
@@ -61,7 +61,7 @@ void MenuController::cancelEdit() {
     if (!_items || _itemCount == 0 || _state != MenuState::Edit) return;
 
     const MenuItem& item = _items[_index];
-    Serial.printf("Menu: CANCEL %s (revert %d -> %d)\n",
+    LOGF("Menu: CANCEL %s (revert %d -> %d)\n",
                   item.name, (int)_editValue, (int)_originalValue);
     if (item.previewValue) item.previewValue(_ctx, _originalValue);
     _editValue = _originalValue;
@@ -72,7 +72,7 @@ void MenuController::cancelEdit() {
 
 void MenuController::exit() {
     if (_state != MenuState::Off) {
-        Serial.println("Menu: EXIT to NORMAL");
+        LOGLN("Menu: EXIT to NORMAL");
     }
     if (_settingsStore && _items && _index < _itemCount) {
         _settingsStore->saveMenuIndex(_index);
@@ -96,7 +96,7 @@ void MenuController::update() {
         ? MENU_TIMEOUT_LONG_MS
         : MENU_TIMEOUT_SHORT_MS;
     if (now - _lastActivityMs >= timeoutMs) {
-        Serial.println("Menu: auto-timeout");
+        LOGLN("Menu: auto-timeout");
         if (_state == MenuState::Edit) {
             const MenuItem& item = _items[_index];
             if (item.previewValue) item.previewValue(_ctx, _originalValue);
@@ -139,7 +139,7 @@ void MenuController::onPrev() {
     if (_state == MenuState::Browse) {
         _index = (_index + _itemCount - 1) % _itemCount;
         markActivity();
-        Serial.printf("Menu: prev -> item %u (%s)\n", _index, _items[_index].name);
+        LOGF("Menu: prev -> item %u (%s)\n", _index, _items[_index].name);
         return;
     }
 
@@ -149,7 +149,7 @@ void MenuController::onPrev() {
     if (value < item.minValue) value = item.maxValue;
     markActivity();
     previewCurrent();
-    Serial.printf("Menu edit: %s = %d\n", item.name, value);
+    LOGF("Menu edit: %s = %d\n", item.name, value);
 }
 
 void MenuController::onNext() {
@@ -158,7 +158,7 @@ void MenuController::onNext() {
     if (_state == MenuState::Browse) {
         _index = (_index + 1) % _itemCount;
         markActivity();
-        Serial.printf("Menu: next -> item %u (%s)\n", _index, _items[_index].name);
+        LOGF("Menu: next -> item %u (%s)\n", _index, _items[_index].name);
         return;
     }
 
@@ -168,7 +168,7 @@ void MenuController::onNext() {
     if (value > item.maxValue) value = item.minValue;
     markActivity();
     previewCurrent();
-    Serial.printf("Menu edit: %s = %d\n", item.name, value);
+    LOGF("Menu edit: %s = %d\n", item.name, value);
 }
 
 void MenuController::onOk() {

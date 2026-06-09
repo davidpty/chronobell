@@ -21,7 +21,7 @@ bool RtcClock::begin() {
     if (Wire.available()) {
         uint8_t seconds = Wire.read();
         if (seconds & 0x80) {
-            Serial.println("RTC clock was stopped, starting it...");
+            LOGLN("RTC clock was stopped, starting it...");
             Wire.beginTransmission(RTC_I2C_ADDRESS);
             Wire.write(0);
             Wire.write(seconds & 0x7F);
@@ -44,7 +44,7 @@ bool RtcClock::read() {
     Wire.write(0);
     if (Wire.endTransmission() != 0) {
         _available = false;
-        Serial.println("RTC read failed");
+        LOGLN("RTC read failed");
         return false;
     }
 
@@ -132,7 +132,7 @@ void RtcClock::setFromEpoch(time_t epochTime) {
     Wire.endTransmission();
 
     read();
-    Serial.println("RTC updated successfully");
+    LOGLN("RTC updated successfully");
 }
 
 ClockTime RtcClock::getTime() const {

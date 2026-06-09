@@ -97,7 +97,7 @@ void setup() {
     app.applyDisplayBrightness();
     app.render();
 
-    Serial.println("Clock running.");
+    LOGLN("Clock running.");
 }
 
 // -----------------------------------------------------------------------------

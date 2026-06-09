@@ -49,7 +49,7 @@ bool textFitsDisplay(const char* text) {
 void GuestWifiController::begin() {
     _disabled = (GUEST_WIFI_URL[0] == '\0');
     if (_disabled) {
-        Serial.println("Guest WiFi: disabled (URL is empty)");
+        LOGLN("Guest WiFi: disabled (URL is empty)");
     }
 }
 
@@ -59,13 +59,13 @@ bool GuestWifiController::fetch(const char* url) {
     }
 
     if (WiFi.status() != WL_CONNECTED) {
-        Serial.println("Guest WiFi: fetch skipped — WiFi not connected");
+        LOGLN("Guest WiFi: fetch skipped — WiFi not connected");
         return false;
     }
 
-    Serial.print("Guest WiFi: fetching ");
-    Serial.print(url);
-    Serial.println(" ...");
+    LOG("Guest WiFi: fetching ");
+    LOG(url);
+    LOGLN(" ...");
 
     HTTPClient http;
     http.setTimeout(GUEST_WIFI_FETCH_TIMEOUT_MS);
@@ -73,15 +73,15 @@ bool GuestWifiController::fetch(const char* url) {
 
     int code = http.GET();
     if (code <= 0) {
-        Serial.print("Guest WiFi: HTTP failed, code=");
-        Serial.println(code);
+        LOG("Guest WiFi: HTTP failed, code=");
+        LOGLN(code);
         http.end();
         return false;
     }
 
     if (code != 200) {
-        Serial.print("Guest WiFi: HTTP ");
-        Serial.println(code);
+        LOG("Guest WiFi: HTTP ");
+        LOGLN(code);
         http.end();
         return false;
     }
@@ -90,7 +90,7 @@ bool GuestWifiController::fetch(const char* url) {
     http.end();
 
     if (body.length() == 0) {
-        Serial.println("Guest WiFi: empty body");
+        LOGLN("Guest WiFi: empty body");
         return false;
     }
 
@@ -130,17 +130,17 @@ bool GuestWifiController::fetch(const char* url) {
 
     // Both strings must fit the display (each is shown full-screen)
     if (!textFitsDisplay(_ssid) || !textFitsDisplay(_password)) {
-        Serial.println("Guest WiFi: text too wide for display, rejected");
+        LOGLN("Guest WiFi: text too wide for display, rejected");
         _ssid[0] = '\0';
         _password[0] = '\0';
         return false;
     }
 
-    Serial.print("Guest WiFi: SSID=\"");
-    Serial.print(_ssid);
-    Serial.print("\" password=\"");
-    Serial.print(_password);
-    Serial.println("\"");
+    LOG("Guest WiFi: SSID=\"");
+    LOG(_ssid);
+    LOG("\" password=\"");
+    LOG(_password);
+    LOGLN("\"");
     _passwordAvailable = true;
     return true;
 }

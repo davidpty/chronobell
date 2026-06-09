@@ -2,10 +2,14 @@
  * WiFiManagerLite - Implementation
  */
 
-#include "WiFiManagerLite.h"
 #include "Config.h"
+#include "WiFiManagerLite.h"
+#if ENABLE_OTA
 #include <ArduinoOTA.h>
+#endif
+#if ENABLE_MDNS
 #include <ESPmDNS.h>
+#endif
 
 // Configuration constants
 const int WiFiManagerLite::STA_TIMEOUT_MS = 15000;
@@ -48,23 +52,23 @@ bool WiFiManagerLite::begin() {
 
     // Now check for WiFi credentials
     if (!loadCredentials(ssid, password)) {
-        Serial.println("No stored Wi-Fi credentials found");
+        LOGLN("No stored Wi-Fi credentials found");
         return false;  // Don't enter AP mode automatically
     }
 
-    Serial.print("Loaded credentials for: ");
-    Serial.println(ssid);
+    LOG("Loaded credentials for: ");
+    LOGLN(ssid);
 
     // Attempt to connect
     if (connectSTA(ssid, password, STA_TIMEOUT_MS)) {
         _isConnected = true;
         _connectionAttempts = 0;
-        Serial.print("Wi-Fi connected! IP: ");
-        Serial.println(WiFi.localIP());
+        LOG("Wi-Fi connected! IP: ");
+        LOGLN(WiFi.localIP());
         return true;
     }
 
-    Serial.println("Failed to connect with stored credentials");
+    LOGLN("Failed to connect with stored credentials");
     _isConnected = false;
     return false;  // Don't enter AP mode automatically
 }
@@ -77,7 +81,7 @@ bool WiFiManagerLite::reconnectSTA(int timeoutMs) {
     bool shouldKeepTrying = _isConnected;
     String ssid, password;
     if (!loadCredentials(ssid, password)) {
-        Serial.println("No stored Wi-Fi credentials found");
+        LOGLN("No stored Wi-Fi credentials found");
         _isConnected = false;
         _connectionAttempts = 0;
         return false;
@@ -87,11 +91,11 @@ bool WiFiManagerLite::reconnectSTA(int timeoutMs) {
         stopNetworkServices();
     }
 
-    Serial.print("Reconnecting Wi-Fi to: ");
-    Serial.println(ssid);
+    LOG("Reconnecting Wi-Fi to: ");
+    LOGLN(ssid);
 
     if (!connectSTA(ssid, password, timeoutMs)) {
-        Serial.println("Wi-Fi reconnect failed");
+        LOGLN("Wi-Fi reconnect failed");
         _isConnected = shouldKeepTrying;
         if (_connectionAttempts < 255) {
             _connectionAttempts++;
@@ -101,8 +105,8 @@ bool WiFiManagerLite::reconnectSTA(int timeoutMs) {
 
     _isConnected = true;
     _connectionAttempts = 0;
-    Serial.print("Wi-Fi reconnected! IP: ");
-    Serial.println(WiFi.localIP());
+    LOG("Wi-Fi reconnected! IP: ");
+    LOGLN(WiFi.localIP());
 
 #if KEEP_WIFI_ALIVE == 1
     startNetworkServices();
@@ -114,21 +118,21 @@ bool WiFiManagerLite::reconnectSTA(int timeoutMs) {
 void WiFiManagerLite::loadSettings() {
     _settings = _settingsStore.load();
 
-    Serial.print("Clock style loaded: ");
-    Serial.println(displayModeLabel(_settings.displayMode));
+    LOG("Clock style loaded: ");
+    LOGLN(displayModeLabel(_settings.displayMode));
 
-    Serial.print("Timezone loaded: ");
-    Serial.print(_settings.timezone.offsetMinutes);
-    Serial.print(" min");
-    Serial.print(" (");
-    Serial.print(_settings.timezone.name);
-    Serial.println(")");
+    LOG("Timezone loaded: ");
+    LOG(_settings.timezone.offsetMinutes);
+    LOG(" min");
+    LOG(" (");
+    LOG(_settings.timezone.name);
+    LOGLN(")");
 
-    Serial.print("Bell mode loaded: ");
-    Serial.println((int)_settings.bellMode);
+    LOG("Bell mode loaded: ");
+    LOGLN((int)_settings.bellMode);
 
-    Serial.print("Hour format loaded: ");
-    Serial.println(timeFormatLabel(_settings.timeFormat));
+    LOG("Hour format loaded: ");
+    LOGLN(timeFormatLabel(_settings.timeFormat));
 }
 
 void WiFiManagerLite::loop() {
@@ -138,9 +142,11 @@ void WiFiManagerLite::loop() {
     // ArduinoOTA.handle() is pumped whenever the service is up, regardless
     // of whether we are in config mode. With KEEP_WIFI_ALIVE=1 it stays
     // up permanently after the first successful STA connect.
+#if ENABLE_OTA
     if (_arduinoOtaEnabled) {
         ArduinoOTA.handle();
     }
+#endif
 #if KEEP_WIFI_ALIVE == 1
     if (!_inConfigMode && !_otaUpdate && _isConnected && WiFi.status() != WL_CONNECTED) {
         uint32_t now = millis();
@@ -222,6 +228,7 @@ bool WiFiManagerLite::connectSTA(const String& ssid, const String& password, int
     return true;
 }
 
+#if ENABLE_OTA
 void WiFiManagerLite::startArduinoOTA() {
     if (_arduinoOtaEnabled) return;
 
@@ -229,60 +236,71 @@ void WiFiManagerLite::startArduinoOTA() {
     ArduinoOTA.setPassword(_otaPassword.c_str());
     ArduinoOTA.onStart([this]() {
         _otaUpdate = true;
-        Serial.println("Arduino IDE OTA update started");
+        LOGLN("Arduino IDE OTA update started");
     });
     ArduinoOTA.onEnd([this]() {
-        Serial.println("\nArduino IDE OTA update complete");
+        LOGLN("\nArduino IDE OTA update complete");
         _otaUpdate = false;
     });
     ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
         if (total > 0) {
-            Serial.printf("Arduino IDE OTA progress: %u%%\r", (progress * 100) / total);
+            LOGF("Arduino IDE OTA progress: %u%%\r", (progress * 100) / total);
         }
     });
     ArduinoOTA.onError([this](ota_error_t error) {
         _otaUpdate = false;
-        Serial.printf("Arduino IDE OTA error[%u]\n", error);
+        LOGF("Arduino IDE OTA error[%u]\n", error);
     });
     ArduinoOTA.begin();
     _arduinoOtaEnabled = true;
-    Serial.println("Arduino IDE OTA ready");
+    LOGLN("Arduino IDE OTA ready");
 }
+#endif
 
+#if ENABLE_MDNS
 void WiFiManagerLite::startMDNS() {
     if (_mdnsEnabled) return;
     if (MDNS.begin(_mdnsHostname.c_str())) {
         MDNS.addService("http", "tcp", 80);
         _mdnsEnabled = true;
-        Serial.print("mDNS ready: http://");
-        Serial.print(_mdnsHostname);
-        Serial.println(".local/");
+        LOG("mDNS ready: http://");
+        LOG(_mdnsHostname);
+        LOGLN(".local/");
     } else {
         _mdnsEnabled = false;
-        Serial.println("mDNS start failed");
+        LOGLN("mDNS start failed");
     }
 }
+#endif
 
 void WiFiManagerLite::startNetworkServices() {
     if (_networkServicesStarted) return;
     if (!_isConnected || WiFi.status() != WL_CONNECTED) {
         return;
     }
+#if ENABLE_MDNS
     startMDNS();
+#endif
+#if ENABLE_OTA
     startArduinoOTA();
+#endif
     _networkServicesStarted = true;
 }
 
 void WiFiManagerLite::stopNetworkServices() {
     if (!_networkServicesStarted) return;
+#if ENABLE_OTA
     if (_arduinoOtaEnabled) {
         ArduinoOTA.end();
         _arduinoOtaEnabled = false;
     }
+#endif
+#if ENABLE_MDNS
     if (_mdnsEnabled) {
         MDNS.end();
         _mdnsEnabled = false;
     }
+#endif
     _networkServicesStarted = false;
 }
 
@@ -300,19 +318,19 @@ void WiFiManagerLite::startConfigMode() {
     _configModeStation = false;
     _isConnected = false;
 
-    Serial.println("Starting Configuration Mode...");
-    Serial.print("AP SSID: ");
-    Serial.println(AP_SSID);
+    LOGLN("Starting Configuration Mode...");
+    LOG("AP SSID: ");
+    LOGLN(AP_SSID);
 
     // Load stored settings (credentials, timezone, clock style, hour format)
     String ssid, password;
     if (loadCredentials(ssid, password)) {
-        Serial.print("Loaded stored SSID: ");
-        Serial.println(ssid);
-        Serial.print("Clock style: ");
-        Serial.println(displayModeLabel(_settings.displayMode));
-        Serial.print("Hour format: ");
-        Serial.println(timeFormatLabel(_settings.timeFormat));
+        LOG("Loaded stored SSID: ");
+        LOGLN(ssid);
+        LOG("Clock style: ");
+        LOGLN(displayModeLabel(_settings.displayMode));
+        LOG("Hour format: ");
+        LOGLN(timeFormatLabel(_settings.timeFormat));
     }
 
     // Configure AP
@@ -326,17 +344,17 @@ void WiFiManagerLite::startConfigMode() {
 
     _portal.beginAPMode();
 
-    Serial.print("Configuration portal available at: http://");
-    Serial.println(WiFi.softAPIP());
+    LOG("Configuration portal available at: http://");
+    LOGLN(WiFi.softAPIP());
 }
 
 void WiFiManagerLite::startConfigModePreferStation() {
-    Serial.println("Starting Configuration Mode (saved WiFi preferred)...");
+    LOGLN("Starting Configuration Mode (saved WiFi preferred)...");
 
     String ssid, password;
     if (loadCredentials(ssid, password)) {
-        Serial.print("Trying stored WiFi SSID: ");
-        Serial.println(ssid);
+        LOG("Trying stored WiFi SSID: ");
+        LOGLN(ssid);
 
         if (connectSTA(ssid, password, STA_TIMEOUT_MS)) {
             _inConfigMode = true;
@@ -349,19 +367,19 @@ void WiFiManagerLite::startConfigModePreferStation() {
             // idempotent and a no-op if already up.
             startNetworkServices();
 
-            Serial.print("LAN configuration portal available at: http://");
-            Serial.println(WiFi.localIP());
-            Serial.print("LAN configuration hostname: http://");
-            Serial.print(_mdnsHostname);
-            Serial.println(".local/");
-            Serial.print("Arduino IDE OTA target: ");
-            Serial.println(_mdnsHostname);
+            LOG("LAN configuration portal available at: http://");
+            LOGLN(WiFi.localIP());
+            LOG("LAN configuration hostname: http://");
+            LOG(_mdnsHostname);
+            LOGLN(".local/");
+            LOG("Arduino IDE OTA target: ");
+            LOGLN(_mdnsHostname);
             return;
         }
 
-        Serial.println("Stored WiFi connection failed; falling back to AP config mode");
+        LOGLN("Stored WiFi connection failed; falling back to AP config mode");
     } else {
-        Serial.println("No stored WiFi credentials; falling back to AP config mode");
+        LOGLN("No stored WiFi credentials; falling back to AP config mode");
     }
 
     startConfigMode();
@@ -386,7 +404,7 @@ void WiFiManagerLite::stopConfigMode() {
 
 void WiFiManagerLite::startOTAUpdate() {
     _otaUpdate = true;
-    Serial.println("OTA update started");
+    LOGLN("OTA update started");
 }
 
 bool WiFiManagerLite::isUpdating() {
