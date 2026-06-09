@@ -19,7 +19,7 @@
  */
 
 #include <Arduino.h>
-#include "ClockApp.h"
+#include "src/ClockApp.h"
 #include "Config.h"
 
 ClockApp app;

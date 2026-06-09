@@ -60,10 +60,12 @@ An ESP32-powered LED matrix clock with capacitive touch controls, a ship's bell,
 pio run --target upload
 ```
 
-### Arduino CLI
+### Arduino CLI / IDE
+
+Open `chronobell.ino` in the Arduino IDE or compile from the command line:
 
 ```bash
-arduino-cli compile --fqbn esp32:esp32:esp32 --build-property "compiler.cpp.extra_flags=-I{source.path}/src"
+arduino-cli compile --fqbn esp32:esp32:esp32
 arduino-cli upload --fqbn esp32:esp32:esp32
 ```
 
