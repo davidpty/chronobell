@@ -126,15 +126,7 @@ bool lineFits(const WordSegment* segments, uint8_t count) {
 void drawCenteredTextWithSpacingFallback(Display& display,
                                          const char* text,
                                          int y,
-                                         bool small,
-                                         int preferredLetterSpacing,
-                                         int preferredWordGap,
-                                         int fallbackLetterSpacing,
-                                         int fallbackWordGap) {
-    (void)preferredLetterSpacing;
-    (void)preferredWordGap;
-    (void)fallbackLetterSpacing;
-    (void)fallbackWordGap;
+                                         bool small) {
     int width = Display::textWidth(text, small, 1, 2);
     int x = (COLS_PER_ROW - width) / 2;
     display.drawText(text, x, y, small, 1, 2);
@@ -829,10 +821,6 @@ void ClockRenderer::buildMinutePhrase(int minutes, bool toHour, int letterSpacin
 // Date peek
 // =============================================================================
 
-void ClockRenderer::drawNumericDateLine(int date, int month, int y) {
-    drawMonthDayLine(date, month, y);
-}
-
 void ClockRenderer::drawMonthDayLine(int date, int month, int y) {
     static const char* const MONTHS[] = {"JAN", "FEB", "MAR", "APR", "MAY", "JUN",
                                          "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"};
@@ -841,11 +829,7 @@ void ClockRenderer::drawMonthDayLine(int date, int month, int y) {
     const char* monthName = MONTHS[month - 1];
     char line[16];
     snprintf(line, sizeof(line), "%s %d", monthName, date);
-    drawCenteredTextWithSpacingFallback(*_display, line, y, true, 1, 2, 1, 2);
-}
-
-void ClockRenderer::drawCenteredSmallTextFit(const char* s, int y, int letterSpacing, int wordGap) {
-    drawCenteredText(s, y, true, letterSpacing, wordGap);
+    drawCenteredTextWithSpacingFallback(*_display, line, y, true);
 }
 
 int ClockRenderer::dayOfYear(int year, int month, int day) {
@@ -881,20 +865,6 @@ int ClockRenderer::isoWeeksInYear(int year) {
         return 53;
     }
     return 52;
-}
-
-int ClockRenderer::isoWeekNumber(int year, int month, int day) {
-    int doy = dayOfYear(year, month, day);
-    int dow = weekdayMonday1(year, month, day);
-    int week = (doy - dow + 10) / 7;
-    if (week < 1) {
-        return isoWeeksInYear(year - 1);
-    }
-    int weeksInYear = isoWeeksInYear(year);
-    if (week > weeksInYear) {
-        return 1;
-    }
-    return week;
 }
 
 double ClockRenderer::getMoonAgeDays(int year, int month, int day) {
@@ -1014,16 +984,6 @@ const char* ClockRenderer::getChineseZodiacElement(int year) {
     return ELEMENTS[index];
 }
 
-const char* ClockRenderer::getChineseZodiacElementCode(int year) {
-    static const char* const CODES[] = {
-        "WD", "WD", "FI", "FI", "EA", "EA",
-        "ME", "ME", "WT", "WT"
-    };
-    int index = (year - 4) % 10;
-    if (index < 0) index += 10;
-    return CODES[index];
-}
-
 const char* ClockRenderer::getChineseZodiacAnimalCode(int year) {
     static const char* const CODES[] = {
         "RAT", "OX", "TIGER", "RABBIT", "DRGN", "SNAKE",
@@ -1129,10 +1089,6 @@ void ClockRenderer::drawDateView(DateStyle style) {
             drawDateStyleDate(currentDate);
             break;
     }
-}
-
-void ClockRenderer::drawDatePeek() {
-    drawDateView(DateStyle::Date);
 }
 
 uint8_t ClockRenderer::currentClockDeciseconds() const {

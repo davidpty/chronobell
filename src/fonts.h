@@ -18,8 +18,7 @@
 // Symbol enum for indexing
 enum SymbolIndex {
   SYMBOL_HOTSPOT = 0,  // First symbol in FONT_SYMBOLS array
-  SYMBOL_WIFI = 1,    // Second symbol in FONT_SYMBOLS array
-  SYMBOL_COUNT = 2
+  SYMBOL_COUNT = 1
 };
 
 // Symbol font array: [symbol_index][height][width]
@@ -46,9 +45,7 @@ const uint8_t FONT_SYMBOLS[SYMBOL_COUNT][SYMBOL_FONT_HEIGHT][SYMBOL_FONT_WIDTH] 
 }
 };
 
-// Legacy single symbol access (deprecated, use FONT_SYMBOLS with enum)
-#define FONT_SYMBOL_WIFI FONT_SYMBOLS[SYMBOL_WIFI]
-#define FONT_SYMBOL_HOTSPOT FONT_SYMBOLS[SYMBOL_HOTSPOT]
+
 
 // Combined big font: index 0-9 = '0'-'9', index 10-35 = 'A'-'Z', index 36 = '%', index 37 = '-', index 38 = '+', index 39 = 'o', index 40 = '^', index 41 = '@', index 42 = 'v'
 // 6 columns x 16 rows

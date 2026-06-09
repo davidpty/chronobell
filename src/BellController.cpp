@@ -47,14 +47,6 @@ void BellController::preview(BellMode mode, const ClockTime& currentTime, bool t
     }
 }
 
-void BellController::queueForced(uint8_t count) {
-    queue(count, 0, true);
-}
-
-void BellController::queueForcedPairs(uint8_t count) {
-    queue(count, 2, true);
-}
-
 void BellController::queueForcedGrouped(uint8_t groupCount, uint8_t groupSize) {
     if (groupCount == 0 || groupSize == 0) {
         return;

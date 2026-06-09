@@ -103,10 +103,6 @@ void Display::loadBrightnessFromSettings() {
     setUserBrightness(_userBrightness);
 }
 
-void Display::saveBrightnessToSettings() {
-    _settings.saveBrightness(_userBrightness);
-}
-
 // =============================================================================
 // Top-level render dispatchers
 // =============================================================================
@@ -306,10 +302,6 @@ static uint8_t fontIndex(char c) {
     return 0;
 }
 
-static bool isAlphabeticGlyph(char c) {
-    return c >= 'A' && c <= 'Z';
-}
-
 static bool fontPixel(uint8_t i, bool small, int row, int col) {
     return small ? FONT_SMALL[i][row][col] : FONT_MEDIUM[i][row][col];
 }
@@ -424,17 +416,6 @@ void Display::drawMediumDigit(uint8_t digit, int x, int y) {
     for (int row = 0; row < TIME_FONT_MEDIUM_HEIGHT; row++) {
         for (int col = 0; col < 6; col++) {
             if (FONT_MEDIUM[digit][row][col]) {
-                setPixel(x + col, y + row, true);
-            }
-        }
-    }
-}
-
-void Display::drawBigDigit(uint8_t digit, int x, int y) {
-    if (digit > 9) return;
-    for (int row = 0; row < TIME_FONT_BIG_HEIGHT; row++) {
-        for (int col = 0; col < 6; col++) {
-            if (FONT_BIG[digit][row][col]) {
                 setPixel(x + col, y + row, true);
             }
         }
@@ -559,15 +540,6 @@ void Display::drawCenteredBigText(const char* s, int y) {
     int w = textWidthBig(s, 1, 2);
     int x = (COLS_PER_ROW - w) / 2;
     drawBigText(s, x, y);
-}
-
-void Display::drawSmallNumber(int16_t v, int x, int y) {
-    if (v < 10) {
-        drawSmallChar((char)('0' + v), x, y);
-    } else {
-        drawSmallChar('1', x, y);
-        drawSmallChar((char)('0' + (v - 10)), x + charWidth('1', true) + 1, y);
-    }
 }
 
 void Display::drawGuestWifiText(bool showSsid) {

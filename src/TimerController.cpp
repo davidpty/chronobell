@@ -282,10 +282,6 @@ bool TimerController::isCountdownView() const {
     return _view == TimerView::Countdown;
 }
 
-TimerView TimerController::view() const {
-    return _view;
-}
-
 bool TimerController::stopwatchRunning() const {
     return _stopwatchRunning;
 }

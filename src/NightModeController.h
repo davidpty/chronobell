@@ -11,7 +11,6 @@ public:
     void begin(NightMode mode);
 
     void setMode(NightMode mode);
-    NightMode mode() const { return _mode; }
 
     // Called once per render tick. Updates internal time-window state.
     // Returns the brightness the display should run at right now:
@@ -23,10 +22,6 @@ public:
     // True only when dark mode is in its off window and the first touch
     // should be consumed as a wake. Dim brightness does not count.
     bool isDisplaySuppressed() const { return _suppressed; }
-
-    // True when tick() last returned the saved user brightness rather than
-    // a night-mode dim value.
-    bool isUserBrightnessActive() const { return _userBrightnessActive; }
 
     // First-press-while-suppressed helper. If the display is suppressed and
     // no wake is currently active, opens a wake window and returns true.
@@ -40,13 +35,6 @@ public:
     // the given time-of-day (countdown alerts and forced bells are not
     // affected; they go through queueForced* paths).
     bool shouldMuteAutomaticBell(const ClockTime& now) const;
-
-    // True while a wake window is active (touch presses should act normally).
-    bool isAwake() const { return _wakeExpiresMs != 0; }
-
-    // True if a wake window is currently in effect that was started by
-    // consumeWakePress() or noteUserActivity().
-    bool isUserAwake() const { return _wakeExpiresMs != 0; }
 
 private:
     static bool inDimWindow(int h);

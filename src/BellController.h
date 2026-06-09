@@ -11,8 +11,6 @@ public:
     void update(const ClockTime& currentTime, bool timeValid, BellMode mode,
                 bool countdownExpired, bool muteAutomatic = false);
     void preview(BellMode mode, const ClockTime& currentTime, bool timeValid);
-    void queueForced(uint8_t count);
-    void queueForcedPairs(uint8_t count);
     void queueForcedGrouped(uint8_t groupCount, uint8_t groupSize);
     void stop();
     bool isBusy() const;

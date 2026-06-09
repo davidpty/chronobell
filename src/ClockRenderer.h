@@ -29,8 +29,6 @@ public:
     void drawDateView(DateStyle style);
     void drawSeconds(int seconds);
     void drawDeciseconds(int seconds, uint8_t deciseconds);
-    void drawDatePeek();
-
     // Renders a live clock preview in the chosen style. Used by the menu
     // Edit-mode preview phase (see MenuRenderer).
     void drawPreview(DisplayMode mode, ClockTime time);
@@ -56,18 +54,14 @@ private:
     void buildMinutePhrase(int minutes, bool toHour, int letterSpacing, int wordGap, char* out, size_t outSize) const;
 
     // Date helpers.
-    void drawNumericDateLine(int date, int month, int y);
     void drawMonthDayLine(int date, int month, int y);
     void drawDateStyleDate(const ClockDate& currentDate);
     void drawDateStyleYear(const ClockDate& currentDate);
     void drawDateStyleMoon(const ClockDate& currentDate);
     void drawDateStyleZod(const ClockDate& currentDate);
     void drawDateStyleCzod(const ClockDate& currentDate);
-    void drawCenteredSmallTextFit(const char* s, int y, int letterSpacing, int wordGap);
-    static const char* getChineseZodiacElementCode(int year);
     static const char* getChineseZodiacAnimalCode(int year);
     static int dayOfYear(int year, int month, int day);
-    static int isoWeekNumber(int year, int month, int day);
     static int isoWeeksInYear(int year);
     static bool isLeapYear(int year);
     static int weekdayMonday1(int year, int month, int day);

@@ -105,15 +105,10 @@
 //                          expired and not been acknowledged.
 // TIMER_ALERT_FLASH_MS   - Period at which the countdown display flashes on/off
 //                          while expired.
-// CLOCK_PEEK_DURATION_MS - How long each page is shown during a clock-info
-//                          peek (stopwatch / countdown / date).
-// CLOCK_PEEK_MAX_PAGES   - Max number of pages that can be queued for a peek.
 
 #define TIMER_ALERT_DURATION_MS       60000UL
 #define TIMER_ALERT_REPEAT_MS         10000UL
 #define TIMER_ALERT_FLASH_MS          500UL
-#define CLOCK_PEEK_DURATION_MS        5000UL
-#define CLOCK_PEEK_MAX_PAGES          3
 
 // =============================================================================
 // Touch-pad-4 long-press thresholds
@@ -138,10 +133,11 @@
 // extended edit flows.
 #define MENU_TIMEOUT_SHORT_MS         15000         // Auto-exit short-lived views after this much inactivity
 #define MENU_TIMEOUT_LONG_MS          30000         // Auto-cancel longer edit flows after this much inactivity
-#define LAST_VIEW_TIMEOUT_MINUTES     0             // Reset remembered non-clock view to Date after N idle min (0=off)
+
 #define MENU_BLINK_ON_MS              750           // Edit-mode value/preview visible duration
 #define MENU_BLINK_OFF_MS             250           // Edit-mode value/preview blank duration
 
+#define LAST_VIEW_TIMEOUT_MINUTES     0             // Reset remembered non-clock view to Date after N idle min (0=off)
 // Temporary view override timeout applied from the normal clock screen.
 // Set to 0 to disable left/right temporary style/date switching entirely.
 #define TEMP_OVERRIDE_MINUTES          360
@@ -187,16 +183,15 @@
 #define MODULE_COLS                   4             // Modules side-by-side
 #define MODULE_ROWS                   2             // Modules stacked
 
-#define COLS_PER_ROW                  32            // = MODULE_COLS * MODULE_WIDTH
-#define ROWS_PER_MODULE               8             // = MODULE_HEIGHT
-#define TOTAL_ROWS                    16            // = MODULE_ROWS * ROWS_PER_MODULE
+#define COLS_PER_ROW                  (MODULE_COLS * MODULE_WIDTH)
+#define ROWS_PER_MODULE               (MODULE_HEIGHT)
+#define TOTAL_ROWS                    (MODULE_ROWS * ROWS_PER_MODULE)
 
 // =============================================================================
 // SPI bus (MAX7219 LED matrix chain)
 // =============================================================================
 
 #define MAX7219_CS                    5             // SPI chip-select
-#define MAX7219_SCK                   18            // SPI clock (data on default MOSI)
 #define MAX7219_NUM_MODULES           8             // Number of daisy-chained MAX7219 chips
 
 // =============================================================================

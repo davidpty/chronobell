@@ -55,7 +55,6 @@ public:
 
     // Persistence helpers used by setup() and the brightness menu accessor.
     void loadBrightnessFromSettings();
-    void saveBrightnessToSettings();
 
     // Top-level render dispatcher used by ClockApp::render().
     void showTime();
@@ -77,7 +76,6 @@ public:
     // Tabular digit helpers for live time/timer displays. These keep every
     // digit in a fixed-width cell so changing values do not wobble.
     void drawMediumDigit(uint8_t digit, int x, int y);
-    void drawBigDigit(uint8_t digit, int x, int y);
     void drawTimerColon(int x, int y);
 
     // Text helpers are proportional: empty glyph columns are trimmed so menu,
@@ -92,7 +90,6 @@ public:
     void drawCenteredMediumText(const char* s, int y);
     void drawCenteredSmallText(const char* s, int y);
     void drawCenteredBigText(const char* s, int y);
-    void drawSmallNumber(int16_t v, int x, int y);
 
     // Guest WiFi alternating SSID / password display
     void setGuestWifiController(GuestWifiController* c);

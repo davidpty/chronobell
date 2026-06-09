@@ -15,7 +15,6 @@ public:
     bool isTextAvailable() const { return _passwordAvailable && !_disabled; }
     const char* ssid() const { return _ssid; }
     const char* password() const { return _password; }
-    void clear();
 
     bool isDisabled() const { return _disabled; }
 

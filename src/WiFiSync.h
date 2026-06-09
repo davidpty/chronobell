@@ -32,8 +32,6 @@ public:
     // (i.e. no RTC). Otherwise no-op.
     void updateIfActive();
 
-    bool isTimeSet() const { return _timeClient.isTimeSet(); }
-
     // Exposed for TimeProvider to wire its NTP source at boot.
     NTPClient& getNtpClient() { return _timeClient; }
 

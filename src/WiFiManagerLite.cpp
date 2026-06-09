@@ -402,11 +402,6 @@ void WiFiManagerLite::stopConfigMode() {
     _isConnected = false;
 }
 
-void WiFiManagerLite::startOTAUpdate() {
-    _otaUpdate = true;
-    LOGLN("OTA update started");
-}
-
 bool WiFiManagerLite::isUpdating() {
     return _otaUpdate || _portal.isUpdating();
 }

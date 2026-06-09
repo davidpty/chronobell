@@ -53,7 +53,7 @@ bool TouchController::begin() {
 
     Wire.beginTransmission(CAP1188_I2C_ADDRESS);
     Wire.write(0x30);
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < CAP1188_NUM_TOUCHES; i++) {
         uint8_t inputMask = (1 << i);
         Wire.write((CAP1188_ENABLED_INPUTS & inputMask) ? CAP1188_TOUCH_THRESHOLD : 0xFF);
     }
@@ -71,12 +71,12 @@ bool TouchController::begin() {
 }
 
 void TouchController::setHandler(uint8_t pad, const TouchPadConfig& config) {
-    if (pad < 1 || pad > 8) return;
+    if (pad < 1 || pad > CAP1188_NUM_TOUCHES) return;
     _configs[pad - 1] = config;
 }
 
 void TouchController::setPadRepeat(uint8_t pad, void (*onRepeat)(uint8_t), uint32_t initialDelayMs, uint32_t rateMs) {
-    if (pad < 1 || pad > 8) return;
+    if (pad < 1 || pad > CAP1188_NUM_TOUCHES) return;
     _configs[pad - 1].onRepeat = onRepeat;
     _configs[pad - 1].repeatInitialDelayMs = initialDelayMs;
     _configs[pad - 1].repeatRateMs = rateMs;
@@ -110,14 +110,14 @@ void TouchController::update() {
         _touchStatus = 0;
         _pressEdgeMask = 0;
         _releaseEdgeMask = 0;
-        for (uint8_t i = 0; i < 8; i++) {
+        for (uint8_t i = 0; i < CAP1188_NUM_TOUCHES; i++) {
             _rawChangeMs[i] = now;
         }
         _firstRead = false;
         return;
     }
 
-    for (uint8_t i = 0; i < 8; i++) {
+    for (uint8_t i = 0; i < CAP1188_NUM_TOUCHES; i++) {
         uint8_t mask = (1 << i);
         bool rawPressed = (status & mask) != 0;
         bool rawWasPressed = (_prevRawStatus & mask) != 0;
@@ -186,36 +186,14 @@ void TouchController::update() {
     _prevStatus = _touchStatus;
 }
 
-bool TouchController::available() const {
-    return _available;
-}
-
 bool TouchController::isPressed(uint8_t pad) const {
-    if (pad < 1 || pad > 8) return false;
+    if (pad < 1 || pad > CAP1188_NUM_TOUCHES) return false;
     return (_touchStatus & (1 << (pad - 1))) != 0;
 }
 
 uint32_t TouchController::heldMs(uint8_t pad) const {
-    if (pad < 1 || pad > 8 || !isPressed(pad)) return 0;
+    if (pad < 1 || pad > CAP1188_NUM_TOUCHES || !isPressed(pad)) return 0;
     return millis() - _pressStartMs[pad - 1];
 }
 
-bool TouchController::consumePress(uint8_t pad) {
-    if (pad < 1 || pad > 8) return false;
-    uint8_t mask = (1 << (pad - 1));
-    if (_pressEdgeMask & mask) {
-        _pressEdgeMask &= ~mask;
-        return true;
-    }
-    return false;
-}
 
-bool TouchController::consumeRelease(uint8_t pad) {
-    if (pad < 1 || pad > 8) return false;
-    uint8_t mask = (1 << (pad - 1));
-    if (_releaseEdgeMask & mask) {
-        _releaseEdgeMask &= ~mask;
-        return true;
-    }
-    return false;
-}

@@ -35,7 +35,6 @@ public:
     bool isNetworkServicesActive();
 
     // Firmware update methods
-    void startOTAUpdate();
     bool isUpdating();
 
 private:

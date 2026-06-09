@@ -168,8 +168,4 @@ void GuestWifiController::tryTimedFetch(int hours, int minutes, int year, int mo
     fetch(GUEST_WIFI_URL);
 }
 
-void GuestWifiController::clear() {
-    _ssid[0] = '\0';
-    _password[0] = '\0';
-    _passwordAvailable = false;
-}
+

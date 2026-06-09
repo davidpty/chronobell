@@ -19,23 +19,20 @@ public:
     void setHandler(uint8_t pad, const TouchPadConfig& config);
     void setPadRepeat(uint8_t pad, void (*onRepeat)(uint8_t), uint32_t initialDelayMs, uint32_t rateMs);
     void update();
-    bool available() const;
     bool isPressed(uint8_t pad) const;
     uint32_t heldMs(uint8_t pad) const;
-    bool consumePress(uint8_t pad);
-    bool consumeRelease(uint8_t pad);
 
 private:
     bool _available = false;
     volatile uint8_t _touchStatus = 0;
-    TouchPadConfig _configs[8];
+    TouchPadConfig _configs[CAP1188_NUM_TOUCHES];
     uint8_t _prevStatus = 0;
     uint8_t _prevRawStatus = 0;
-    uint32_t _rawChangeMs[8] = {0};
-    uint32_t _pressStartMs[8] = {0};
-    bool _holdFired[8] = {false};
-    uint32_t _lastRepeatMs[8] = {0};
-    bool _repeatActive[8] = {false};
+    uint32_t _rawChangeMs[CAP1188_NUM_TOUCHES] = {0};
+    uint32_t _pressStartMs[CAP1188_NUM_TOUCHES] = {0};
+    bool _holdFired[CAP1188_NUM_TOUCHES] = {false};
+    uint32_t _lastRepeatMs[CAP1188_NUM_TOUCHES] = {0};
+    bool _repeatActive[CAP1188_NUM_TOUCHES] = {false};
     bool _firstRead = true;
     uint8_t _pressEdgeMask = 0;
     uint8_t _releaseEdgeMask = 0;

@@ -46,7 +46,6 @@ public:
     bool isGuestWifiView() const;
     bool isStopwatchView() const;
     bool isCountdownView() const;
-    TimerView view() const;
 
     void setGuestWifiAvailableCallback(GuestWifiAvailableFn fn);
     bool stopwatchRunning() const;
