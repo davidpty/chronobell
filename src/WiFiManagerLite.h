@@ -34,6 +34,8 @@ public:
     void stopNetworkServices();
     bool isNetworkServicesActive();
 
+    bool hasCredentials();
+
     // Firmware update methods
     bool isUpdating();
 

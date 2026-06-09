@@ -38,6 +38,9 @@ void WiFiSync::performBootSync() {
             LOGLN("WiFi not configured and no RTC - clock may show incorrect time");
             _timeClient.begin();
         }
+        _lastSyncSucceeded = false;
+        _lastSyncAttemptMs = millis();
+        _firstSyncPending = false;
         return;
     }
 
@@ -62,10 +65,14 @@ void WiFiSync::performBootSync() {
 
     if (waitForNtp(1)) {
         applySyncedTime();
-        _retryDone = true;  // Don't retry this hour
+        _lastSyncSucceeded = true;
     } else {
         LOGLN("NTP sync failed - using RTC time");
+        _lastSyncSucceeded = false;
     }
+
+    _lastSyncAttemptMs = millis();
+    _firstSyncPending = false;
 
 #if KEEP_WIFI_ALIVE == 0
     // Power-saving: tear down LAN services and shut off WiFi after sync.
@@ -84,12 +91,23 @@ void WiFiSync::maybePeriodicSync() {
     return;
 #else
     if (TIME_SYNC_INTERVAL_MINUTES == 0) return;
-    if (_retryDone) return;
-    if (millis() - _lastSyncMs < (TIME_SYNC_INTERVAL_MINUTES * 60UL * 1000UL)) return;
 
-    LOGLN("\n=== Hourly WiFi retry ===");
-    performSyncNow(2);
-    _retryDone = true;  // Only one retry per hour
+    // First periodic sync fires right after boot sync completes.
+    if (_firstSyncPending) {
+        _firstSyncPending = false;
+        LOGLN("\n=== Initial periodic sync ===");
+        performSyncNow(2);
+        return;
+    }
+
+    unsigned long interval = _lastSyncSucceeded
+        ? (unsigned long)NTP_RETRY_SUCCESS_MINUTES * 60000UL
+        : (unsigned long)NTP_RETRY_FAILED_MINUTES * 60000UL;
+
+    if (millis() - _lastSyncAttemptMs >= interval) {
+        LOGLN("\n=== Periodic WiFi sync ===");
+        performSyncNow(2);
+    }
 #endif
 }
 
@@ -100,26 +118,33 @@ void WiFiSync::updateIfActive() {
 }
 
 void WiFiSync::performSyncNow(uint8_t timeoutMultiplier) {
-    // Skip the hourly sync if the user has the config portal open. The AP
-    // path will see isConnected()==false, but the wait loop would still
-    // spin for ~5 s calling WiFi APIs that fight the portal.
     if (_wifi->isInConfigMode()) {
         return;
     }
 
+    _lastSyncAttemptMs = millis();
+
     LOGLN("\n=== WiFi time sync ===");
     if (!_wifi->isConnected()) {
+#if KEEP_WIFI_ALIVE == 1
+        // WiFiManagerLite handles reconnection; just wait for it.
+        if (!waitForConnection(timeoutMultiplier)) {
+            LOGLN("WiFi connection failed");
+            _lastSyncSucceeded = false;
+            return;
+        }
+#else
+        // WiFi is powered off; explicitly reconnect.
         LOGLN("Connecting WiFi...");
         _wifi->reconnectSTA((int)WIFI_CONNECT_TIMEOUT * (int)timeoutMultiplier * 500);
-    }
-
-    if (!waitForConnection(timeoutMultiplier)) {
-        LOGLN("WiFi connection failed");
-#if KEEP_WIFI_ALIVE == 0
-        WiFi.disconnect(true);
-        WiFi.mode(WIFI_OFF);
+        if (!_wifi->isConnected()) {
+            LOGLN("WiFi connection failed");
+            _lastSyncSucceeded = false;
+            WiFi.disconnect(true);
+            WiFi.mode(WIFI_OFF);
+            return;
+        }
 #endif
-        return;
     }
 
     LOG("WiFi connected! IP: ");
@@ -134,8 +159,10 @@ void WiFiSync::performSyncNow(uint8_t timeoutMultiplier) {
 
     if (waitForNtp(timeoutMultiplier)) {
         applySyncedTime();
+        _lastSyncSucceeded = true;
     } else {
         LOGLN("NTP sync failed");
+        _lastSyncSucceeded = false;
     }
 
 #if KEEP_WIFI_ALIVE == 0
@@ -195,5 +222,4 @@ void WiFiSync::applySyncedTime() {
         LOGF("%02d:%02d:%02d\n", rtcTime.hours, rtcTime.minutes, rtcTime.seconds);
     }
 
-    _lastSyncMs = millis();
 }

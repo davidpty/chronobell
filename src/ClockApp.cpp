@@ -313,17 +313,17 @@ void ClockApp::tickGuestWifi() {
         return;
     }
 
-    // Boot fetch — tryBootFetch() is idempotent
-    _guestWifi.tryBootFetch();
-
-    // Daily timed fetch
     int h = 0, m = 0, s = 0;
-    if (getCurrentClockTime(h, m, s)) {
-        ClockDate d;
-        if (_timeProvider.currentDate(d)) {
-            _guestWifi.tryTimedFetch(h, m, d.year, d.month, d.date);
-        }
+    if (!getCurrentClockTime(h, m, s)) {
+        return;
     }
+
+    ClockDate d;
+    if (!_timeProvider.currentDate(d)) {
+        return;
+    }
+
+    _guestWifi.tick(h, m, d.year, d.month, d.date);
 }
 
 void ClockApp::pollLongPress() {
@@ -381,13 +381,13 @@ void ClockApp::updateBellSchedule() {
 
 void ClockApp::syncDisplayModeSelection() {
     if (_displayOverrideActive &&
-        TEMP_OVERRIDE_MINUTES > 0) {
+        LAST_STYLE_TIMEOUT_MINUTES > 0) {
         unsigned long now = millis();
         if ((int32_t)(now - _displayOverrideExpiresAt) >= 0 ||
             _savedDisplayMode != _displayOverrideSourceMode) {
             _displayOverrideActive = false;
         }
-    } else if (TEMP_OVERRIDE_MINUTES <= 0) {
+    } else if (LAST_STYLE_TIMEOUT_MINUTES <= 0) {
         _displayOverrideActive = false;
     }
 
@@ -426,12 +426,12 @@ void ClockApp::syncDisplayModeSelection() {
 
 void ClockApp::syncDateStyleSelection() {
     if (_dateStyleOverrideActive &&
-        TEMP_OVERRIDE_MINUTES > 0) {
+        LAST_STYLE_TIMEOUT_MINUTES > 0) {
         unsigned long now = millis();
         if ((int32_t)(now - _dateStyleOverrideExpiresAt) >= 0) {
             _dateStyleOverrideActive = false;
         }
-    } else if (TEMP_OVERRIDE_MINUTES <= 0) {
+    } else if (LAST_STYLE_TIMEOUT_MINUTES <= 0) {
         _dateStyleOverrideActive = false;
     }
 
@@ -441,7 +441,7 @@ void ClockApp::syncDateStyleSelection() {
 }
 
 void ClockApp::cycleTemporaryDisplayMode(int direction) {
-    if (TEMP_OVERRIDE_MINUTES <= 0) {
+    if (LAST_STYLE_TIMEOUT_MINUTES <= 0) {
         return;
     }
 
@@ -467,14 +467,14 @@ void ClockApp::cycleTemporaryDisplayMode(int direction) {
     _displayOverrideSourceMode = _savedDisplayMode;
     _displayOverrideActive = true;
     _displayOverrideExpiresAt =
-        millis() + (unsigned long)TEMP_OVERRIDE_MINUTES * 60000UL;
+        millis() + (unsigned long)LAST_STYLE_TIMEOUT_MINUTES * 60000UL;
     _displayMode = _overrideDisplayMode;
     LOG("Temporary clock style: ");
     LOGLN(displayModeLabel(mode));
 }
 
 void ClockApp::cycleTemporaryDateStyle(int direction) {
-    if (TEMP_OVERRIDE_MINUTES <= 0) {
+    if (LAST_STYLE_TIMEOUT_MINUTES <= 0) {
         return;
     }
 
@@ -488,7 +488,7 @@ void ClockApp::cycleTemporaryDateStyle(int direction) {
     _temporaryDateStyle = (DateStyle)nextIndex;
     _dateStyleOverrideActive = true;
     _dateStyleOverrideExpiresAt =
-        millis() + (unsigned long)TEMP_OVERRIDE_MINUTES * 60000UL;
+        millis() + (unsigned long)LAST_STYLE_TIMEOUT_MINUTES * 60000UL;
     _activeDateStyle = _temporaryDateStyle;
     LOG("Temporary date style: ");
     LOGLN(dateStyleLabel(_temporaryDateStyle));
@@ -585,7 +585,7 @@ void ClockApp::onTouchLeft(uint8_t pad) {
         return;
     }
     if (_timerController.isClockView()) {
-        if (TEMP_OVERRIDE_MINUTES > 0) {
+        if (LAST_STYLE_TIMEOUT_MINUTES > 0) {
             cycleTemporaryDisplayMode(-1);
             return;
         }
@@ -609,7 +609,7 @@ void ClockApp::onTouchRight(uint8_t pad) {
         return;
     }
     if (_timerController.isClockView()) {
-        if (TEMP_OVERRIDE_MINUTES > 0) {
+        if (LAST_STYLE_TIMEOUT_MINUTES > 0) {
             cycleTemporaryDisplayMode(1);
             return;
         }

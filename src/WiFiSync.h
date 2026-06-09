@@ -53,8 +53,9 @@ private:
     SettingsStore* _settings;
     AppSettings* _appSettings;
 
-    uint32_t _lastSyncMs = 0;
-    bool _retryDone = false;
+    unsigned long _lastSyncAttemptMs = 0;
+    bool _lastSyncSucceeded = false;
+    bool _firstSyncPending = true;
 };
 
 #endif // WIFI_SYNC_H

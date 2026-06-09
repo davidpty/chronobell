@@ -145,27 +145,50 @@ bool GuestWifiController::fetch(const char* url) {
     return true;
 }
 
-void GuestWifiController::tryBootFetch() {
-    if (_disabled || _bootFetchDone) {
-        return;
-    }
-    _bootFetchDone = true;
-    fetch(GUEST_WIFI_URL);
-}
-
-void GuestWifiController::tryTimedFetch(int hours, int minutes, int year, int month, int day) {
+void GuestWifiController::tick(int hours, int minutes, int year, int month, int day) {
     if (_disabled) {
         return;
     }
-    if (hours != GUEST_WIFI_FETCH_HOUR || minutes != GUEST_WIFI_FETCH_MINUTE) {
+
+    unsigned long nowMs = millis();
+    if (nowMs - _lastFetchMs < 1000) {
+        return; // Throttle: at most 1 fetch attempt per second
+    }
+
+    // Boot fetch: fire once at startup.
+    if (!_bootFetchDone) {
+        _bootFetchDone = true;
+        _lastFetchMs = nowMs;
+        if (!fetch(GUEST_WIFI_URL)) {
+            _fetchFailCount++;
+        }
         return;
     }
+
+    // Daily timed fetch: at the configured time, once per day.
     int todayKey = year * 10000 + month * 100 + day;
-    if (todayKey == _lastFetchDay) {
+    if (hours == GUEST_WIFI_FETCH_HOUR && minutes == GUEST_WIFI_FETCH_MINUTE && todayKey != _lastFetchDay) {
+        _lastFetchDay = todayKey;
+        _lastFetchMs = nowMs;
+        _fetchFailCount = 0; // Reset retry counter for the new day
+        if (!fetch(GUEST_WIFI_URL)) {
+            _fetchFailCount++;
+        }
         return;
     }
-    _lastFetchDay = todayKey;
-    fetch(GUEST_WIFI_URL);
+
+    // Retry: if a previous fetch (boot or timed) failed, try again every 5
+    // minutes, up to 12 total failures (~1 hour).
+    if (_fetchFailCount > 0 && _fetchFailCount < 12) {
+        if (nowMs - _lastFetchMs >= 300000UL) {
+            _lastFetchMs = nowMs;
+            _fetchFailCount++;
+            if (fetch(GUEST_WIFI_URL)) {
+                _fetchFailCount = 0;
+            }
+        }
+        return;
+    }
 }
 
 

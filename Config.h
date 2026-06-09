@@ -45,6 +45,9 @@
 #define WIFI_CONNECT_TIMEOUT          10            // Inner-loop connect attempts per sync cycle
 #define NTP_SYNC_TIMEOUT              5             // Inner-loop NTP update attempts per cycle
 
+#define NTP_RETRY_SUCCESS_MINUTES     60            // Sync interval after a successful NTP sync
+#define NTP_RETRY_FAILED_MINUTES      5             // Sync interval after a failed NTP sync
+
 #define NTP_SERVER                    "pool.ntp.org"
 
 #define MDNS_HOSTNAME                 "chronobell" // Advertised as <name>.local for OTA / discovery
@@ -137,10 +140,8 @@
 #define MENU_BLINK_ON_MS              750           // Edit-mode value/preview visible duration
 #define MENU_BLINK_OFF_MS             250           // Edit-mode value/preview blank duration
 
+#define LAST_STYLE_TIMEOUT_MINUTES    360           // Reset remembered clock view to configured View after N idle min (0=off)
 #define LAST_VIEW_TIMEOUT_MINUTES     0             // Reset remembered non-clock view to Date after N idle min (0=off)
-// Temporary view override timeout applied from the normal clock screen.
-// Set to 0 to disable left/right temporary style/date switching entirely.
-#define TEMP_OVERRIDE_MINUTES          360
 
 // Auto-restart after this many minutes in hotspot/config mode.
 // Set to 0 to disable (stay in config mode until manually exited).
@@ -233,6 +234,13 @@
 #define CAP1188_PRESS_DEBOUNCE_MS     30
 #define CAP1188_RELEASE_DEBOUNCE_MS   250
 #define CAP1188_MIN_ACTION_TOUCH_MS   30
+
+// =============================================================================
+// WiFi reconnection backoff intervals (used by WiFiManagerLite)
+// =============================================================================
+
+#define CONNECTION_SLOW_RETRY_LIMIT          12    // Max slow-phase retries before deep backoff
+#define CONNECTION_DEEP_BACKOFF_INTERVAL_MS  3600000UL  // 1 hour
 
 // =============================================================================
 // Serial

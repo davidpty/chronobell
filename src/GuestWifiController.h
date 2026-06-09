@@ -9,8 +9,7 @@ public:
     void begin();
 
     bool fetch(const char* url);
-    void tryBootFetch();
-    void tryTimedFetch(int hours, int minutes, int year, int month, int day);
+    void tick(int hours, int minutes, int year, int month, int day);
 
     bool isTextAvailable() const { return _passwordAvailable && !_disabled; }
     const char* ssid() const { return _ssid; }
@@ -25,6 +24,8 @@ private:
     bool _disabled = false;
     bool _bootFetchDone = false;
     int _lastFetchDay = -1;
+    unsigned long _lastFetchMs = 0;
+    int _fetchFailCount = 0;
 };
 
 #endif

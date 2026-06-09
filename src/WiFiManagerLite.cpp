@@ -148,11 +148,19 @@ void WiFiManagerLite::loop() {
     }
 #endif
 #if KEEP_WIFI_ALIVE == 1
-    if (!_inConfigMode && !_otaUpdate && _isConnected && WiFi.status() != WL_CONNECTED) {
+    if (!_inConfigMode && !_otaUpdate && WiFi.status() != WL_CONNECTED) {
+        // No credentials saved — nothing to reconnect to.
+        if (!hasCredentials()) return;
+
         uint32_t now = millis();
-        uint32_t retryInterval = (_connectionAttempts < CONNECTION_FAST_RETRY_LIMIT)
-            ? CONNECTION_RETRY_INTERVAL_MS
-            : CONNECTION_SLOW_RETRY_INTERVAL_MS;
+        uint32_t retryInterval;
+        if (_connectionAttempts < CONNECTION_FAST_RETRY_LIMIT) {
+            retryInterval = CONNECTION_RETRY_INTERVAL_MS;       // 30 s
+        } else if (_connectionAttempts < CONNECTION_SLOW_RETRY_LIMIT) {
+            retryInterval = CONNECTION_SLOW_RETRY_INTERVAL_MS;  // 5 min
+        } else {
+            retryInterval = CONNECTION_DEEP_BACKOFF_INTERVAL_MS; // 1 hour
+        }
         if (now - _lastConnectionAttempt >= retryInterval) {
             _lastConnectionAttempt = now;
             reconnectSTA(STA_TIMEOUT_MS);
@@ -195,6 +203,11 @@ String WiFiManagerLite::statusIPAddress(void* context) {
 // ============================================================================
 // Private Methods
 // ============================================================================
+
+bool WiFiManagerLite::hasCredentials() {
+    String ssid, password;
+    return loadCredentials(ssid, password);
+}
 
 bool WiFiManagerLite::loadCredentials(String& ssid, String& password) {
     _settings = _settingsStore.load();
