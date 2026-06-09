@@ -288,10 +288,7 @@ void ClockApp::tickWifiManager() {
 }
 
 void ClockApp::tickWifiSync() {
-#if ENABLE_WIFI_SYNC == 1
-    _wifiSync.maybePeriodicSync();
-#endif
-    _wifiSync.updateIfActive();
+    _wifiSync.tick();
 }
 
 void ClockApp::tickRtc() {

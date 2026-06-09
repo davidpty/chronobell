@@ -51,7 +51,7 @@ bool NightModeController::consumeWakePress() {
         // Already awake; let the press pass through.
         return false;
     }
-    _wakeExpiresMs = millis() + NIGHT_DISPLAY_WAKE_MS;
+    _wakeExpiresMs = millis() + NIGHT_DISPLAY_WAKE_MINUTES * 60000UL;
     return true;
 }
 
@@ -59,7 +59,7 @@ void NightModeController::noteUserActivity() {
     if (_wakeExpiresMs == 0) {
         return;
     }
-    _wakeExpiresMs = millis() + NIGHT_DISPLAY_WAKE_MS;
+    _wakeExpiresMs = millis() + NIGHT_DISPLAY_WAKE_MINUTES * 60000UL;
 }
 
 bool NightModeController::shouldMuteAutomaticBell(const ClockTime& now) const {

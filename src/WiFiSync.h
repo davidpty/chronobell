@@ -4,7 +4,6 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <NTPClient.h>
-
 #include "Config.h"
 
 class WiFiManagerLite;
@@ -21,27 +20,22 @@ public:
              SettingsStore& settings,
              AppSettings& appSettings);
 
-    // Called once from setup(): runs the boot-time NTP sync path
-    // (handles disabled-sync, no-credentials, and no-RTC branches).
     void performBootSync();
 
-    // Called from loop(): does the hourly NTP retry if it's time.
-    void maybePeriodicSync();
+    void tick();
 
-    // Forwards to NTPClient.update() when NTP is the active time source
-    // (i.e. no RTC). Otherwise no-op.
-    void updateIfActive();
-
-    // Exposed for TimeProvider to wire its NTP source at boot.
     NTPClient& getNtpClient() { return _timeClient; }
 
 private:
-    // Common sync implementation. `timeoutMultiplier` is 1 for the boot
-    // path and 2 for the periodic retry (which can afford to wait longer).
-    void performSyncNow(uint8_t timeoutMultiplier);
+    enum class Phase { Idle, WifiConnecting, NtpWaiting, Teardown };
 
-    bool waitForConnection(uint8_t timeoutMultiplier);
-    bool waitForNtp(uint8_t timeoutMultiplier);
+    void enterWifiPhase(uint8_t timeoutMultiplier);
+    void enterNtpPhase();
+    void tickPeriodic();
+    void tickWifi();
+    void tickNtp();
+    void tickTeardown();
+    void finishSync(bool succeeded);
     void applySyncedTime();
 
     WiFiUDP _ntpUDP;
@@ -56,6 +50,10 @@ private:
     unsigned long _lastSyncAttemptMs = 0;
     bool _lastSyncSucceeded = false;
     bool _firstSyncPending = true;
+
+    Phase _phase = Phase::Idle;
+    unsigned long _phaseStartMs = 0;
+    unsigned long _phaseTimeoutMs = 0;
 };
 
 #endif // WIFI_SYNC_H

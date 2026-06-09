@@ -47,7 +47,7 @@ void TimerController::update() {
     }
 
     if (_view == TimerView::Date) {
-        if (now - _viewActivityMs >= MENU_TIMEOUT_SHORT_MS) {
+        if (now - _viewActivityMs >= MENU_TIMEOUT_SHORT_SECONDS * 1000UL) {
             _view = TimerView::Clock;
             LOGLN("View timeout: date -> clock");
         }
@@ -55,8 +55,8 @@ void TimerController::update() {
     }
 
     if (_view == TimerView::GuestWifi) {
-#if GUEST_WIFI_VIEW_TIMEOUT_MS > 0
-        if (now - _viewActivityMs >= GUEST_WIFI_VIEW_TIMEOUT_MS) {
+#if GUEST_WIFI_VIEW_TIMEOUT_SECONDS * 1000UL > 0
+        if (now - _viewActivityMs >= GUEST_WIFI_VIEW_TIMEOUT_SECONDS * 1000UL) {
             _view = TimerView::Clock;
             LOGLN("View timeout: guest wifi -> clock");
         }
@@ -65,14 +65,14 @@ void TimerController::update() {
     }
 
     if (_view == TimerView::Stopwatch && !_stopwatchRunning &&
-        now - _viewActivityMs >= MENU_TIMEOUT_SHORT_MS) {
+        now - _viewActivityMs >= MENU_TIMEOUT_SHORT_SECONDS * 1000UL) {
         _view = TimerView::Clock;
         LOGLN("View timeout: stopwatch -> clock");
         return;
     }
 
     if (_view == TimerView::Countdown && !_countdownRunning &&
-        now - _viewActivityMs >= MENU_TIMEOUT_SHORT_MS) {
+        now - _viewActivityMs >= MENU_TIMEOUT_SHORT_SECONDS * 1000UL) {
         _view = TimerView::Clock;
         LOGLN("View timeout: countdown -> clock");
         return;
@@ -101,13 +101,13 @@ void TimerController::updateAlert() {
     }
 
     uint32_t now = millis();
-#if defined(TIMER_ALERT_DURATION_MS) && TIMER_ALERT_DURATION_MS > 0
-    if (now - _countdownAlertStartedMs >= TIMER_ALERT_DURATION_MS) {
+#if defined(TIMER_ALERT_DURATION_MINUTES) && TIMER_ALERT_DURATION_MINUTES > 0
+    if (now - _countdownAlertStartedMs >= TIMER_ALERT_DURATION_MINUTES * 60000UL) {
         acknowledgeAlert();
         return;
     }
 #endif
-    if (_countdownLastAlertMs == 0 || now - _countdownLastAlertMs >= TIMER_ALERT_REPEAT_MS) {
+    if (_countdownLastAlertMs == 0 || now - _countdownLastAlertMs >= TIMER_ALERT_REPEAT_SECONDS * 1000UL) {
         bool busy = _bellBusy && _bellBusy();
         if (!busy && _queueAlert) {
             _queueAlert(3);

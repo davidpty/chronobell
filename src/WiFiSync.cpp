@@ -31,11 +31,12 @@ void WiFiSync::performBootSync() {
     LOGLN("Initializing WiFi...");
     _wifi->begin();
 
-    if (!_wifi->isConnected()) {
+    if (!_wifi->hasCredentials()) {
+        LOGLN("No WiFi credentials saved");
         if (_rtcClock->available()) {
-            LOGLN("WiFi not configured - using RTC time");
+            LOGLN("Using RTC time");
         } else {
-            LOGLN("WiFi not configured and no RTC - clock may show incorrect time");
+            LOGLN("No RTC available - clock may show incorrect time");
             _timeClient.begin();
         }
         _lastSyncSucceeded = false;
@@ -44,59 +45,61 @@ void WiFiSync::performBootSync() {
         return;
     }
 
-    LOG("WiFi connected! IP: ");
-    LOGLN(_wifi->getIPAddress());
-
-#if KEEP_WIFI_ALIVE == 1
-    // Idempotent; safe to call again from the periodic sync path. Powers
-    // down with the device only.
-    _wifi->startNetworkServices();
-#endif
-
-    // Re-read settings in case the timezone was edited.
-    *_appSettings = _settings->load();
-    LOG("Timezone offset: ");
-    LOG((int)_appSettings->timezone.offsetMinutes);
-    LOGLN(" min");
-
-    _timeClient.setTimeOffset(_appSettings->timezone.offsetMinutes * 60);
-    _timeClient.begin();
-    LOGLN("NTP client initialized");
-
-    if (waitForNtp(1)) {
-        applySyncedTime();
-        _lastSyncSucceeded = true;
+    if (_wifi->isConnected()) {
+        LOGLN("WiFi already connected at boot");
+        _firstSyncPending = false;
+        enterNtpPhase();
     } else {
-        LOGLN("NTP sync failed - using RTC time");
-        _lastSyncSucceeded = false;
+        LOGLN("WiFi credentials found, connecting...");
+        _firstSyncPending = false;
+        _phaseStartMs = millis();
     }
-
+    _phase = Phase::WifiConnecting;
     _lastSyncAttemptMs = millis();
-    _firstSyncPending = false;
-
-#if KEEP_WIFI_ALIVE == 0
-    // Power-saving: tear down LAN services and shut off WiFi after sync.
-    if (_wifi->isNetworkServicesActive()) {
-        _wifi->stopNetworkServices();
-    }
-    LOGLN("Turning off WiFi after time sync");
-    WiFi.disconnect(true);
-    WiFi.mode(WIFI_OFF);
-#endif
 #endif
 }
 
-void WiFiSync::maybePeriodicSync() {
+void WiFiSync::tick() {
 #if ENABLE_WIFI_SYNC == 0
     return;
-#else
+#endif
+
+    if (_wifi->isInConfigMode() && _phase != Phase::Idle) {
+        LOGLN("Sync aborted: config mode active");
+        _phase = Phase::Idle;
+        return;
+    }
+
+    switch (_phase) {
+    case Phase::Idle:
+        if (!_rtcClock->available() && _timeClient.isTimeSet()) {
+            _timeClient.update();
+        }
+        tickPeriodic();
+        break;
+    case Phase::WifiConnecting:
+        tickWifi();
+        break;
+    case Phase::NtpWaiting:
+        tickNtp();
+        break;
+    case Phase::Teardown:
+        tickTeardown();
+        break;
+    }
+}
+
+// -----------------------------------------------------------------------------
+// State machine helpers
+// -----------------------------------------------------------------------------
+
+void WiFiSync::tickPeriodic() {
     if (TIME_SYNC_INTERVAL_MINUTES == 0) return;
 
-    // First periodic sync fires right after boot sync completes.
     if (_firstSyncPending) {
         _firstSyncPending = false;
         LOGLN("\n=== Initial periodic sync ===");
-        performSyncNow(2);
+        enterWifiPhase(2);
         return;
     }
 
@@ -106,106 +109,106 @@ void WiFiSync::maybePeriodicSync() {
 
     if (millis() - _lastSyncAttemptMs >= interval) {
         LOGLN("\n=== Periodic WiFi sync ===");
-        performSyncNow(2);
-    }
-#endif
-}
-
-void WiFiSync::updateIfActive() {
-    if (!_rtcClock->available() && _timeClient.isTimeSet()) {
-        _timeClient.update();
+        enterWifiPhase(2);
     }
 }
 
-void WiFiSync::performSyncNow(uint8_t timeoutMultiplier) {
-    if (_wifi->isInConfigMode()) {
+void WiFiSync::enterWifiPhase(uint8_t timeoutMultiplier) {
+    _lastSyncAttemptMs = millis();
+
+    if (_wifi->isConnected()) {
+        enterNtpPhase();
         return;
     }
 
-    _lastSyncAttemptMs = millis();
-
-    LOGLN("\n=== WiFi time sync ===");
-    if (!_wifi->isConnected()) {
-#if KEEP_WIFI_ALIVE == 1
-        // WiFiManagerLite handles reconnection; just wait for it.
-        if (!waitForConnection(timeoutMultiplier)) {
-            LOGLN("WiFi connection failed");
-            _lastSyncSucceeded = false;
-            return;
-        }
-#else
-        // WiFi is powered off; explicitly reconnect.
-        LOGLN("Connecting WiFi...");
-        _wifi->reconnectSTA((int)WIFI_CONNECT_TIMEOUT * (int)timeoutMultiplier * 500);
-        if (!_wifi->isConnected()) {
-            LOGLN("WiFi connection failed");
-            _lastSyncSucceeded = false;
-            WiFi.disconnect(true);
-            WiFi.mode(WIFI_OFF);
-            return;
-        }
-#endif
+    LOGLN("Connecting WiFi...");
+    int timeoutMs = (int)WIFI_CONNECT_ATTEMPTS * (int)timeoutMultiplier * 500;
+    if (!_wifi->reconnectSTA(timeoutMs)) {
+        finishSync(false);
+        return;
     }
+    _phase = Phase::WifiConnecting;
+    _phaseStartMs = millis();
+    _phaseTimeoutMs = (unsigned long)timeoutMs + 2000;
+}
 
+void WiFiSync::enterNtpPhase() {
     LOG("WiFi connected! IP: ");
     LOGLN(_wifi->getIPAddress());
 
-    // Idempotent: a no-op if already up (e.g. KEEP_WIFI_ALIVE=1 boot path).
     _wifi->startNetworkServices();
+
+    *_appSettings = _settings->load();
+    _timeClient.setTimeOffset(_appSettings->timezone.offsetMinutes * 60);
 
     if (!_timeClient.isTimeSet()) {
         _timeClient.begin();
     }
 
-    if (waitForNtp(timeoutMultiplier)) {
-        applySyncedTime();
-        _lastSyncSucceeded = true;
-    } else {
-        LOGLN("NTP sync failed");
-        _lastSyncSucceeded = false;
-    }
+    _phase = Phase::NtpWaiting;
+    _phaseStartMs = millis();
+    _phaseTimeoutMs = (unsigned long)NTP_SYNC_ATTEMPTS * 2 * 500;
+}
 
+void WiFiSync::tickWifi() {
+    if (_wifi->isConnected()) {
+        enterNtpPhase();
+        return;
+    }
+    if (millis() - _phaseStartMs >= _phaseTimeoutMs) {
+        LOGLN("WiFi connection timeout");
+        finishSync(false);
+    }
+}
+
+void WiFiSync::tickNtp() {
+    _timeClient.update();
+    if (_timeClient.isTimeSet()) {
+        LOGLN("NTP time received");
+        applySyncedTime();
+        finishSync(true);
+        return;
+    }
+    if (millis() - _phaseStartMs >= _phaseTimeoutMs) {
+        LOGLN("NTP sync timeout");
+        finishSync(false);
+    }
+}
+
+void WiFiSync::tickTeardown() {
 #if KEEP_WIFI_ALIVE == 0
     if (_wifi->isNetworkServicesActive()) {
         _wifi->stopNetworkServices();
     }
-    LOGLN("Turning off WiFi");
     WiFi.disconnect(true);
     WiFi.mode(WIFI_OFF);
 #endif
+    _phase = Phase::Idle;
 }
 
-bool WiFiSync::waitForConnection(uint8_t timeoutMultiplier) {
-    uint8_t attempts = 0;
-    uint8_t maxAttempts = WIFI_CONNECT_TIMEOUT * timeoutMultiplier;
-    while (!_wifi->isConnected() && attempts < maxAttempts) {
-        delay(500);
-        LOG(".");
-        attempts++;
-    }
-    LOGLN();
-    return _wifi->isConnected();
-}
+void WiFiSync::finishSync(bool succeeded) {
+    _firstSyncPending = false;
+    _lastSyncSucceeded = succeeded;
+    _lastSyncAttemptMs = millis();
 
-bool WiFiSync::waitForNtp(uint8_t timeoutMultiplier) {
-    LOG("Waiting for NTP sync");
-    uint8_t attempts = 0;
-    uint8_t maxAttempts = NTP_SYNC_TIMEOUT * timeoutMultiplier;
-    while (attempts < maxAttempts) {
-        if (_timeClient.update()) {
-            LOGLN();
-            return true;
+    if (succeeded) {
+        LOGLN("Time sync completed");
+    } else {
+        LOGLN("Time sync failed");
+        if (_rtcClock->available()) {
+            LOGLN("Using RTC time");
         }
-        delay(500);
-        LOG(".");
-        attempts++;
     }
-    LOGLN();
-    return false;
+
+#if KEEP_WIFI_ALIVE == 0
+    _phase = Phase::Teardown;
+    _phaseStartMs = millis();
+#else
+    _phase = Phase::Idle;
+#endif
 }
 
 void WiFiSync::applySyncedTime() {
-    LOGLN("Time synchronized!");
     LOG("Current time: ");
     LOGLN(_timeClient.getFormattedTime());
 
@@ -214,12 +217,12 @@ void WiFiSync::applySyncedTime() {
     _appSettings->manualTime.epoch = 0;
 
     if (_rtcClock->available()) {
-        _timeProvider->setRtcFromEpoch(_timeClient.getEpochTime());
+        time_t epoch = _timeClient.getEpochTime();
+        _timeProvider->setRtcFromEpoch(epoch);
         LOGLN("RTC updated with NTP time");
         _timeProvider->readRtc();
         ClockTime rtcTime = _rtcClock->getTime();
         LOG("RTC time after sync: ");
         LOGF("%02d:%02d:%02d\n", rtcTime.hours, rtcTime.minutes, rtcTime.seconds);
     }
-
 }

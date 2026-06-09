@@ -42,16 +42,16 @@
 #define ENABLE_WIFI_SYNC              1             // 1 = try WiFi+NTP, 0 = run fully offline
 #define TIME_SYNC_INTERVAL_MINUTES    60            // Minutes between periodic NTP re-syncs (0 = disable)
 
-#define WIFI_CONNECT_TIMEOUT          10            // Inner-loop connect attempts per sync cycle
-#define NTP_SYNC_TIMEOUT              5             // Inner-loop NTP update attempts per cycle
+#define WIFI_CONNECT_ATTEMPTS         10            // Inner-loop connect attempts per sync cycle
 
+#define NTP_SYNC_ATTEMPTS             5             // Inner-loop NTP update attempts per cycle
 #define NTP_RETRY_SUCCESS_MINUTES     60            // Sync interval after a successful NTP sync
 #define NTP_RETRY_FAILED_MINUTES      5             // Sync interval after a failed NTP sync
 
 #define NTP_SERVER                    "pool.ntp.org"
 
-#define MDNS_HOSTNAME                 "chronobell" // Advertised as <name>.local for OTA / discovery
-#define ARDUINO_OTA_PASSWORD          "chronobell" // Password required to push firmware via ArduinoOTA
+#define MDNS_HOSTNAME                 "chronobell"  // Advertised as <name>.local for OTA / discovery
+#define ARDUINO_OTA_PASSWORD          "chronobell"  // Password required to push firmware via ArduinoOTA
 
 // Config-mode access point (when the device opens its own WiFi network).
 #define AP_SSID                       "ChronoBell"
@@ -72,24 +72,24 @@
 #define GUEST_WIFI_URL               "http://192.168.8.1/qr/guest.txt"
 #define GUEST_WIFI_FETCH_HOUR        0
 #define GUEST_WIFI_FETCH_MINUTE      1
-#define GUEST_WIFI_FETCH_TIMEOUT_MS  5000
-#define GUEST_WIFI_TEXT_MAX_LEN      64
-#define GUEST_WIFI_SSID_MAX_LEN      32
-#define GUEST_WIFI_VIEW_TIMEOUT_MS   60000
-#define GUEST_WIFI_SSID_SHOW_MS      2500
-#define GUEST_WIFI_PASS_SHOW_MS      7500
+#define GUEST_WIFI_FETCH_TIMEOUT_SECONDS  5
+#define GUEST_WIFI_TEXT_MAX_LEN           64
+#define GUEST_WIFI_SSID_MAX_LEN           32
+#define GUEST_WIFI_VIEW_TIMEOUT_SECONDS   60
+#define GUEST_WIFI_SSID_SHOW_SECONDS      3
+#define GUEST_WIFI_PASS_SHOW_SECONDS      7
 
 // =============================================================================
 // Night mode display wake
 // =============================================================================
 //
-// NIGHT_DISPLAY_WAKE_MS - When night mode has the display suppressed and the
-//                         user presses a touch pad, the first press is
-//                         consumed as a wake and subsequent presses act
-//                         normally for this many milliseconds. The wake
-//                         window is extended on every touch activity.
+// NIGHT_DISPLAY_WAKE_MINUTES - When night mode has the display suppressed and
+//                              the user presses a touch pad, the first press
+//                              is consumed as a wake and subsequent presses
+//                              act normally for this many minutes. The wake
+//                              window is extended on every touch activity.
 
-#define NIGHT_DISPLAY_WAKE_MS         60000UL
+#define NIGHT_DISPLAY_WAKE_MINUTES         1
 
 #define NIGHT_DIM_START_HOUR          19
 #define NIGHT_DIM_END_HOUR            6
@@ -102,16 +102,17 @@
 // Timer / clock peek
 // =============================================================================
 //
-// TIMER_ALERT_DURATION_MS - How long a countdown alert rings/flashes before it
-//                           auto-acknowledges. 0 = ring until manually aborted.
-// TIMER_ALERT_REPEAT_MS  - Min ms between repeated alerts when a countdown has
-//                          expired and not been acknowledged.
-// TIMER_ALERT_FLASH_MS   - Period at which the countdown display flashes on/off
-//                          while expired.
+// TIMER_ALERT_DURATION_MINUTES - How long a countdown alert rings/flashes
+//                                before it auto-acknowledges. 0 = ring
+//                                until manually aborted.
+// TIMER_ALERT_REPEAT_SECONDS  - Min seconds between repeated alerts when a
+//                               countdown has expired and not been acknowledged.
+// TIMER_ALERT_FLASH_MS        - Period at which the countdown display flashes
+//                               on/off while expired.
 
-#define TIMER_ALERT_DURATION_MS       60000UL
-#define TIMER_ALERT_REPEAT_MS         10000UL
-#define TIMER_ALERT_FLASH_MS          500UL
+#define TIMER_ALERT_DURATION_MINUTES       1
+#define TIMER_ALERT_REPEAT_SECONDS         10
+#define TIMER_ALERT_FLASH_MS               500
 
 // =============================================================================
 // Touch-pad-4 long-press thresholds
@@ -134,14 +135,14 @@
 // 
 // Use the short timeout for brief secondary views and the long timeout for
 // extended edit flows.
-#define MENU_TIMEOUT_SHORT_MS         15000         // Auto-exit short-lived views after this much inactivity
-#define MENU_TIMEOUT_LONG_MS          30000         // Auto-cancel longer edit flows after this much inactivity
+#define MENU_TIMEOUT_SHORT_SECONDS         15         // Auto-exit short-lived views after this much inactivity
+#define MENU_TIMEOUT_LONG_SECONDS          30         // Auto-cancel longer edit flows after this much inactivity
 
 #define MENU_BLINK_ON_MS              750           // Edit-mode value/preview visible duration
 #define MENU_BLINK_OFF_MS             250           // Edit-mode value/preview blank duration
 
 #define LAST_STYLE_TIMEOUT_MINUTES    360           // Reset remembered clock view to configured View after N idle min (0=off)
-#define LAST_VIEW_TIMEOUT_MINUTES     0             // Reset remembered non-clock view to Date after N idle min (0=off)
+#define LAST_VIEW_TIMEOUT_MINUTES     360           // Reset remembered non-clock view to Date after N idle min (0=off)
 
 // Auto-restart after this many minutes in hotspot/config mode.
 // Set to 0 to disable (stay in config mode until manually exited).
@@ -240,7 +241,7 @@
 // =============================================================================
 
 #define CONNECTION_SLOW_RETRY_LIMIT          12    // Max slow-phase retries before deep backoff
-#define CONNECTION_DEEP_BACKOFF_INTERVAL_MS  3600000UL  // 1 hour
+#define CONNECTION_DEEP_BACKOFF_INTERVAL_MINUTES  60  // 1 hour
 
 // =============================================================================
 // Serial

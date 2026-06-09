@@ -144,10 +144,10 @@ void Display::showTime() {
         }
 
         unsigned long elapsed = millis() - _guestWifiViewStartMs;
-        unsigned long phase = elapsed % (GUEST_WIFI_SSID_SHOW_MS + GUEST_WIFI_PASS_SHOW_MS);
+        unsigned long phase = elapsed % (GUEST_WIFI_SSID_SHOW_SECONDS * 1000UL + GUEST_WIFI_PASS_SHOW_SECONDS * 1000UL);
 
         bool showSsid = (_guestWifi && _guestWifi->ssid()[0] != '\0')
-                        ? (phase < GUEST_WIFI_SSID_SHOW_MS)
+                        ? (phase < GUEST_WIFI_SSID_SHOW_SECONDS * 1000UL)
                         : false;
 
         drawGuestWifiText(showSsid);

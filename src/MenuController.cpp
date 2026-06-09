@@ -93,8 +93,8 @@ void MenuController::update() {
 
     uint32_t now = millis();
     uint32_t timeoutMs = (_state == MenuState::Edit)
-        ? MENU_TIMEOUT_LONG_MS
-        : MENU_TIMEOUT_SHORT_MS;
+        ? MENU_TIMEOUT_LONG_SECONDS * 1000UL
+        : MENU_TIMEOUT_SHORT_SECONDS * 1000UL;
     if (now - _lastActivityMs >= timeoutMs) {
         LOGLN("Menu: auto-timeout");
         if (_state == MenuState::Edit) {

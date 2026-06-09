@@ -1,7 +1,3 @@
-/**
- * WiFiManagerLite - Implementation
- */
-
 #include "Config.h"
 #include "WiFiManagerLite.h"
 #if ENABLE_OTA
@@ -11,7 +7,6 @@
 #include <ESPmDNS.h>
 #endif
 
-// Configuration constants
 const int WiFiManagerLite::STA_TIMEOUT_MS = 15000;
 const int WiFiManagerLite::CONNECTION_RETRY_INTERVAL_MS = 30000;
 const int WiFiManagerLite::CONNECTION_SLOW_RETRY_INTERVAL_MS = 300000;
@@ -50,27 +45,16 @@ bool WiFiManagerLite::begin() {
 
     loadSettings();
 
-    // Now check for WiFi credentials
     if (!loadCredentials(ssid, password)) {
         LOGLN("No stored Wi-Fi credentials found");
-        return false;  // Don't enter AP mode automatically
+        return false;
     }
 
     LOG("Loaded credentials for: ");
     LOGLN(ssid);
 
-    // Attempt to connect
-    if (connectSTA(ssid, password, STA_TIMEOUT_MS)) {
-        _isConnected = true;
-        _connectionAttempts = 0;
-        LOG("Wi-Fi connected! IP: ");
-        LOGLN(WiFi.localIP());
-        return true;
-    }
-
-    LOGLN("Failed to connect with stored credentials");
-    _isConnected = false;
-    return false;  // Don't enter AP mode automatically
+    startConnect(ssid, password, STA_TIMEOUT_MS);
+    return true;
 }
 
 bool WiFiManagerLite::reconnectSTA(int timeoutMs) {
@@ -78,7 +62,6 @@ bool WiFiManagerLite::reconnectSTA(int timeoutMs) {
         return false;
     }
 
-    bool shouldKeepTrying = _isConnected;
     String ssid, password;
     if (!loadCredentials(ssid, password)) {
         LOGLN("No stored Wi-Fi credentials found");
@@ -94,24 +77,7 @@ bool WiFiManagerLite::reconnectSTA(int timeoutMs) {
     LOG("Reconnecting Wi-Fi to: ");
     LOGLN(ssid);
 
-    if (!connectSTA(ssid, password, timeoutMs)) {
-        LOGLN("Wi-Fi reconnect failed");
-        _isConnected = shouldKeepTrying;
-        if (_connectionAttempts < 255) {
-            _connectionAttempts++;
-        }
-        return false;
-    }
-
-    _isConnected = true;
-    _connectionAttempts = 0;
-    LOG("Wi-Fi reconnected! IP: ");
-    LOGLN(WiFi.localIP());
-
-#if KEEP_WIFI_ALIVE == 1
-    startNetworkServices();
-#endif
-
+    startConnect(ssid, password, timeoutMs);
     return true;
 }
 
@@ -136,30 +102,28 @@ void WiFiManagerLite::loadSettings() {
 }
 
 void WiFiManagerLite::loop() {
+    pollConnect();
+
     if (_inConfigMode) {
         _portal.loop();
     }
-    // ArduinoOTA.handle() is pumped whenever the service is up, regardless
-    // of whether we are in config mode. With KEEP_WIFI_ALIVE=1 it stays
-    // up permanently after the first successful STA connect.
 #if ENABLE_OTA
     if (_arduinoOtaEnabled) {
         ArduinoOTA.handle();
     }
 #endif
 #if KEEP_WIFI_ALIVE == 1
-    if (!_inConfigMode && !_otaUpdate && WiFi.status() != WL_CONNECTED) {
-        // No credentials saved — nothing to reconnect to.
+    if (!_inConfigMode && !_otaUpdate && _connState != ConnState::Connecting && WiFi.status() != WL_CONNECTED) {
         if (!hasCredentials()) return;
 
         uint32_t now = millis();
         uint32_t retryInterval;
         if (_connectionAttempts < CONNECTION_FAST_RETRY_LIMIT) {
-            retryInterval = CONNECTION_RETRY_INTERVAL_MS;       // 30 s
+            retryInterval = CONNECTION_RETRY_INTERVAL_MS;
         } else if (_connectionAttempts < CONNECTION_SLOW_RETRY_LIMIT) {
-            retryInterval = CONNECTION_SLOW_RETRY_INTERVAL_MS;  // 5 min
+            retryInterval = CONNECTION_SLOW_RETRY_INTERVAL_MS;
         } else {
-            retryInterval = CONNECTION_DEEP_BACKOFF_INTERVAL_MS; // 1 hour
+            retryInterval = CONNECTION_DEEP_BACKOFF_INTERVAL_MINUTES * 60000UL;
         }
         if (now - _lastConnectionAttempt >= retryInterval) {
             _lastConnectionAttempt = now;
@@ -170,7 +134,7 @@ void WiFiManagerLite::loop() {
 }
 
 bool WiFiManagerLite::isConnected() {
-    return _isConnected && WiFi.status() == WL_CONNECTED && !_inConfigMode;
+    return _connState == ConnState::Connected && !_inConfigMode && WiFi.status() == WL_CONNECTED;
 }
 
 String WiFiManagerLite::getIPAddress() {
@@ -189,7 +153,7 @@ bool WiFiManagerLite::isInConfigMode() {
 
 bool WiFiManagerLite::statusConnected(void* context) {
     WiFiManagerLite* manager = static_cast<WiFiManagerLite*>(context);
-    return manager->_isConnected && WiFi.status() == WL_CONNECTED;
+    return manager->_connState == ConnState::Connected;
 }
 
 bool WiFiManagerLite::statusInConfigMode(void* context) {
@@ -199,10 +163,6 @@ bool WiFiManagerLite::statusInConfigMode(void* context) {
 String WiFiManagerLite::statusIPAddress(void* context) {
     return static_cast<WiFiManagerLite*>(context)->getIPAddress();
 }
-
-// ============================================================================
-// Private Methods
-// ============================================================================
 
 bool WiFiManagerLite::hasCredentials() {
     String ssid, password;
@@ -225,20 +185,46 @@ void WiFiManagerLite::clearCredentials() {
     _settings = settings;
 }
 
-bool WiFiManagerLite::connectSTA(const String& ssid, const String& password, int timeoutMs) {
+void WiFiManagerLite::startConnect(const String& ssid, const String& password, int timeoutMs) {
     WiFi.disconnect(true);
     WiFi.mode(WIFI_STA);
     WiFi.begin(ssid.c_str(), password.c_str());
+    _connState = ConnState::Connecting;
+    _connStartMs = millis();
+    _connTimeoutMs = timeoutMs;
+    _isConnected = false;
+}
 
-    unsigned long startTime = millis();
-    while (WiFi.status() != WL_CONNECTED) {
-        delay(100);
-        if (millis() - startTime > timeoutMs) {
-            WiFi.disconnect(true);
-            return false;
+void WiFiManagerLite::pollConnect() {
+    if (_connState == ConnState::Connected && WiFi.status() != WL_CONNECTED) {
+        _connState = ConnState::Idle;
+        _isConnected = false;
+        LOGLN("Wi-Fi connection lost");
+        return;
+    }
+    if (_connState != ConnState::Connecting) return;
+
+    if (WiFi.status() == WL_CONNECTED) {
+        _connState = ConnState::Connected;
+        _isConnected = true;
+        _connectionAttempts = 0;
+        LOG("Wi-Fi connected! IP: ");
+        LOGLN(WiFi.localIP());
+#if KEEP_WIFI_ALIVE == 1
+        startNetworkServices();
+#endif
+        return;
+    }
+
+    if (millis() - _connStartMs >= (unsigned long)_connTimeoutMs) {
+        LOGLN("Wi-Fi connection timeout");
+        WiFi.disconnect(true);
+        _connState = ConnState::Idle;
+        _isConnected = false;
+        if (_connectionAttempts < 255) {
+            _connectionAttempts++;
         }
     }
-    return true;
 }
 
 #if ENABLE_OTA
@@ -288,7 +274,7 @@ void WiFiManagerLite::startMDNS() {
 
 void WiFiManagerLite::startNetworkServices() {
     if (_networkServicesStarted) return;
-    if (!_isConnected || WiFi.status() != WL_CONNECTED) {
+    if (_connState != ConnState::Connected) {
         return;
     }
 #if ENABLE_MDNS
@@ -322,20 +308,17 @@ bool WiFiManagerLite::isNetworkServicesActive() {
 }
 
 void WiFiManagerLite::startConfigMode() {
-    // Tear down any always-on LAN services first so they do not hold a
-    // UDP/HTTP listener alive while the AP-mode portal is running. They
-    // will be re-started on the next boot (or next sync) if needed.
     stopNetworkServices();
 
     _inConfigMode = true;
     _configModeStation = false;
     _isConnected = false;
+    _connState = ConnState::Idle;
 
     LOGLN("Starting Configuration Mode...");
     LOG("AP SSID: ");
     LOGLN(AP_SSID);
 
-    // Load stored settings (credentials, timezone, clock style, hour format)
     String ssid, password;
     if (loadCredentials(ssid, password)) {
         LOG("Loaded stored SSID: ");
@@ -346,7 +329,6 @@ void WiFiManagerLite::startConfigMode() {
         LOGLN(timeFormatLabel(_settings.timeFormat));
     }
 
-    // Configure AP
     IPAddress apIP(192, 168, 4, 1);
     IPAddress apGateway(192, 168, 4, 1);
     IPAddress apSubnet(255, 255, 255, 0);
@@ -369,15 +351,19 @@ void WiFiManagerLite::startConfigModePreferStation() {
         LOG("Trying stored WiFi SSID: ");
         LOGLN(ssid);
 
-        if (connectSTA(ssid, password, STA_TIMEOUT_MS)) {
+        startConnect(ssid, password, STA_TIMEOUT_MS);
+        for (int i = 0; i < STA_TIMEOUT_MS / 100; i++) {
+            pollConnect();
+            if (_connState == ConnState::Connected || _connState == ConnState::Idle) break;
+            delay(100);
+        }
+
+        if (_connState == ConnState::Connected) {
             _inConfigMode = true;
             _configModeStation = true;
             _isConnected = true;
 
             _portal.beginStationMode();
-            // Re-use the always-on services path: same mDNS + ArduinoOTA
-            // are needed for the LAN portal. startNetworkServices() is
-            // idempotent and a no-op if already up.
             startNetworkServices();
 
             LOG("LAN configuration portal available at: http://");
@@ -400,9 +386,6 @@ void WiFiManagerLite::startConfigModePreferStation() {
 
 void WiFiManagerLite::stopConfigMode() {
     _inConfigMode = false;
-    // Network services (ArduinoOTA, mDNS) are owned by the always-on
-    // lifecycle now. stopNetworkServices() is a no-op if they were never
-    // started or were already cleaned up.
     stopNetworkServices();
     _portal.stop();
     if (_configModeStation) {
@@ -413,6 +396,7 @@ void WiFiManagerLite::stopConfigMode() {
     }
     _configModeStation = false;
     _isConnected = false;
+    _connState = ConnState::Idle;
 }
 
 bool WiFiManagerLite::isUpdating() {

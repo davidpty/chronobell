@@ -68,7 +68,7 @@ bool GuestWifiController::fetch(const char* url) {
     LOGLN(" ...");
 
     HTTPClient http;
-    http.setTimeout(GUEST_WIFI_FETCH_TIMEOUT_MS);
+    http.setTimeout(GUEST_WIFI_FETCH_TIMEOUT_SECONDS * 1000UL);
     http.begin(url);
 
     int code = http.GET();
