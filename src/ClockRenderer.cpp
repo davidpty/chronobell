@@ -1035,7 +1035,7 @@ const char* ClockRenderer::getChineseZodiacAnimalCode(int year) {
 }
 
 void ClockRenderer::drawDateStyleDate(const ClockDate& currentDate) {
-    static const char* const WEEKDAYS[] = {"SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"};
+    static const char* const WEEKDAYS[] = {"SUNDAY", "MONDAY", "TUESDAY", "WED", "THU", "FRIDAY", "SAT"};
 
     int day = currentDate.day;
     int date = currentDate.date;

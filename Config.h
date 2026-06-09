@@ -38,8 +38,7 @@
 // WiFi / NTP
 // =============================================================================
 
-#define KEEP_WIFI_ALIVE               1             // 1 = WiFi/STA/mDNS/ArduinoOTA stay up after the first successful connect
-                                                    // 0 = WiFi/STA powers down between hourly NTP
+#define KEEP_WIFI_ALIVE               1             // 0 = WiFi/ArduinoOTA power down or 1 =  stay up between hourly NTP
 #define ENABLE_WIFI_SYNC              1             // 1 = try WiFi+NTP, 0 = run fully offline
 #define TIME_SYNC_INTERVAL_MINUTES    60            // Minutes between periodic NTP re-syncs (0 = disable)
 
@@ -55,10 +54,6 @@
 #define AP_SSID                       "ChronoBell"
 #define AP_PASSWORD                   ""            // Empty string = open (no password) network
 #define AP_CHANNEL                    1             // 1..13
-
-// Auto-restart after this many minutes in hotspot/config mode.
-// Set to 0 to disable (stay in config mode until manually exited).
-#define CONFIG_MODE_TIMEOUT_MINUTES     60
 
 // =============================================================================
 // Guest WiFi password display
@@ -135,17 +130,25 @@
 #define MENU_EXTRA_LONG_PRESS         3000
 #define MENU_REPEAT_RATE_MS           500
 
+// =============================================================================
 // Shared UI inactivity timeouts.
+// =============================================================================
+// 
 // Use the short timeout for brief secondary views and the long timeout for
 // extended edit flows.
 #define MENU_TIMEOUT_SHORT_MS         15000         // Auto-exit short-lived views after this much inactivity
 #define MENU_TIMEOUT_LONG_MS          30000         // Auto-cancel longer edit flows after this much inactivity
+#define LAST_VIEW_TIMEOUT_MINUTES     0             // Reset remembered non-clock view to Date after N idle min (0=off)
 #define MENU_BLINK_ON_MS              750           // Edit-mode value/preview visible duration
 #define MENU_BLINK_OFF_MS             250           // Edit-mode value/preview blank duration
 
 // Temporary view override timeout applied from the normal clock screen.
 // Set to 0 to disable left/right temporary style/date switching entirely.
 #define TEMP_OVERRIDE_MINUTES          360
+
+// Auto-restart after this many minutes in hotspot/config mode.
+// Set to 0 to disable (stay in config mode until manually exited).
+#define CONFIG_MODE_TIMEOUT_MINUTES     60
 
 // =============================================================================
 // Bell output

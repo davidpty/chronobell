@@ -77,6 +77,14 @@ void TimerController::update() {
         LOGLN("View timeout: countdown -> clock");
         return;
     }
+
+#if LAST_VIEW_TIMEOUT_MINUTES > 0
+    if (_lastNonClockView != TimerView::Date &&
+        now - _viewActivityMs >= ((uint32_t)LAST_VIEW_TIMEOUT_MINUTES * 60 * 1000)) {
+        _lastNonClockView = TimerView::Date;
+        LOGLN("Last view timeout: reset to Date");
+    }
+#endif
 }
 
 void TimerController::setGuestWifiAvailableCallback(GuestWifiAvailableFn fn) {
