@@ -712,15 +712,9 @@ void ClockRenderer::drawSeparator(int x, int y, int seconds) {
 }
 
 void ClockRenderer::drawBigSeparator(int x, int y, int seconds) {
-#if BIG_TIME_BLINK_SEPARATOR
-    bool show = (seconds % 2 == 0);
-    _display->setPixel(x, y + 6, show);
-    _display->setPixel(x, y + 9, show);
-#else
     (void)seconds;
     _display->setPixel(x, y + 6, true);
     _display->setPixel(x, y + 9, true);
-#endif
 }
 
 void ClockRenderer::drawSeconds(int seconds) {

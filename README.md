@@ -84,7 +84,7 @@ The clock will reboot, connect to your network, sync time via NTP, and start run
 - See connection status and IP address
 - Upload firmware via web browser
 
-Reopen the portal by holding the center touch pad for 3 seconds, or press the BOOT button.
+Reopen the portal by holding the center touch pad for 5 seconds, or press the BOOT button.
 
 ## Touch Controls
 
@@ -119,7 +119,7 @@ Key constants in `Config.h`:
 | Setting | Default | Notes |
 |---------|---------|-------|
 | `CAP1188_TOUCH_THRESHOLD` | `0x35` | Touch sensitivity; lower = more sensitive |
-| `DISPLAY_BRIGHTNESS` | `4` | Default brightness (0-15) |
+
 | `DISPLAY_FLIP` | `0` | Set to `1` to rotate display 180° |
 | `BELL_PULSE_MS` | `500` | Bell coil-on duration |
 | `NIGHT_DIM_START_HOUR` | `19` (7 PM) | Night dimming begins |

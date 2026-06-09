@@ -98,7 +98,7 @@ DateStyle Display::currentDateStyle() const {
 }
 
 void Display::loadBrightnessFromSettings() {
-    _userBrightness = _settings.loadBrightness(DISPLAY_BRIGHTNESS);
+    _userBrightness = _settings.loadBrightness(4);
     LOGF("Loaded brightness from NVS: %d\n", (int)_userBrightness);
     setUserBrightness(_userBrightness);
 }
@@ -109,6 +109,12 @@ void Display::loadBrightnessFromSettings() {
 
 void Display::showTime() {
     memset(pixelBuffer, 0, sizeof(pixelBuffer));
+
+    if (_wifiManager.isUpdating()) {
+        drawCenteredMediumText("UPDATE", 3);
+        renderBuffer();
+        return;
+    }
 
     bool wasInGuestWifi = _wasGuestWifiView;
     _wasGuestWifiView = false;
@@ -540,6 +546,18 @@ void Display::drawCenteredBigText(const char* s, int y) {
     int w = textWidthBig(s, 1, 2);
     int x = (COLS_PER_ROW - w) / 2;
     drawBigText(s, x, y);
+}
+
+void Display::showOtaUpdate(bool active, unsigned int progress, unsigned int total) {
+    memset(pixelBuffer, 0, sizeof(pixelBuffer));
+    drawCenteredSmallText("UPDATE", 2);
+    if (active && total > 0) {
+        unsigned int pct = (progress * 100) / total;
+        char buf[8];
+        snprintf(buf, sizeof(buf), "%u%%", pct);
+        drawCenteredSmallText(buf, 9);
+    }
+    renderBuffer();
 }
 
 void Display::drawGuestWifiText(bool showSsid) {

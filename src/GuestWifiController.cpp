@@ -155,11 +155,14 @@ void GuestWifiController::tick(int hours, int minutes, int year, int month, int 
         return; // Throttle: at most 1 fetch attempt per second
     }
 
-    // Boot fetch: fire once at startup.
+    // Boot fetch: fire once at startup, but only mark done on success.
+    // If WiFi isn't connected yet (async boot), retry each tick instead
+    // of falling through to the 5‑minute retry path.
     if (!_bootFetchDone) {
-        _bootFetchDone = true;
         _lastFetchMs = nowMs;
-        if (!fetch(GUEST_WIFI_URL)) {
+        if (fetch(GUEST_WIFI_URL)) {
+            _bootFetchDone = true;
+        } else {
             _fetchFailCount++;
         }
         return;

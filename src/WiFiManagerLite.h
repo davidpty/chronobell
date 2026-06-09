@@ -1,6 +1,7 @@
 #ifndef WIFI_MANAGER_LITE_H
 #define WIFI_MANAGER_LITE_H
 
+#include <functional>
 #include "Config.h"
 #include <WiFi.h>
 #include "ConfigPortal.h"
@@ -27,6 +28,7 @@ public:
     bool hasCredentials();
 
     bool isUpdating();
+    void setOtaDisplayCallback(std::function<void(bool, unsigned int, unsigned int)> cb);
 
 private:
     enum class ConnState { Idle, Connecting, Connected };
@@ -50,6 +52,8 @@ private:
     bool _mdnsEnabled;
     bool _networkServicesStarted;
     ConfigPortal _portal;
+
+    std::function<void(bool, unsigned int, unsigned int)> _otaDisplayCb;
 
     ConnState _connState = ConnState::Idle;
     unsigned long _connStartMs = 0;

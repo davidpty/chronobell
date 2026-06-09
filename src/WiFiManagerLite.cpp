@@ -235,19 +235,23 @@ void WiFiManagerLite::startArduinoOTA() {
     ArduinoOTA.setPassword(_otaPassword.c_str());
     ArduinoOTA.onStart([this]() {
         _otaUpdate = true;
+        if (_otaDisplayCb) _otaDisplayCb(true, 0, 0);
         LOGLN("Arduino IDE OTA update started");
     });
     ArduinoOTA.onEnd([this]() {
         LOGLN("\nArduino IDE OTA update complete");
         _otaUpdate = false;
+        if (_otaDisplayCb) _otaDisplayCb(false, 100, 100);
     });
-    ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+    ArduinoOTA.onProgress([this](unsigned int progress, unsigned int total) {
+        if (_otaDisplayCb) _otaDisplayCb(true, progress, total);
         if (total > 0) {
             LOGF("Arduino IDE OTA progress: %u%%\r", (progress * 100) / total);
         }
     });
     ArduinoOTA.onError([this](ota_error_t error) {
         _otaUpdate = false;
+        if (_otaDisplayCb) _otaDisplayCb(false, 0, 0);
         LOGF("Arduino IDE OTA error[%u]\n", error);
     });
     ArduinoOTA.begin();
@@ -397,6 +401,11 @@ void WiFiManagerLite::stopConfigMode() {
     _configModeStation = false;
     _isConnected = false;
     _connState = ConnState::Idle;
+}
+
+void WiFiManagerLite::setOtaDisplayCallback(std::function<void(bool, unsigned int, unsigned int)> cb) {
+    _otaDisplayCb = cb;
+    _portal.setOtaDisplayCallback(cb);
 }
 
 bool WiFiManagerLite::isUpdating() {

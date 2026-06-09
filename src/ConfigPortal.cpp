@@ -975,7 +975,12 @@ int ConfigPortal::getRSSIPercentage(int rssi) {
 
 void ConfigPortal::startOTAUpdate() {
     _otaUpdate = true;
+    if (_otaDisplayCb) _otaDisplayCb(true, 0, 0);
     LOGLN("OTA update started");
+}
+
+void ConfigPortal::setOtaDisplayCallback(std::function<void(bool, unsigned int, unsigned int)> cb) {
+    _otaDisplayCb = cb;
 }
 
 bool ConfigPortal::isUpdating() {
@@ -1175,6 +1180,7 @@ void ConfigPortal::handleUpdateUpload() {
 
     if (upload.status == UPLOAD_FILE_START) {
         _otaUpdate = true;
+        if (_otaDisplayCb) _otaDisplayCb(true, 0, 100);
         LOGF("Starting firmware update: %s\n", upload.filename.c_str());
 
         if (!Update.begin(UPDATE_SIZE_UNKNOWN)) {
@@ -1185,17 +1191,24 @@ void ConfigPortal::handleUpdateUpload() {
         if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
             LOGLN("Update write failed");
         }
+        if (_otaDisplayCb) {
+            float p = Update.progress();
+            _otaDisplayCb(true, (unsigned int)(p * 100.0f), 100);
+        }
     } else if (upload.status == UPLOAD_FILE_END) {
         // Update finished
+        if (_otaDisplayCb) _otaDisplayCb(true, 100, 100);
         if (Update.end(true)) {
             LOGF("Update successful! Size: %u bytes\n", upload.totalSize);
         } else {
             LOGF("Update failed: %s\n", Update.errorString());
             _otaUpdate = false;
+            if (_otaDisplayCb) _otaDisplayCb(false, 0, 0);
         }
     } else if (upload.status == UPLOAD_FILE_ABORTED) {
         Update.abort();
         _otaUpdate = false;
+        if (_otaDisplayCb) _otaDisplayCb(false, 0, 0);
         LOGLN("Update aborted");
     }
 }

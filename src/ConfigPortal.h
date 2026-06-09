@@ -1,6 +1,7 @@
 #ifndef CONFIG_PORTAL_H
 #define CONFIG_PORTAL_H
 
+#include <functional>
 #include "Config.h"
 #include <Arduino.h>
 #include <DNSServer.h>
@@ -29,6 +30,7 @@ public:
 
     void startOTAUpdate();
     bool isUpdating();
+    void setOtaDisplayCallback(std::function<void(bool, unsigned int, unsigned int)> cb);
 
 #if ENABLE_OTA
     void handleUpdateForm();
@@ -43,6 +45,7 @@ private:
     WebServer _webServer;
     bool _configModeStation;
     bool _otaUpdate;
+    std::function<void(bool, unsigned int, unsigned int)> _otaDisplayCb;
     void* _statusContext;
     BoolStatusCallback _connectedCallback;
     BoolStatusCallback _inConfigModeCallback;

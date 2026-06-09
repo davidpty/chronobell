@@ -60,6 +60,10 @@ public:
     void showTime();
     void showHotspotSymbol();
 
+    // OTA update status display (called from ArduinoOTA callbacks, which fire
+    // inside the blocking handle() loop, so we must render here directly).
+    void showOtaUpdate(bool active, unsigned int progress, unsigned int total);
+
     // Renders a live clock preview in the given style. Used by the menu
     // Edit-mode preview phase. The caller is responsible for clearBuffer()
     // and renderBuffer() bracketing.
@@ -126,8 +130,8 @@ private:
     DateStyle* _dateStyle = nullptr;
 
     bool pixelBuffer[COLS_PER_ROW][TOTAL_ROWS];
-    int8_t _userBrightness = DISPLAY_BRIGHTNESS;
-    int8_t _brightness     = DISPLAY_BRIGHTNESS;
+    int8_t _userBrightness = 4;
+    int8_t _brightness     = 4;
     bool   _enabled = true;
 
     // Guest WiFi alternating display state

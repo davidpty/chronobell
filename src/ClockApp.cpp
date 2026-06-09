@@ -67,6 +67,11 @@ void ClockApp::beginControllers() {
     _display.setDateStyle(&_activeDateStyle);
     _display.setGuestWifiController(&_guestWifi);
 
+    _wifiManager.setOtaDisplayCallback(
+        [this](bool a, unsigned int p, unsigned int t) {
+            _display.showOtaUpdate(a, p, t);
+        });
+
     // GuestWifi callback is wired in the .ino file via a trampoline
 }
 
