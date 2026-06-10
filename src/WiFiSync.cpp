@@ -31,6 +31,17 @@ void WiFiSync::performBootSync() {
     LOGLN("Initializing WiFi...");
     _wifi->begin();
 
+    if (_appSettings->manualTime.enabled) {
+        LOGLN("Manual time mode — NTP sync disabled");
+        if (_rtcClock->available()) {
+            LOGLN("Using RTC time (manual)");
+        }
+        _lastSyncSucceeded = false;
+        _lastSyncAttemptMs = millis();
+        _firstSyncPending = false;
+        return;
+    }
+
     if (!_wifi->hasCredentials()) {
         LOGLN("No WiFi credentials saved");
         if (_rtcClock->available()) {
@@ -89,12 +100,19 @@ void WiFiSync::tick() {
     }
 }
 
+void WiFiSync::requestSync() {
+    if (_appSettings->manualTime.enabled) return;
+    _firstSyncPending = true;
+    LOGLN("\n=== Sync requested ===");
+}
+
 // -----------------------------------------------------------------------------
 // State machine helpers
 // -----------------------------------------------------------------------------
 
 void WiFiSync::tickPeriodic() {
     if (TIME_SYNC_INTERVAL_MINUTES == 0) return;
+    if (_appSettings->manualTime.enabled) return;
 
     if (_firstSyncPending) {
         _firstSyncPending = false;

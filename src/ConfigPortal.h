@@ -25,17 +25,21 @@ public:
 
     void beginAPMode();
     void beginStationMode();
+    void beginNormalMode();
+    void beginApOnly();
+    void stopApOnly();
+    bool isApActive();
     void loop();
     void stop();
 
     void startOTAUpdate();
     bool isUpdating();
     void setOtaDisplayCallback(std::function<void(bool, unsigned int, unsigned int)> cb);
+    void setSaveCallback(std::function<void(bool, bool, bool)> cb);
+    void setPreviewCallback(std::function<void(const String&)> cb);
 
 #if ENABLE_OTA
-    void handleUpdateForm();
     void handleUpdateUpload();
-    void handleUpdateStatus();
 #endif
 
 private:
@@ -44,6 +48,7 @@ private:
     DNSServer _dnsServer;
     WebServer _webServer;
     bool _configModeStation;
+    bool _dnsActive;
     bool _otaUpdate;
     size_t _otaExpectedSize;
     std::function<void(bool, unsigned int, unsigned int)> _otaDisplayCb;
@@ -51,6 +56,8 @@ private:
     BoolStatusCallback _connectedCallback;
     BoolStatusCallback _inConfigModeCallback;
     StringStatusCallback _ipAddressCallback;
+    std::function<void(bool, bool, bool)> _saveCb;
+    std::function<void(const String&)> _previewCb;
 
     bool currentConnected();
     bool currentInConfigMode();
@@ -60,6 +67,7 @@ private:
     void handleRoot();
     void handleScan();
     void handleSave();
+    void handleApply();
     void handleStatus();
     void handleCaptivePortal();
     void handleNotFound();

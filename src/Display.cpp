@@ -107,20 +107,30 @@ void Display::loadBrightnessFromSettings() {
 // Top-level render dispatchers
 // =============================================================================
 
+void Display::flashMessage(const char* line1, const char* line2, uint32_t durationMs) {
+    strncpy(_flashLine1, line1, sizeof(_flashLine1) - 1);
+    _flashLine1[sizeof(_flashLine1) - 1] = '\0';
+    strncpy(_flashLine2, line2, sizeof(_flashLine2) - 1);
+    _flashLine2[sizeof(_flashLine2) - 1] = '\0';
+    _flashEndMs = millis() + durationMs;
+}
+
 void Display::showTime() {
     memset(pixelBuffer, 0, sizeof(pixelBuffer));
+
+    if (_flashEndMs > millis()) {
+        drawCenteredSmallText(_flashLine1, 0);
+        drawCenteredSmallText(_flashLine2, 8);
+        renderBuffer();
+        return;
+    }
+    _flashEndMs = 0;
 
     bool wasInGuestWifi = _wasGuestWifiView;
     _wasGuestWifiView = false;
 
     if (_menu.isActive()) {
         _menuRenderer->renderMenu();
-        renderBuffer();
-        return;
-    }
-
-    if (_wifiManager.isInConfigMode()) {
-        showHotspotOnBuffer();
         renderBuffer();
         return;
     }

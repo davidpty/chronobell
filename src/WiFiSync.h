@@ -23,6 +23,7 @@ public:
     void performBootSync();
 
     void tick();
+    void requestSync();
 
     NTPClient& getNtpClient() { return _timeClient; }
 

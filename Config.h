@@ -78,11 +78,11 @@
 #define MENU_BLINK_OFF_MS                           250                                 // Edit-mode value/preview blank duration
 
 #define LAST_STYLE_TIMEOUT_MINUTES                  360                                 // Reset remembered clock view to configured View after N idle min (0=off)
-#define LAST_VIEW_TIMEOUT_MINUTES                   360                                 // Reset remembered non-clock view to Date after N idle min (0=off)
+#define LAST_DATEVIEW_TIMEOUT_MINUTES               5                                   // Reset remembered date view to configured after N idle min (0=off)
 
-// Auto-restart after this many minutes in hotspot/config mode.
-// Set to 0 to disable (stay in config mode until manually exited).
-#define CONFIG_MODE_TIMEOUT_MINUTES                 60                                  // Auto-restart after N min in hotspot (0 = stay)
+
+#define CONFIG_MODE_TIMEOUT_MINUTES                 60                                  // Auto-stop hotspot after N min (0 = stay until manual exit)
+#define HOTSPOT_FLASH_MS                            1000                                // ms to show HOTSPOT ON/OFF feedback on 5 s hold
 
 // ---------------------------------------------------------------------------
 // WiFi reconnection backoff (used by WiFiManagerLite)

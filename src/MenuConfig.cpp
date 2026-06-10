@@ -7,6 +7,7 @@
 #include "RtcClock.h"
 #include "SettingsStore.h"
 #include "TimeProvider.h"
+#include "WiFiManagerLite.h"
 
 static int16_t getBellModeMenu(void* ctx);
 static void    previewBellModeMenu(void* ctx, int16_t v);
@@ -26,6 +27,9 @@ static void    commitBrightnessMenu(void* ctx, int16_t v);
 static int16_t getNightModeMenu(void* ctx);
 static void    previewNightModeMenu(void* ctx, int16_t v);
 static void    commitNightModeMenu(void* ctx, int16_t v);
+static int16_t getHotspotMenu(void* ctx);
+static void    previewHotspotMenu(void* ctx, int16_t v);
+static void    commitHotspotMenu(void* ctx, int16_t v);
 static void    previewBellForMode(void* ctx, int16_t mode);
 
 const MenuItem MENU_ITEMS[] = {
@@ -41,6 +45,8 @@ const MenuItem MENU_ITEMS[] = {
              getBrightnessMenu, previewBrightnessMenu, commitBrightnessMenu, nullptr},
    {"DATE",   (int16_t)DateStyle::Date, (int16_t)DateStyle::Czod,
              getDateStyleMenu, previewDateStyleMenu, commitDateStyleMenu, nullptr},
+  {"HOTSPOT", 0, 1,
+             getHotspotMenu, previewHotspotMenu, commitHotspotMenu, nullptr},
 };
 const uint8_t MENU_ITEM_COUNT = sizeof(MENU_ITEMS) / sizeof(MENU_ITEMS[0]);
 
@@ -97,12 +103,17 @@ const char* nightValueName(int16_t value) {
     return "?";
 }
 
+static const char* onOffValueName(int16_t value) {
+    return value == 0 ? "OFF" : "ON";
+}
+
 const char* menuValueName(uint8_t index, int16_t value, void* /*ctx*/) {
     if (index == 0) return bellValueName(value);
     if (index == 1) return styleValueName(value);
     if (index == 2) return hourValueName(value);
     if (index == 3) return nightValueName(value);
     if (index == 5) return dateStyleValueName(value);
+    if (index == 6) return onOffValueName(value);
     return nullptr;
 }
 
@@ -194,6 +205,22 @@ static void commitNightModeMenu(void* ctx, int16_t v) {
     b->appSettings.nightMode = mode;
     b->nightMode = mode;
     b->settingsStore.saveNightMode(mode);
+}
+
+static int16_t getHotspotMenu(void* ctx) {
+    return (int16_t)static_cast<MenuBindings*>(ctx)->wifiManager.isHotspotActive();
+}
+static void previewHotspotMenu(void* ctx, int16_t v) {
+    (void)ctx;
+    (void)v;
+}
+static void commitHotspotMenu(void* ctx, int16_t v) {
+    MenuBindings* b = static_cast<MenuBindings*>(ctx);
+    if (v) {
+        b->wifiManager.startHotspot();
+    } else {
+        b->wifiManager.stopHotspot();
+    }
 }
 
 static void previewBellForMode(void* ctx, int16_t mode) {

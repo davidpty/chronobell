@@ -20,6 +20,9 @@ public:
     bool isConnected();
     String getIPAddress();
     bool isInConfigMode();
+    void startHotspot();
+    void stopHotspot();
+    bool isHotspotActive();
 
     void startNetworkServices();
     void stopNetworkServices();
@@ -29,6 +32,8 @@ public:
 
     bool isUpdating();
     void setOtaDisplayCallback(std::function<void(bool, unsigned int, unsigned int)> cb);
+    void setSaveCallback(std::function<void(bool, bool, bool)> cb);
+    void setPreviewCallback(std::function<void(const String&)> cb);
 
 private:
     enum class ConnState { Idle, Connecting, Connected };
@@ -43,6 +48,7 @@ private:
     bool _isConnected;
     bool _inConfigMode;
     bool _configModeStation;
+    bool _hotspotActive;
     unsigned long _lastConnectionAttempt;
     int _connectionAttempts;
     String _mdnsHostname;
@@ -51,9 +57,12 @@ private:
     bool _arduinoOtaEnabled;
     bool _mdnsEnabled;
     bool _networkServicesStarted;
+    bool _portalNormalMode;
     ConfigPortal _portal;
 
     std::function<void(bool, unsigned int, unsigned int)> _otaDisplayCb;
+    std::function<void(bool, bool, bool)> _saveCb;
+    std::function<void(const String&)> _previewCb;
 
     ConnState _connState = ConnState::Idle;
     unsigned long _connStartMs = 0;

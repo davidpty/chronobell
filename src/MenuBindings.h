@@ -16,6 +16,7 @@ struct MenuBindings {
     Display&        display;
     BellController& bellController;
     TimeProvider&   timeProvider;
+    WiFiManagerLite& wifiManager;
     BellMode&       bellMode;
     DisplayMode&    displayMode;
     TimeFormat&     timeFormat;

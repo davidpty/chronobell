@@ -45,7 +45,7 @@ ClockApp::ClockApp()
     , _wifiSync(_wifiManager, _timeProvider, _rtcClock, _settingsStore, _appSettings)
     , _display(_leds, _menuController, _timerController, _timeProvider, _settingsStore, _wifiManager)
     , _menuBindings{_appSettings, _settingsStore, _display, _bellController,
-                    _timeProvider, _bellMode, _savedDisplayMode, _timeFormat, _nightMode}
+                    _timeProvider, _wifiManager, _bellMode, _savedDisplayMode, _timeFormat, _nightMode}
 {
 }
 
@@ -71,6 +71,14 @@ void ClockApp::beginControllers() {
         [this](bool a, unsigned int p, unsigned int t) {
             _display.showOtaUpdate(a, p, t);
         });
+
+    _wifiManager.setSaveCallback([this](bool w, bool t, bool m) {
+        onSettingsSaved(w, t, m);
+    });
+
+    _wifiManager.setPreviewCallback([this](const String& field) {
+        onWebPreview(field);
+    });
 
     // GuestWifi callback is wired in the .ino file via a trampoline
 }
@@ -217,9 +225,6 @@ void ClockApp::applyManualTime() {
 
     LOGLN("Applying manual time setting...");
     _timeProvider.setRtcFromEpoch((time_t)manualEpoch);
-    _settingsStore.clearManualTime();
-    _appSettings.manualTime.enabled = false;
-    _appSettings.manualTime.epoch = 0;
     _timeProvider.readRtc();
     ClockTime t = _rtcClock.getTime();
     LOGF("RTC time after manual set: %02d:%02d:%02d\n",
@@ -239,12 +244,6 @@ void ClockApp::render() {
 
 void ClockApp::pollBootButton() {
     bool buttonPressed = (digitalRead(BOOT_BUTTON_PIN) == LOW);
-    bool currentlyInConfigMode = _wifiManager.isInConfigMode();
-
-    if (currentlyInConfigMode && !_inConfigMode) {
-        _inConfigMode = true;
-        LOGLN("=== Entered config/AP mode (via WiFiManager) ===");
-    }
 
     if (buttonPressed && !_buttonWasPressed) {
         _buttonPressStart = millis();
@@ -252,18 +251,13 @@ void ClockApp::pollBootButton() {
     } else if (!buttonPressed && _buttonWasPressed) {
         _buttonWasPressed = false;
 
-        if (_inConfigMode || _wifiManager.isInConfigMode()) {
-            LOGLN("Boot button short press in config mode - rebooting ESP32...");
-            restartFromConfigMode("Boot button");
-            return;
-        }
-
         LOG("Boot button short press: ");
         LOG(millis() - _buttonPressStart);
-        LOGLN("ms - opening config portal");
+        LOGLN("ms - entering menu");
 
-        _inConfigMode = true;
-        startConfigModePreferStationImmediately();
+        if (!_menuController.isActive()) {
+            _menuController.enterBrowse();
+        }
     }
 }
 
@@ -273,20 +267,22 @@ void ClockApp::pollTouch() {
 
 void ClockApp::tickWifiManager() {
     _wifiManager.loop();
-    if (_inConfigMode && !_wifiManager.isInConfigMode()) {
-        _inConfigMode = false;
+
+    if (_wifiManager.isHotspotActive() && _configModeStartMs == 0) {
+        _configModeStartMs = millis();
+    } else if (!_wifiManager.isHotspotActive() && _configModeStartMs != 0) {
         _configModeStartMs = 0;
-        LOGLN("Exited config mode");
     }
+
 #if CONFIG_MODE_TIMEOUT_MINUTES > 0
-    if (_inConfigMode && _configModeStartMs != 0) {
+    if (_wifiManager.isHotspotActive() && _configModeStartMs != 0) {
         unsigned long elapsed = (millis() - _configModeStartMs) / 60000UL;
         if (elapsed >= CONFIG_MODE_TIMEOUT_MINUTES) {
-            LOG("Config mode timeout (");
+            LOG("Hotspot timeout (");
             LOG(CONFIG_MODE_TIMEOUT_MINUTES);
-            LOGLN(" min) — rebooting...");
-            delay(100);
-            ESP.restart();
+            LOGLN(" min) — stopping hotspot");
+            _wifiManager.stopHotspot();
+            _configModeStartMs = 0;
         }
     }
 #endif
@@ -341,12 +337,6 @@ void ClockApp::pollLongPress() {
     if (heldMs < MENU_LONG_PRESS_MS) return;
 
     _t4LongPressHandled = true;
-
-    if (_wifiManager.isInConfigMode()) {
-        LOGLN("T4 1.5s: exit hotspot");
-        restartFromConfigMode("Touch pad");
-        return;
-    }
 
     if (_timerController.isCountdownExpired()) {
         LOGLN("T4 1.5s: acknowledge countdown alert");
@@ -576,7 +566,6 @@ void ClockApp::onTouchLeft(uint8_t pad) {
         onTouchMenuPrev(pad);
         return;
     }
-    if (_wifiManager.isInConfigMode()) return;
     _timerController.noteActivity();
     if (_nightModeController.consumeWakePress()) {
         return;
@@ -600,7 +589,6 @@ void ClockApp::onTouchRight(uint8_t pad) {
         onTouchMenuNext(pad);
         return;
     }
-    if (_wifiManager.isInConfigMode()) return;
     _timerController.noteActivity();
     if (_nightModeController.consumeWakePress()) {
         return;
@@ -620,7 +608,7 @@ void ClockApp::onTouchRight(uint8_t pad) {
 }
 
 void ClockApp::onTouchMiddleShort(uint8_t pad) {
-    if (_t4LongPressHandled || _wifiManager.isInConfigMode()) {
+    if (_t4LongPressHandled) {
         return;
     }
     if (_menuController.isActive()) {
@@ -636,37 +624,32 @@ void ClockApp::onTouchMiddleShort(uint8_t pad) {
 }
 
 void ClockApp::onEnterConfigOrExit(uint8_t pad) {
-    if (_menuController.isActive()) {
-        LOGF("Touch pad %u: held past 3 s, dismissing menu and opening portal\n", pad);
-        _menuController.exit();
+    LOGF("Touch pad %u: 5 s hold -> toggling hotspot\n", pad);
+
+    if (_wifiManager.isHotspotActive()) {
+        _wifiManager.stopHotspot();
     } else {
-        LOGF("Touch pad %u: 3 s hold -> config portal\n", pad);
+        _wifiManager.startHotspot();
     }
 
-    if (_inConfigMode || _wifiManager.isInConfigMode()) {
-        restartFromConfigMode("Touch pad");
-        return;
-    }
-
-    _inConfigMode = true;
-    startConfigModePreferStationImmediately();
+    _display.flashMessage("HOTSPOT", _wifiManager.isHotspotActive() ? "ON" : "OFF", HOTSPOT_FLASH_MS);
 }
 
 void ClockApp::onTouchMenuPrev(uint8_t pad) {
     (void)pad;
-    if (!_menuController.isActive() || _wifiManager.isInConfigMode()) return;
+    if (!_menuController.isActive()) return;
     _menuController.onPrev();
 }
 
 void ClockApp::onTouchMenuNext(uint8_t pad) {
     (void)pad;
-    if (!_menuController.isActive() || _wifiManager.isInConfigMode()) return;
+    if (!_menuController.isActive()) return;
     _menuController.onNext();
 }
 
 void ClockApp::onTouchMenuOk(uint8_t pad) {
     (void)pad;
-    if (!_menuController.isActive() || _wifiManager.isInConfigMode()) return;
+    if (!_menuController.isActive()) return;
     _menuController.onOk();
 }
 
@@ -679,7 +662,7 @@ void ClockApp::configureTouchRepeat(uint8_t pad, OnTouchFn onRepeat, uint32_t in
 }
 
 void ClockApp::onTouchLeftRepeat(uint8_t pad) {
-    if (!_menuController.isActive() || _wifiManager.isInConfigMode()) return;
+    if (!_menuController.isActive()) return;
     if (_menuController.isEdit()) {
         _menuController.onPrev();
     }
@@ -692,7 +675,6 @@ void ClockApp::onTouchRightRepeat(uint8_t pad) {
         }
         return;
     }
-    if (_wifiManager.isInConfigMode()) return;
     if (_timerController.isCountdownView()) {
         _timerController.noteActivity();
         _timerController.onRight();
@@ -715,49 +697,70 @@ void ClockApp::stopBell() {
     _bellController.stop();
 }
 
-void ClockApp::restartFromConfigMode(const char* source) {
-    if (_wifiManager.isUpdating()) {
-        LOG(source);
-        LOGLN(" held during firmware update - ignoring restart");
-        return;
+// =============================================================================
+// Live settings apply (called from config portal save callback)
+// =============================================================================
+
+void ClockApp::onSettingsSaved(bool wifiChanged, bool tzChanged, bool manualTimeChanged) {
+    LOGLN("Applying saved settings live...");
+
+    int16_t oldTzOffset = _appSettings.timezone.offsetMinutes;
+    bool oldManualEnabled = _appSettings.manualTime.enabled;
+    reloadSettings();
+
+    if (manualTimeChanged) {
+        LOGLN("Applying manual time...");
+        applyManualTime();
     }
 
-    LOG(source);
-    LOGLN(" held in config mode - rebooting ESP32...");
-    delay(100);
-    ESP.restart();
+    if (tzChanged) {
+        LOGLN("Applying timezone change live...");
+        NTPClient& ntp = _wifiSync.getNtpClient();
+        ntp.setTimeOffset(_appSettings.timezone.offsetMinutes * 60);
+        if (_rtcClock.available()) {
+            ClockTime ct = _rtcClock.getTime();
+            ClockDate cd = _rtcClock.getDate();
+            struct tm tm;
+            tm.tm_year = cd.year - 1900;
+            tm.tm_mon = cd.month - 1;
+            tm.tm_mday = cd.date;
+            tm.tm_hour = ct.hours;
+            tm.tm_min = ct.minutes;
+            tm.tm_sec = ct.seconds;
+            tm.tm_isdst = -1;
+            time_t localEpoch = mktime(&tm);
+            if (localEpoch > 0) {
+                time_t utcEpoch = localEpoch - (oldTzOffset * 60);
+                time_t newLocalEpoch = utcEpoch + (_appSettings.timezone.offsetMinutes * 60);
+                _timeProvider.setRtcFromEpoch(newLocalEpoch);
+            }
+        }
+    }
+
+    if (oldManualEnabled && !_appSettings.manualTime.enabled) {
+        LOGLN("Manual → atomic transition — forcing NTP sync...");
+        _wifiSync.requestSync();
+    }
+
+    applyDisplayBrightness();
+
+    if (wifiChanged) {
+        LOGLN("Wi-Fi credentials changed — reconnecting...");
+        _wifiManager.reconnectSTA(15000);
+    }
 }
 
-// =============================================================================
-// Config-mode helpers
-// =============================================================================
-
-void ClockApp::startConfigModeImmediately() {
-    LOGLN("=== ENTERING CONFIGURATION MODE ===");
-    LOG("AP SSID: ");
-    LOGLN(AP_SSID);
-    LOGLN("Connect to this AP to configure WiFi");
-    LOGLN("Press BOOT button, or hold touch pad 4 for 1.5 s, to reboot");
-
-    _configModeStartMs = millis();
-    _display.begin();
-    _display.showHotspotSymbol();
-
-    LOGLN("Hotspot symbol displayed");
-
-    _wifiManager.startConfigMode();
+void ClockApp::onWebPreview(const String& field) {
+    if (field == "datestyle") {
+        _timerController.showDateView();
+    } else if (field == "bellmode") {
+        ClockTime now;
+        if (getCurrentClockTime(now.hours, now.minutes, now.seconds)) {
+            _bellController.preview(_appSettings.bellMode, now, true);
+        }
+    } else {
+        _timerController.dismissView();
+    }
 }
 
-void ClockApp::startConfigModePreferStationImmediately() {
-    LOGLN("=== ENTERING CONFIGURATION MODE ===");
-    LOGLN("Trying saved WiFi before starting hotspot");
-    LOGLN("Press BOOT button, or hold touch pad 4 for 1.5 s, to reboot");
 
-    _configModeStartMs = millis();
-    _display.begin();
-    _display.showHotspotSymbol();
-
-    LOGLN("Config symbol displayed");
-
-    _wifiManager.startConfigModePreferStation();
-}

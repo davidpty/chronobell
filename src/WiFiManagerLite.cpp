@@ -18,6 +18,7 @@ WiFiManagerLite::WiFiManagerLite(SettingsStore& settingsStore)
     , _isConnected(false)
     , _inConfigMode(false)
     , _configModeStation(false)
+    , _hotspotActive(false)
     , _lastConnectionAttempt(0)
     , _connectionAttempts(0)
     , _mdnsHostname("chronobell")
@@ -26,6 +27,7 @@ WiFiManagerLite::WiFiManagerLite(SettingsStore& settingsStore)
     , _arduinoOtaEnabled(false)
     , _mdnsEnabled(false)
     , _networkServicesStarted(false)
+    , _portalNormalMode(false)
     , _portal(settingsStore)
 {
     _portal.setStatusProvider(this, statusConnected, statusInConfigMode, statusIPAddress);
@@ -104,7 +106,14 @@ void WiFiManagerLite::loadSettings() {
 void WiFiManagerLite::loop() {
     pollConnect();
 
-    if (_inConfigMode) {
+    if (!_inConfigMode && _connState == ConnState::Connected && !_portalNormalMode) {
+        _portal.beginNormalMode();
+        _portalNormalMode = true;
+    }
+
+    if (_inConfigMode || _hotspotActive) {
+        _portal.loop();
+    } else if (_portalNormalMode) {
         _portal.loop();
     }
 #if ENABLE_OTA
@@ -312,6 +321,10 @@ bool WiFiManagerLite::isNetworkServicesActive() {
 }
 
 void WiFiManagerLite::startConfigMode() {
+    if (_portalNormalMode) {
+        _portal.stop();
+        _portalNormalMode = false;
+    }
     stopNetworkServices();
 
     _inConfigMode = true;
@@ -348,6 +361,10 @@ void WiFiManagerLite::startConfigMode() {
 }
 
 void WiFiManagerLite::startConfigModePreferStation() {
+    if (_portalNormalMode) {
+        _portal.stop();
+        _portalNormalMode = false;
+    }
     LOGLN("Starting Configuration Mode (saved WiFi preferred)...");
 
     String ssid, password;
@@ -403,9 +420,54 @@ void WiFiManagerLite::stopConfigMode() {
     _connState = ConnState::Idle;
 }
 
+void WiFiManagerLite::startHotspot() {
+    if (_hotspotActive) return;
+
+    LOGLN("Starting hotspot AP alongside station...");
+
+    WiFi.mode(WIFI_AP_STA);
+    IPAddress apIP(192, 168, 4, 1);
+    IPAddress apGateway(192, 168, 4, 1);
+    IPAddress apSubnet(255, 255, 255, 0);
+    WiFi.softAPConfig(apIP, apGateway, apSubnet);
+    WiFi.softAP(AP_SSID, AP_PASSWORD, AP_CHANNEL);
+
+    _portal.beginApOnly();
+
+    _hotspotActive = true;
+    LOG("Hotspot active on SSID: ");
+    LOGLN(AP_SSID);
+}
+
+void WiFiManagerLite::stopHotspot() {
+    if (!_hotspotActive) return;
+
+    LOGLN("Stopping hotspot...");
+    _portal.stopApOnly();
+    WiFi.softAPdisconnect(true);
+    _hotspotActive = false;
+    LOGLN("Hotspot stopped - station WiFi continues normally");
+}
+
+bool WiFiManagerLite::isHotspotActive() {
+    return _hotspotActive;
+}
+
 void WiFiManagerLite::setOtaDisplayCallback(std::function<void(bool, unsigned int, unsigned int)> cb) {
     _otaDisplayCb = cb;
     _portal.setOtaDisplayCallback(cb);
+}
+
+void WiFiManagerLite::setSaveCallback(std::function<void(bool, bool, bool)> cb) {
+    _saveCb = cb;
+    _portal.setSaveCallback([this](bool w, bool t, bool m) {
+        if (_saveCb) _saveCb(w, t, m);
+    });
+}
+
+void WiFiManagerLite::setPreviewCallback(std::function<void(const String&)> cb) {
+    _previewCb = cb;
+    _portal.setPreviewCallback(cb);
 }
 
 bool WiFiManagerLite::isUpdating() {

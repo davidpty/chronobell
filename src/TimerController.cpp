@@ -22,6 +22,19 @@ void TimerController::setCallbacks(SavePresetCallback savePreset,
     _stopBell = stopBell;
 }
 
+void TimerController::showDateView() {
+    _view = TimerView::Date;
+    _viewActivityMs = millis();
+    LOGLN("Date view shown");
+}
+
+void TimerController::dismissView() {
+    if (_view != TimerView::Clock) {
+        _view = TimerView::Clock;
+        LOGLN("View dismissed to clock");
+    }
+}
+
 void TimerController::update() {
     uint32_t now = millis();
 
@@ -78,9 +91,9 @@ void TimerController::update() {
         return;
     }
 
-#if LAST_VIEW_TIMEOUT_MINUTES > 0
+#if LAST_DATEVIEW_TIMEOUT_MINUTES > 0
     if (_lastNonClockView != TimerView::Date &&
-        now - _viewActivityMs >= ((uint32_t)LAST_VIEW_TIMEOUT_MINUTES * 60 * 1000)) {
+        now - _viewActivityMs >= ((uint32_t)LAST_DATEVIEW_TIMEOUT_MINUTES * 60 * 1000)) {
         _lastNonClockView = TimerView::Date;
         LOGLN("Last view timeout: reset to Date");
     }
