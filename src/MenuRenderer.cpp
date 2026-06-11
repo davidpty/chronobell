@@ -120,16 +120,11 @@ void MenuRenderer::renderSetTimeEdit() {
         d2 = 0; d3 = 0;
         blinkFirst = true; blinkSecond = false;
         sep = 0;
-    } else if (step == 4) {
-        d0 = g_setDay / 10;   d1 = g_setDay % 10;
-        d2 = g_setMonth / 10; d3 = g_setMonth % 10;
-        blinkFirst = true;  blinkSecond = false;
-        sep = '-';
-    } else if (step == 5) {
-        d0 = g_setDay / 10;   d1 = g_setDay % 10;
-        d2 = g_setMonth / 10; d3 = g_setMonth % 10;
-        blinkFirst = false; blinkSecond = true;
-        sep = '-';
+    } else if (step == 4 || step == 5) {
+        d0 = g_setDay / 10; d1 = g_setDay % 10;
+        d2 = 0; d3 = 0;
+        blinkFirst = false; blinkSecond = false;
+        sep = 0;
     } else {
         d0 = (g_setYear / 1000) % 10;
         d1 = (g_setYear / 100) % 10;
@@ -142,6 +137,29 @@ void MenuRenderer::renderSetTimeEdit() {
     bool bo = _menu->blinkOn();
     int digW = 6;
     int gap = 1;
+
+    if (step == 4 || step == 5) {
+        static const char* const MONTHS[] = {"JAN","FEB","MAR","APR","MAY","JUN",
+                                             "JUL","AUG","SEP","OCT","NOV","DEC"};
+        uint8_t mi = (g_setMonth >= 1 && g_setMonth <= 12) ? g_setMonth - 1 : 0;
+        const char* mn = MONTHS[mi];
+        int mw = _display->menuTextWidth(mn, 6, 1);
+        int totalW = mw + gap + digW * 2 + gap;
+        int x = (COLS_PER_ROW - totalW) / 2;
+        bool blinkMonth = (step == 5);
+        bool blinkDay = (step == 4);
+
+        if (!blinkMonth || bo) {
+            _display->drawMediumText(mn, x, 6);
+        }
+        x += mw + gap;
+        if (!blinkDay || bo) {
+            _display->drawMediumDigit(d0, x, 6);
+            _display->drawMediumDigit(d1, x + digW + gap, 6);
+        }
+        return;
+    }
+
     bool twoDigit = (step == 3);
     int sepContentW = sep ? Display::charWidth(sep, false) : 0;
     int totalW = twoDigit ? (digW * 2 + gap) : (digW * 4 + gap * 4 + sepContentW);

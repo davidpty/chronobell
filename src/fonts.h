@@ -679,9 +679,9 @@ const uint8_t FONT_BIG[43][TIME_FONT_BIG_HEIGHT][6] = {
    {0,0,0,0,0,0}},
 };
 
-// Combined medium font: index 0-9 = '0'-'9', index 10-35 = 'A'-'Z', index 36 = '%', index 37 = '-', index 38 = '+', index 39 = 'o', index 40 = '^', index 41 = '@', index 42 = 'v', index 43 = ':', index 44 = '/'
+// Combined medium font: index 0-9 = '0'-'9', index 10-35 = 'A'-'Z', index 36 = '%', index 37 = '-', index 38 = '+', index 39 = 'o', index 40 = '^', index 41 = '@', index 42 = 'v', index 43 = ':'
 // 6 columns x 10 rows
-const uint8_t FONT_MEDIUM[45][TIME_FONT_MEDIUM_HEIGHT][6] = {
+const uint8_t FONT_MEDIUM[44][TIME_FONT_MEDIUM_HEIGHT][6] = {
   // 0
   {{0,1,1,1,1,0},
    {1,0,0,0,0,1},
@@ -1164,17 +1164,6 @@ const uint8_t FONT_MEDIUM[45][TIME_FONT_MEDIUM_HEIGHT][6] = {
     {0,0,0,0,0,0},
     {0,0,1,0,0,0},
     {0,0,0,0,0,0},
-    {0,0,0,0,0,0},
-    {0,0,0,0,0,0}},
-   // /
-   {{0,0,0,0,0,0},
-    {0,0,0,0,1,0},
-    {0,0,0,1,0,0},
-    {0,0,0,1,0,0},
-    {0,0,1,0,0,0},
-    {0,0,1,0,0,0},
-    {0,1,0,0,0,0},
-    {0,1,0,0,0,0},
     {0,0,0,0,0,0},
     {0,0,0,0,0,0}},
  };

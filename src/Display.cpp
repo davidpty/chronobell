@@ -272,7 +272,7 @@ void Display::renderBuffer() {
 // Font helpers (used by all renderers)
 // =============================================================================
 
-// FONT_MEDIUM and FONT_SMALL are combined: index 0-9 = '0'-'9', index 10-35 = 'A'-'Z', index 36 = '%', index 37 = '-', index 38 = '+', index 39 = 'o', index 40 = '^', index 41 = '@', index 42 = 'v'.
+// FONT_MEDIUM and FONT_SMALL are combined: index 0-9 = '0'-'9', index 10-35 = 'A'-'Z', index 36 = '%', index 37 = '-', index 38 = '+', index 39 = 'o', index 40 = '^', index 41 = '@', index 42 = 'v', index 43 = ':'.
 static uint8_t fontIndex(char c) {
     if (c >= 'A' && c <= 'Z') return (uint8_t)(c - 'A' + 10);
     if (c >= '0' && c <= '9') return (uint8_t)(c - '0');
@@ -284,7 +284,6 @@ static uint8_t fontIndex(char c) {
     if (c == '@') return 41;
     if (c == 'v') return 42;
     if (c == ':') return 43;
-    if (c == '/') return 44;
     return 0;
 }
 
