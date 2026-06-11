@@ -1,34 +1,34 @@
 # ChronoBell
 
-An ESP32-powered LED matrix clock with capacitive touch, a ship's bell, 8 display styles, and a web-based setup portal. Configure everything from the clock itself — no reflashing needed for everyday changes.
+An ESP32-powered LED matrix clock with capacitive touch, a ship's bell, 8 display styles, and a web-based setup portal. Configure everything from the clock itself - no reflashing needed for everyday changes.
 
 ![ChronoBell](chronobell.png) ![Config Portal](chronoportal.png)
 
 ## What makes it different
 
-**A bell that rings like a ship's clock** — Traditional 1-8 strike pattern from nautical tradition, plus five other modes (single ding, hour count, half-hour, pair). Preview each one live in the menu before you pick it. You'll hear it before you commit.
+**A bell that rings like a ship's clock** - Traditional 1-8 strike pattern from nautical tradition, plus five other modes (single ding, hour count, half-hour, pair). Preview each one live in the menu before you pick it. You'll hear it before you commit.
 
-**8 display styles + 5 date views** — Big digits, seconds, deciseconds, date overlay, word clock, Roman numerals, binary, or let it pick a random one each day. Date extras include moon phase, ISO year/week, Western zodiac, and Chinese zodiac. Tap to peek at any view temporarily.
+**8 display styles + 5 date views** - Big digits, seconds, deciseconds, date overlay, word clock, Roman numerals, binary, or let it pick a random one each day. Date extras include moon phase, ISO year/week, Western zodiac, and Chinese zodiac. Tap to peek at any view temporarily.
 
-**Guest WiFi on screen** — Fetches a guest network password at boot and shows it on the clock. No phone lookup, no hunting for sticky notes. Great for lobbies, cafes, offices.
+**Guest WiFi on screen** - Fetches a guest network password at boot and shows it on the clock. No phone lookup, no hunting for sticky notes. Great for lobbies, cafes, offices.
 
-**Set time manually or let it self-correct** — NTP syncs over WiFi when connected, backed by a battery-powered RTC chip that keeps time even offline. Or switch to manual mode and set the clock from the menu — hour, minute, second, month, day, year, all in sequence.
+**Set time manually or let it self-correct** - NTP syncs over WiFi when connected, backed by a battery-powered RTC chip that keeps time even offline. Or switch to manual mode and set the clock from the menu - hour, minute, second, month, day, year, all in sequence.
 
-**Two ways to configure** — Tap the menu to change any setting on the device itself. Or press the BOOT button or flip HOTSPOT to ON in the menu to open the setup portal in your browser for WiFi, timezone, brightness — even firmware updates.
+**Two ways to configure** - Tap the menu to change any setting on the device itself. Or press the BOOT button or flip HOTSPOT to ON in the menu to open the setup portal in your browser for WiFi, timezone, brightness - even firmware updates.
 
-**Three touch pads, no moving parts** — Left, center, right. Tap to navigate, hold for the menu, hold longer for auto-repeat. No buttons to wear out.
+**Three touch pads, no moving parts** - Left, center, right. Tap to navigate, hold for the menu, hold longer for auto-repeat. No buttons to wear out.
 
 ---
 
 ## What you can do with it
 
-- **Bell** — Off, single ding, hour count, half-hour, pair, or ship's bell. Hear a preview as you scroll.
-- **Timer** — Stopwatch and countdown with 11 built-in presets (1 to 90 minutes). When time's up: 9 bell strikes and a blinking `00:00` that auto-dismisses after 15 minutes.
-- **Night mode** — Dim the display, turn it off, mute the bell, or any combo — all on a schedule. Touch the clock to wake it up for a minute.
-- **Manual time** — Switch from atomic (NTP + RTC) to manual and step through HH→MM→SS→Month→Day→Year. Persists across reboots.
-- **Config portal** — Scan WiFi networks, pick a timezone, tune display and bell settings, upload firmware — all from your phone or laptop browser.
-- **Timekeeping** — NTP syncs every 60 minutes when WiFi is available. The RTC keeps accurate time when it's not. Manual mode bypasses both.
-- **OTA updates** — Push firmware over the air at `chronobell.local`.
+- **Bell** - Off, single ding, hour count, half-hour, pair, or ship's bell. Hear a preview as you scroll.
+- **Timer** - Stopwatch and countdown with 11 built-in presets (1 to 90 minutes). When time's up: 9 bell strikes and a blinking `00:00` that auto-dismisses after 15 minutes.
+- **Night mode** - Dim the display, turn it off, mute the bell, or any combo - all on a schedule. Touch the clock to wake it up for a minute.
+- **Manual time** - Switch from atomic (NTP + RTC) to manual and step through HH→MM→SS→Month→Day→Year. Persists across reboots.
+- **Config portal** - Scan WiFi networks, pick a timezone, tune display and bell settings, upload firmware - all from your phone or laptop browser.
+- **Timekeeping** - NTP syncs every 60 minutes when WiFi is available. The RTC keeps accurate time when it's not. Manual mode bypasses both.
+- **OTA updates** - Push firmware over the air at `chronobell.local`.
 
 ---
 
@@ -84,7 +84,7 @@ When night mode turns the display off, any touch wakes it for a minute.
 | BRIGHT | 0–15 | How bright the LEDs shine |
 | BELL | OFF / DING / HOUR / HALF / PAIR / SHIP | Bell mode (scroll to hear a preview) |
 | HOTSPOT | OFF / ON | Turn the web config portal on or off |
-| SETTIME | ATOMC / MANUAL | Time source — atomic (NTP + RTC) or manual entry |
+| SETTIME | ATOMC / MANUAL | Time source - atomic (NTP + RTC) or manual entry |
 
 Hold center to enter the menu, left/right to browse, tap center to edit, tap center again to confirm.
 
@@ -112,7 +112,7 @@ Tap center to advance each step. On the last step, the clock saves the new time 
 | RTC | DS1307 or DS3231 (battery-backed, keeps time when power is off) |
 | Touch | CAP1188 capacitive controller, 3 pads (left / center / right) |
 | Bell | Driven by GPIO 13 (active-high) |
-| Boot button | GPIO 0 — short press opens the config portal |
+| Boot button | GPIO 0 - short press opens the config portal |
 
 ### Pin map
 
@@ -134,7 +134,7 @@ Open `Config.h` to adjust these:
 
 | Constant | Default | What it does |
 |----------|---------|-------------|
-| `CAP1188_TOUCH_THRESHOLD` | `0x35` | Touch sensitivity — lower numbers trip more easily |
+| `CAP1188_TOUCH_THRESHOLD` | `0x35` | Touch sensitivity - lower numbers trip more easily |
 | `DISPLAY_FLIP` | `0` | Set to `1` if your display is mounted upside-down |
 | `BELL_PULSE_MS` | `500` | How long the bell coil stays on per strike |
 | `NIGHT_DIM_START_HOUR` | `19` (7 PM) | When dimming starts |
@@ -154,4 +154,4 @@ Once the clock is on your network, find it at `chronobell.local` and push firmwa
 pio run --target upload --upload-port chronobell.local
 ```
 
-You can also upload a `.bin` file through the web config portal — no cables needed.
+You can also upload a `.bin` file through the web config portal - no cables needed.
