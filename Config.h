@@ -59,10 +59,8 @@
 // ---------------------------------------------------------------------------
 
 #define TIMER_ALERT_DURATION_MINUTES                5                                   // Auto-ack after N min (0 = ring forever)
-#define TIMER_ALERT_REPEAT_SECONDS                  10                                  // Min gap between repeat alerts
-#define TIMER_ALERT_FLASH_MS                        500                                 // Flash period while expired
 #define TIMER_ALERT_SHOW_TIMEOUT_MINUTES            15                                  // Auto-dismiss 00:00 after N min (0 = stay until manual tap)
-
+#define TIMER_ALERT_REPEAT_SECONDS                  10                                  // Gap between repeat alerts
 // ---------------------------------------------------------------------------
 // UI / interaction
 // ---------------------------------------------------------------------------
@@ -73,8 +71,8 @@
 #define MENU_TIMEOUT_SHORT_SECONDS                  15                                  // Auto-exit short-lived views after this much inactivity
 #define MENU_TIMEOUT_LONG_SECONDS                   30                                  // Auto-cancel longer edit flows after this much inactivity
 
-#define MENU_BLINK_ON_MS                            750                                 // Edit-mode value/preview visible duration
-#define MENU_BLINK_OFF_MS                           250                                 // Edit-mode value/preview blank duration
+#define BLINK_ON_MS                                 750                                 // Blink visible duration (menu, timer alert, etc.)
+#define BLINK_OFF_MS                                250                                 // Blink blank duration (menu, timer alert, etc.)
 
 #define LAST_STYLE_TIMEOUT_MINUTES                  360                                 // Reset remembered clock view to configured View after N idle min (0=off)
 #define LAST_DATEVIEW_TIMEOUT_MINUTES               5                                   // Reset remembered date view to configured after N idle min (0=off)

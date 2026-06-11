@@ -122,7 +122,7 @@ void MenuController::update() {
     }
 
     if (_state == MenuState::Edit) {
-        uint32_t blinkDuration = _blinkOn ? MENU_BLINK_ON_MS : MENU_BLINK_OFF_MS;
+        uint32_t blinkDuration = _blinkOn ? BLINK_ON_MS : BLINK_OFF_MS;
         if (now - _lastBlinkMs < blinkDuration) {
             return;
         }

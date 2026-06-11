@@ -129,7 +129,7 @@ void TimerRenderer::renderCountdown() {
 }
 
 void TimerRenderer::renderCountdownAlert() {
-    if (((millis() / TIMER_ALERT_FLASH_MS) % 2UL) == 0) {
+    if ((millis() % (BLINK_ON_MS + BLINK_OFF_MS)) < BLINK_ON_MS) {
         drawTimerDuration(0, false);
     }
 }
