@@ -32,13 +32,11 @@ ClockApp app;
 
 // Touch pad wiring:
 //   Pad 1 (physical right)  -> increment / next menu item
-//   Pad 4 (centre)          -> OK / short action; 3 s hold opens portal
+//   Pad 4 (centre)          -> OK / short action
 //   Pad 8 (physical left)   -> decrement / previous menu item
 static void onTouchPad1Press(uint8_t pad)    { app.onTouchRight(pad); }
 static void onTouchPad8Press(uint8_t pad)    { app.onTouchLeft(pad); }
 static void onTouchPad4Release(uint8_t pad)  { app.onTouchMiddleShort(pad); }
-static void onTouchPad4Hold(uint8_t pad)     { app.onEnterConfigOrExit(pad); }
-
 // Auto-repeat handlers: fire same action repeatedly while held for
 // MENU_LONG_PRESS_MS, at MENU_REPEAT_RATE_MS intervals.
 static void onTouchPad1Repeat(uint8_t pad)   { app.onTouchRightRepeat(pad); }
@@ -65,7 +63,7 @@ void setup() {
     app.wireTimerCallbacks(onSaveCountdownPreset, onQueueBellAlert,
                            onBellBusy, onStopBell);
     app.installTouchHandlers(onTouchPad1Press, onTouchPad8Press,
-                             onTouchPad4Release, onTouchPad4Hold);
+                             onTouchPad4Release);
     app.configureTouchRepeat(1, onTouchPad1Repeat,
                              MENU_LONG_PRESS_MS, MENU_REPEAT_RATE_MS);
     app.configureTouchRepeat(8, onTouchPad8Repeat,

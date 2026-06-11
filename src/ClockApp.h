@@ -39,8 +39,7 @@ public:
                             StopBellFn   stopBell);
     void installTouchHandlers(OnTouchFn onPad1Press,
                               OnTouchFn onPad8Press,
-                              OnTouchFn onPad4Release,
-                              OnTouchFn onPad4Hold);
+                              OnTouchFn onPad4Release);
 
     void initSerialAndPins();
     void initDisplay();
@@ -76,7 +75,6 @@ public:
     void onTouchLeft(uint8_t pad);
     void onTouchRight(uint8_t pad);
     void onTouchMiddleShort(uint8_t pad);
-    void onEnterConfigOrExit(uint8_t pad);
     void saveCountdownPreset(uint8_t presetIndex);
     void queueBellAlert(uint8_t groups);
     bool isBellBusy() const;

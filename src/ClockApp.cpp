@@ -92,16 +92,13 @@ void ClockApp::wireTimerCallbacks(SavePresetFn savePreset,
 
 void ClockApp::installTouchHandlers(OnTouchFn onPad1Press,
                                     OnTouchFn onPad8Press,
-                                    OnTouchFn onPad4Release,
-                                    OnTouchFn onPad4Hold) {
+                                    OnTouchFn onPad4Release) {
     TouchPadConfig pad1;
     pad1.onPress = onPad1Press;
     _touchController.setHandler(1, pad1);
 
     TouchPadConfig pad4;
     pad4.onRelease = onPad4Release;
-    pad4.holdMs    = MENU_EXTRA_LONG_PRESS;
-    pad4.onHold    = onPad4Hold;
     _touchController.setHandler(4, pad4);
 
     TouchPadConfig pad8;
@@ -274,12 +271,12 @@ void ClockApp::tickWifiManager() {
         _configModeStartMs = 0;
     }
 
-#if CONFIG_MODE_TIMEOUT_MINUTES > 0
+#if HOTSPOT_TIMEOUT_MINUTES > 0
     if (_wifiManager.isHotspotActive() && _configModeStartMs != 0) {
         unsigned long elapsed = (millis() - _configModeStartMs) / 60000UL;
-        if (elapsed >= CONFIG_MODE_TIMEOUT_MINUTES) {
+        if (elapsed >= HOTSPOT_TIMEOUT_MINUTES) {
             LOG("Hotspot timeout (");
-            LOG(CONFIG_MODE_TIMEOUT_MINUTES);
+            LOG(HOTSPOT_TIMEOUT_MINUTES);
             LOGLN(" min) — stopping hotspot");
             _wifiManager.stopHotspot();
             _configModeStartMs = 0;
@@ -623,18 +620,6 @@ void ClockApp::onTouchMiddleShort(uint8_t pad) {
     _timerController.onMiddleShort();
 }
 
-void ClockApp::onEnterConfigOrExit(uint8_t pad) {
-    LOGF("Touch pad %u: 5 s hold -> toggling hotspot\n", pad);
-
-    if (_wifiManager.isHotspotActive()) {
-        _wifiManager.stopHotspot();
-    } else {
-        _wifiManager.startHotspot();
-    }
-
-    _display.flashMessage("HOTSPOT", _wifiManager.isHotspotActive() ? "ON" : "OFF", HOTSPOT_FLASH_MS);
-}
-
 void ClockApp::onTouchMenuPrev(uint8_t pad) {
     (void)pad;
     if (!_menuController.isActive()) return;
@@ -751,7 +736,10 @@ void ClockApp::onSettingsSaved(bool wifiChanged, bool tzChanged, bool manualTime
 }
 
 void ClockApp::onWebPreview(const String& field) {
-    if (field == "datestyle") {
+    if (field == "brightness") {
+        int8_t b = _settingsStore.loadBrightness(4);
+        _display.setUserBrightness(b);
+    } else if (field == "datestyle") {
         _timerController.showDateView();
     } else if (field == "bellmode") {
         ClockTime now;

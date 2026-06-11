@@ -223,6 +223,10 @@ void ConfigPortal::handleRoot() {
         @media (min-width: 1400px) and (min-height: 850px) {
             html { font-size: clamp(18px, min(2.25vw, 2.15vh), 26px); }
         }
+        input[type="range"] { -webkit-appearance: none; appearance: none; width: 100%; height: 0.5em; background: #330000; border-radius: 0.25em; outline: none; border: none; margin: 0; }
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 1.2em; height: 1.2em; background: #ff0000; border-radius: 50%; cursor: pointer; box-shadow: 0 0 0.6em #ff0000; }
+        input[type="range"]::-moz-range-thumb { width: 1.2em; height: 1.2em; background: #ff0000; border-radius: 50%; border: none; cursor: pointer; }
+        .brightness-display { min-width: 2em; text-align: center; color: #ff3333; font-weight: bold; text-shadow: 0 0 0.4em #ff0000; }
         @media (max-width: 520px) {
             html { font-size: 15px; }
             body { padding: 0.6em; }
@@ -238,7 +242,7 @@ void ConfigPortal::handleRoot() {
 
         <div class="card">
             <div class="setting-row">
-                <div class="setting-label">Clock</div>
+                <div class="setting-label">Style</div>
                 <select id="style" onchange="applySetting('style', this.value)">
                     <option value="0" selected>RND - Daily random style</option>
                     <option value="1">BIG - Large HH:MM, no seconds</option>
@@ -263,7 +267,7 @@ void ConfigPortal::handleRoot() {
             </div>
 
             <div class="setting-row">
-                <div class="setting-label">Hour</div>
+                <div class="setting-label">Format</div>
                 <select id="timefmt" onchange="applySetting('timefmt', this.value)">
                     <option value="0" selected>24-HOUR - 00:00 to 23:59</option>
                     <option value="1">AM/PM - 12:00 to 11:59</option>
@@ -280,6 +284,14 @@ void ConfigPortal::handleRoot() {
                     <option value="4">PAIR - Hour count grouped in pairs</option>
                     <option value="5">SHIP'S BELL - Traditional 4-hour watch cycle</option>
                 </select>
+            </div>
+
+            <div class="setting-row">
+                <div class="setting-label">Bright</div>
+                <div style="flex:1; display:flex; align-items:center; gap:0.5em;">
+                    <input type="range" id="brightness" min="0" max="15" value="4" oninput="updateBrightness(this.value)">
+                    <span class="brightness-display" id="brightnessVal">4</span>
+                </div>
             </div>
 
             <div class="setting-row">
@@ -426,6 +438,12 @@ void ConfigPortal::handleRoot() {
                     }
                 });
 
+                const b = data.brightness;
+                if (b !== undefined) {
+                    document.getElementById('brightness').value = b;
+                    document.getElementById('brightnessVal').textContent = b;
+                }
+
                 const now = new Date();
                 document.getElementById('manualDate').value = now.getFullYear() + '-' +
                     String(now.getMonth() + 1).padStart(2, '0') + '-' +
@@ -525,6 +543,11 @@ void ConfigPortal::handleRoot() {
                 url += '&tzname=' + encodeURIComponent(tz.options[tz.selectedIndex].text);
             }
             fetch(url);
+        }
+
+        function updateBrightness(value) {
+            document.getElementById('brightnessVal').textContent = value;
+            applySetting('brightness', value);
         }
 
         function connectWifi() {
@@ -717,6 +740,9 @@ void ConfigPortal::handleApply() {
         settings.bellMode = clampBellMode(value.toInt());
     } else if (field == "nightmode") {
         settings.nightMode = clampNightMode(value.toInt());
+    } else if (field == "brightness") {
+        int8_t b = constrain(value.toInt(), 0, 15);
+        _settingsStore.saveBrightness(b);
     } else if (field == "timezone") {
         settings.timezone.offsetMinutes = timezoneMinutesFromPortalValue(value);
         settings.timezone.name = _webServer.arg("tzname");
@@ -761,7 +787,7 @@ void ConfigPortal::handleApply() {
         _saveCb(false, tzChanged, manualTimeChanged);
     }
 
-    if (_previewCb && (field == "style" || field == "datestyle" || field == "timefmt" || field == "timezone" || field == "timeMode" || field == "manualtime" || field == "bellmode")) {
+    if (_previewCb && (field == "style" || field == "datestyle" || field == "timefmt" || field == "timezone" || field == "timeMode" || field == "manualtime" || field == "bellmode" || field == "brightness")) {
         _previewCb(field);
     }
 
@@ -793,6 +819,8 @@ void ConfigPortal::handleStatus() {
     json += (int)_settings.bellMode;
     json += ",\"nightmode\":";
     json += (int)_settings.nightMode;
+    json += ",\"brightness\":";
+    json += (int)_settingsStore.loadBrightness(4);
 
     json += ",\"manualTime\":";
     json += _settings.manualTime.enabled ? "true" : "false";

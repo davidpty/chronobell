@@ -94,7 +94,6 @@ Reopen the portal by holding the center touch pad for 5 seconds, or press the BO
 | Tap | Center (pad 4) | Confirm / enter menu / ack alert |
 | Tap | Right (pad 1) | Next menu item / cycle mode |
 | Hold 1.5s | Center | Enter menu / exit timer / acknowledge countdown |
-| Hold 3s | Center | Open WiFi config portal |
 | Hold (auto-repeat) | Left / Right | Rapid scroll in menu |
 
 When night mode has the display suppressed, the first touch wakes it for 60 seconds.
@@ -103,12 +102,12 @@ When night mode has the display suppressed, the first touch wakes it for 60 seco
 
 | Item | Range | Description |
 |------|-------|-------------|
-| BELL | OFF / DING / HOUR / HALF / PAIR / SHIP | Bell striking mode (audible preview on selection) |
 | STYLE | RND / BIG / SEC / DECI / DATE / WORD / ROMA / BIN | Display mode (RND cycles all modes randomly) |
-| HOUR | 24H / 12H | Time format |
-| NIGHT | OFF / LOW (dim only) / LOW+MUTE / DARK (off) / DARK+MUTE / MUTE (bell off) | Night mode |
-| BRIGHT | 0-15 | LED matrix brightness |
 | DATE | DATE / YEAR / MOON / ZOD / CZOD | Date style |
+| HOUR | 24H / 12H | Time format |
+| BELL | OFF / DING / HOUR / HALF / PAIR / SHIP | Bell striking mode (audible preview on selection) |
+| BRIGHT | 0-15 | LED matrix brightness |
+| NIGHT | OFF / LOW (dim only) / LOW+MUTE / DARK (off) / DARK+MUTE / MUTE (bell off) | Night mode |
 
 Hold center to enter the menu, left/right to browse, tap center to edit a value, tap center again to confirm.
 
@@ -125,7 +124,7 @@ Key constants in `Config.h`:
 | `NIGHT_DIM_START_HOUR` | `19` (7 PM) | Night dimming begins |
 | `TIME_SYNC_INTERVAL_MINUTES` | `60` | NTP re-sync interval |
 | `GUEST_WIFI_URL` | *(see config)* | HTTP URL for guest password; set to `""` to disable |
-| `CONFIG_MODE_TIMEOUT_MINUTES` | `60` | Auto-reboot when stuck in config mode (`0` = stay indefinitely) |
+| `HOTSPOT_TIMEOUT_MINUTES` | `60` | Auto-reboot when stuck in config mode (`0` = stay indefinitely) |
 
 ## OTA Updates
 

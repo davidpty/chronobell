@@ -56,9 +56,6 @@ public:
     // Persistence helpers used by setup() and the brightness menu accessor.
     void loadBrightnessFromSettings();
 
-    // Non-blocking flash message overlay (top priority in showTime).
-    void flashMessage(const char* line1, const char* line2, uint32_t durationMs);
-
     // Top-level render dispatcher used by ClockApp::render().
     void showTime();
     void showHotspotSymbol();
@@ -136,11 +133,6 @@ private:
     int8_t _userBrightness = 4;
     int8_t _brightness     = 4;
     bool   _enabled = true;
-
-    // Flash message state (non-blocking hotspot toggle feedback)
-    char _flashLine1[9];
-    char _flashLine2[4];
-    unsigned long _flashEndMs = 0;
 
     // Guest WiFi alternating display state
     unsigned long _guestWifiViewStartMs = 0;

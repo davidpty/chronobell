@@ -67,10 +67,8 @@
 // ---------------------------------------------------------------------------
 
 #define MENU_LONG_PRESS_MS                          1500                                // 1.5 s hold → context menu / exit timer / cancel
-#define MENU_EXTRA_LONG_PRESS                       5000                                // 5.0 s hold → enter WiFi config portal hotspot
 #define MENU_REPEAT_RATE_MS                         500                                 // Repeat rate for held touch input
 
-// Shared UI inactivity timeouts.
 #define MENU_TIMEOUT_SHORT_SECONDS                  15                                  // Auto-exit short-lived views after this much inactivity
 #define MENU_TIMEOUT_LONG_SECONDS                   30                                  // Auto-cancel longer edit flows after this much inactivity
 
@@ -80,9 +78,7 @@
 #define LAST_STYLE_TIMEOUT_MINUTES                  360                                 // Reset remembered clock view to configured View after N idle min (0=off)
 #define LAST_DATEVIEW_TIMEOUT_MINUTES               5                                   // Reset remembered date view to configured after N idle min (0=off)
 
-
-#define CONFIG_MODE_TIMEOUT_MINUTES                 60                                  // Auto-stop hotspot after N min (0 = stay until manual exit)
-#define HOTSPOT_FLASH_MS                            1000                                // ms to show HOTSPOT ON/OFF feedback on 5 s hold
+#define HOTSPOT_TIMEOUT_MINUTES                    60                                   // Auto-stop hotspot after N min (0 = stay until manual exit)
 
 // ---------------------------------------------------------------------------
 // WiFi reconnection backoff (used by WiFiManagerLite)
@@ -111,8 +107,7 @@
 #define MDNS_HOSTNAME                               "chronobell"                        // Advertised as <name>.local for OTA / discovery
 #define ARDUINO_OTA_PASSWORD                        "chronobell"                        // Password required to push firmware via ArduinoOTA
 
-// Config-mode access point (when the device opens its own WiFi network).
-#define AP_SSID                                     "ChronoBell"
+#define AP_SSID                                     "ChronoBell"                        // Config-mode access point (when the device opens its own WiFi network).
 #define AP_PASSWORD                                 ""                                  // Empty string = open (no password) network
 #define AP_CHANNEL                                  1                                   // 1..13
 

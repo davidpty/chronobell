@@ -28,7 +28,7 @@ struct MenuBindings {
 const char* menuValueName(uint8_t index, int16_t value, void* ctx);
 const char* bellValueName(int16_t value);
 const char* styleValueName(int16_t value);
-const char* hourValueName(int16_t value);
+const char* formatValueName(int16_t value);
 const char* nightValueName(int16_t value);
 
 #endif // MENU_BINDINGS_H

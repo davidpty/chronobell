@@ -33,20 +33,20 @@ static void    commitHotspotMenu(void* ctx, int16_t v);
 static void    previewBellForMode(void* ctx, int16_t mode);
 
 const MenuItem MENU_ITEMS[] = {
-  {"BELL",   (int16_t)BellMode::Off,    (int16_t)BellMode::Ships,
-             getBellModeMenu, previewBellModeMenu, commitBellModeMenu, previewBellForMode},
-  {"STYLE",  (int16_t)DisplayMode::Rnd, (int16_t)DisplayMode::Bin,
-             getDisplayModeMenu, previewDisplayModeMenu, commitDisplayModeMenu, nullptr},
-  {"HOUR",   (int16_t)TimeFormat::Hours24, (int16_t)TimeFormat::AmPm,
+  {"STYLE",   (int16_t)DisplayMode::Rnd,  (int16_t)DisplayMode::Bin,
+              getDisplayModeMenu, previewDisplayModeMenu, commitDisplayModeMenu, nullptr},
+  {"DATE",    (int16_t)DateStyle::Date,    (int16_t)DateStyle::Czod,
+              getDateStyleMenu, previewDateStyleMenu, commitDateStyleMenu, nullptr},
+  {"FORMAT",  (int16_t)TimeFormat::Hours24, (int16_t)TimeFormat::AmPm,
              getTimeFormatMenu, previewTimeFormatMenu, commitTimeFormatMenu, nullptr},
-  {"NIGHT",  (int16_t)NightMode::Off, (int16_t)NightMode::Mute,
-             getNightModeMenu, previewNightModeMenu, commitNightModeMenu, nullptr},
-  {"BRIGHT", 0, 15,
-             getBrightnessMenu, previewBrightnessMenu, commitBrightnessMenu, nullptr},
-   {"DATE",   (int16_t)DateStyle::Date, (int16_t)DateStyle::Czod,
-             getDateStyleMenu, previewDateStyleMenu, commitDateStyleMenu, nullptr},
+  {"BRIGHT",  0, 15,
+              getBrightnessMenu, previewBrightnessMenu, commitBrightnessMenu, nullptr},
+  {"NIGHT",   (int16_t)NightMode::Off,     (int16_t)NightMode::Mute,
+              getNightModeMenu, previewNightModeMenu, commitNightModeMenu, nullptr},
+  {"BELL",    (int16_t)BellMode::Off,      (int16_t)BellMode::Ships,
+              getBellModeMenu, previewBellModeMenu, commitBellModeMenu, previewBellForMode},
   {"HOTSPOT", 0, 1,
-             getHotspotMenu, previewHotspotMenu, commitHotspotMenu, nullptr},
+              getHotspotMenu, previewHotspotMenu, commitHotspotMenu, nullptr},
 };
 const uint8_t MENU_ITEM_COUNT = sizeof(MENU_ITEMS) / sizeof(MENU_ITEMS[0]);
 
@@ -80,7 +80,7 @@ const char* dateStyleValueName(int16_t value) {
     return "?";
 }
 
-const char* hourValueName(int16_t value) {
+const char* formatValueName(int16_t value) {
     static const char* const NAMES[] = {
         "24H", "12H", nullptr
     };
@@ -108,11 +108,11 @@ static const char* onOffValueName(int16_t value) {
 }
 
 const char* menuValueName(uint8_t index, int16_t value, void* /*ctx*/) {
-    if (index == 0) return bellValueName(value);
-    if (index == 1) return styleValueName(value);
-    if (index == 2) return hourValueName(value);
-    if (index == 3) return nightValueName(value);
-    if (index == 5) return dateStyleValueName(value);
+    if (index == 0) return styleValueName(value);
+    if (index == 1) return dateStyleValueName(value);
+    if (index == 2) return formatValueName(value);
+    if (index == 4) return nightValueName(value);
+    if (index == 5) return bellValueName(value);
     if (index == 6) return onOffValueName(value);
     return nullptr;
 }
