@@ -287,14 +287,6 @@ void ConfigPortal::handleRoot() {
             </div>
 
             <div class="setting-row">
-                <div class="setting-label">Bright</div>
-                <div style="flex:1; display:flex; align-items:center; gap:0.5em;">
-                    <input type="range" id="brightness" min="0" max="15" value="4" oninput="updateBrightness(this.value)">
-                    <span class="brightness-display" id="brightnessVal">4</span>
-                </div>
-            </div>
-
-            <div class="setting-row">
                 <div class="setting-label">Night</div>
                 <select id="nightmode" onchange="applySetting('nightmode', this.value)">
                     <option value="0" selected>OFF - No night mode</option>
@@ -304,6 +296,14 @@ void ConfigPortal::handleRoot() {
                     <option value="4">DARK+MUTE - Dim 18:00-22:00, off + bell muted 22:00-06:00</option>
                     <option value="5">MUTE - Bell muted 22:00-06:00 only</option>
                 </select>
+            </div>
+
+            <div class="setting-row">
+                <div class="setting-label">Brightness</div>
+                <div style="flex:1; display:flex; align-items:center; gap:0.5em;">
+                    <input type="range" id="brightness" min="0" max="15" value="4" oninput="updateBrightness(this.value)">
+                    <span class="brightness-display" id="brightnessVal">4</span>
+                </div>
             </div>
 
             <div class="setting-row">
@@ -368,6 +368,14 @@ void ConfigPortal::handleRoot() {
                         <input type="time" id="manualTime" onchange="applyManualTime()" style="flex:0 0 auto; width:auto; margin-top:0;">
                         <input type="text" id="manualSec" maxlength="2" inputmode="numeric" pattern="[0-9]*" value="0" onchange="applyManualTime()" style="flex:0 0 auto; width:2.8em; margin-top:0; text-align:center;" placeholder="ss">
                     </div>
+                </div>
+            </div>
+
+            <div class="setting-row">
+                <div class="setting-label">Hotspot</div>
+                <div class="toggle-group">
+                    <button class="toggle-btn active" id="hotspotOff" onclick="setHotspot(0)">OFF</button>
+                    <button class="toggle-btn" id="hotspotOn" onclick="setHotspot(1)">ON</button>
                 </div>
             </div>
 
@@ -442,6 +450,12 @@ void ConfigPortal::handleRoot() {
                 if (b !== undefined) {
                     document.getElementById('brightness').value = b;
                     document.getElementById('brightnessVal').textContent = b;
+                }
+
+                const h = data.hotspotActive;
+                if (h !== undefined) {
+                    document.getElementById('hotspotOff').classList.toggle('active', !h);
+                    document.getElementById('hotspotOn').classList.toggle('active', !!h);
                 }
 
                 const now = new Date();
@@ -543,6 +557,12 @@ void ConfigPortal::handleRoot() {
                 url += '&tzname=' + encodeURIComponent(tz.options[tz.selectedIndex].text);
             }
             fetch(url);
+        }
+
+        function setHotspot(value) {
+            document.getElementById('hotspotOff').classList.toggle('active', value === 0);
+            document.getElementById('hotspotOn').classList.toggle('active', value === 1);
+            applySetting('hotspot', value);
         }
 
         function updateBrightness(value) {
@@ -743,6 +763,8 @@ void ConfigPortal::handleApply() {
     } else if (field == "brightness") {
         int8_t b = constrain(value.toInt(), 0, 15);
         _settingsStore.saveBrightness(b);
+    } else if (field == "hotspot") {
+        if (_hotspotToggleCb) _hotspotToggleCb(value.toInt() != 0);
     } else if (field == "timezone") {
         settings.timezone.offsetMinutes = timezoneMinutesFromPortalValue(value);
         settings.timezone.name = _webServer.arg("tzname");
@@ -821,6 +843,8 @@ void ConfigPortal::handleStatus() {
     json += (int)_settings.nightMode;
     json += ",\"brightness\":";
     json += (int)_settingsStore.loadBrightness(4);
+    json += ",\"hotspotActive\":";
+    json += (_hotspotStatusCb ? _hotspotStatusCb() : false) ? "true" : "false";
 
     json += ",\"manualTime\":";
     json += _settings.manualTime.enabled ? "true" : "false";
@@ -921,6 +945,11 @@ void ConfigPortal::setSaveCallback(std::function<void(bool, bool, bool)> cb) {
 
 void ConfigPortal::setPreviewCallback(std::function<void(const String&)> cb) {
     _previewCb = cb;
+}
+
+void ConfigPortal::setHotspotCallbacks(std::function<bool()> status, std::function<void(bool)> toggle) {
+    _hotspotStatusCb = status;
+    _hotspotToggleCb = toggle;
 }
 
 bool ConfigPortal::isUpdating() {

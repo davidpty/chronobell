@@ -37,6 +37,7 @@ public:
     void setOtaDisplayCallback(std::function<void(bool, unsigned int, unsigned int)> cb);
     void setSaveCallback(std::function<void(bool, bool, bool)> cb);
     void setPreviewCallback(std::function<void(const String&)> cb);
+    void setHotspotCallbacks(std::function<bool()> status, std::function<void(bool)> toggle);
 
 #if ENABLE_OTA
     void handleUpdateUpload();
@@ -58,6 +59,8 @@ private:
     StringStatusCallback _ipAddressCallback;
     std::function<void(bool, bool, bool)> _saveCb;
     std::function<void(const String&)> _previewCb;
+    std::function<bool()> _hotspotStatusCb = nullptr;
+    std::function<void(bool)> _hotspotToggleCb = nullptr;
 
     bool currentConnected();
     bool currentInConfigMode();

@@ -34,6 +34,7 @@ public:
     void setOtaDisplayCallback(std::function<void(bool, unsigned int, unsigned int)> cb);
     void setSaveCallback(std::function<void(bool, bool, bool)> cb);
     void setPreviewCallback(std::function<void(const String&)> cb);
+    void setHotspotCallbacks(std::function<bool()> status, std::function<void(bool)> toggle);
 
 private:
     enum class ConnState { Idle, Connecting, Connected };

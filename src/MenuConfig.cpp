@@ -39,10 +39,10 @@ const MenuItem MENU_ITEMS[] = {
               getDateStyleMenu, previewDateStyleMenu, commitDateStyleMenu, nullptr},
   {"FORMAT",  (int16_t)TimeFormat::Hours24, (int16_t)TimeFormat::AmPm,
              getTimeFormatMenu, previewTimeFormatMenu, commitTimeFormatMenu, nullptr},
-  {"BRIGHT",  0, 15,
-              getBrightnessMenu, previewBrightnessMenu, commitBrightnessMenu, nullptr},
   {"NIGHT",   (int16_t)NightMode::Off,     (int16_t)NightMode::Mute,
               getNightModeMenu, previewNightModeMenu, commitNightModeMenu, nullptr},
+  {"BRIGHT",  0, 15,
+              getBrightnessMenu, previewBrightnessMenu, commitBrightnessMenu, nullptr},
   {"BELL",    (int16_t)BellMode::Off,      (int16_t)BellMode::Ships,
               getBellModeMenu, previewBellModeMenu, commitBellModeMenu, previewBellForMode},
   {"HOTSPOT", 0, 1,
@@ -111,7 +111,7 @@ const char* menuValueName(uint8_t index, int16_t value, void* /*ctx*/) {
     if (index == 0) return styleValueName(value);
     if (index == 1) return dateStyleValueName(value);
     if (index == 2) return formatValueName(value);
-    if (index == 4) return nightValueName(value);
+    if (index == 3) return nightValueName(value);
     if (index == 5) return bellValueName(value);
     if (index == 6) return onOffValueName(value);
     return nullptr;

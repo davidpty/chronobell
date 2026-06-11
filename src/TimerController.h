@@ -75,6 +75,8 @@ private:
     uint32_t _countdownStartedMs = 0;
     uint32_t _countdownAlertStartedMs = 0;
     uint32_t _countdownLastAlertMs = 0;
+    bool _alertBellStopped = false;
+    uint32_t _alertBellStoppedMs = 0;
 
     TimerView _view = TimerView::Clock;
     TimerView _lastNonClockView = TimerView::Date;

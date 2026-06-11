@@ -31,6 +31,10 @@ WiFiManagerLite::WiFiManagerLite(SettingsStore& settingsStore)
     , _portal(settingsStore)
 {
     _portal.setStatusProvider(this, statusConnected, statusInConfigMode, statusIPAddress);
+    _portal.setHotspotCallbacks(
+        [this]() -> bool { return _hotspotActive; },
+        [this](bool on) { if (on) startHotspot(); else stopHotspot(); }
+    );
 }
 
 void WiFiManagerLite::setNetworkServiceConfig(const char* mdnsHostname, const char* otaPassword) {
@@ -468,6 +472,10 @@ void WiFiManagerLite::setSaveCallback(std::function<void(bool, bool, bool)> cb) 
 void WiFiManagerLite::setPreviewCallback(std::function<void(const String&)> cb) {
     _previewCb = cb;
     _portal.setPreviewCallback(cb);
+}
+
+void WiFiManagerLite::setHotspotCallbacks(std::function<bool()> status, std::function<void(bool)> toggle) {
+    _portal.setHotspotCallbacks(status, toggle);
 }
 
 bool WiFiManagerLite::isUpdating() {

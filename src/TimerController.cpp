@@ -114,17 +114,32 @@ void TimerController::updateAlert() {
     }
 
     uint32_t now = millis();
+
 #if defined(TIMER_ALERT_DURATION_MINUTES) && TIMER_ALERT_DURATION_MINUTES > 0
-    if (now - _countdownAlertStartedMs >= TIMER_ALERT_DURATION_MINUTES * 60000UL) {
-        acknowledgeAlert();
+    if (!_alertBellStopped && now - _countdownAlertStartedMs >= TIMER_ALERT_DURATION_MINUTES * 60000UL) {
+        if (_stopBell) _stopBell();
+        _alertBellStopped = true;
+        _alertBellStoppedMs = now;
+        LOGLN("Countdown alert bell silenced");
         return;
     }
 #endif
-    if (_countdownLastAlertMs == 0 || now - _countdownLastAlertMs >= TIMER_ALERT_REPEAT_SECONDS * 1000UL) {
-        bool busy = _bellBusy && _bellBusy();
-        if (!busy && _queueAlert) {
-            _queueAlert(3);
-            _countdownLastAlertMs = now;
+
+#if defined(TIMER_ALERT_SHOW_TIMEOUT_MINUTES) && TIMER_ALERT_SHOW_TIMEOUT_MINUTES > 0
+    if (_alertBellStopped && now - _alertBellStoppedMs >= TIMER_ALERT_SHOW_TIMEOUT_MINUTES * 60000UL) {
+        acknowledgeAlert();
+        LOGLN("Countdown 00:00 timed out");
+        return;
+    }
+#endif
+
+    if (!_alertBellStopped) {
+        if (_countdownLastAlertMs == 0 || now - _countdownLastAlertMs >= TIMER_ALERT_REPEAT_SECONDS * 1000UL) {
+            bool busy = _bellBusy && _bellBusy();
+            if (!busy && _queueAlert) {
+                _queueAlert(3);
+                _countdownLastAlertMs = now;
+            }
         }
     }
 }
@@ -265,6 +280,8 @@ void TimerController::acknowledgeAlert() {
     _countdownRemainingMs = countdownPresetMs();
     _countdownAlertStartedMs = 0;
     _countdownLastAlertMs = 0;
+    _alertBellStopped = false;
+    _alertBellStoppedMs = 0;
     if (_stopBell) _stopBell();
     _view = _countdownAlertReturnView;
     noteActivity();
