@@ -136,7 +136,7 @@ static const char* onOffValueName(int16_t value) {
 }
 
 static const char* setTimeValueName(int16_t value) {
-    return value == 0 ? "ATOMC" : "MANUAL";
+    return value == 0 ? "AUTO" : "MANUAL";
 }
 
 const char* menuValueName(uint8_t index, int16_t value, void* /*ctx*/) {

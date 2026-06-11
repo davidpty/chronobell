@@ -83,7 +83,7 @@ When night mode turns the display off, any touch wakes it for a minute.
 | NIGHT | OFF / LOW / LOWM / DARK / DRKM / MUTE | Dim, mute, or turn off the display and bell on a schedule |
 | BRIGHT | 0-15 | How bright the LEDs shine |
 | BELL | OFF / DING / HOUR / HALF / PAIR / SHIP | Bell mode (scroll to hear a preview) |
-| SETTIME | ATOMC / MANUAL | Time source - atomic (NTP + RTC) or manual entry |
+| SETTIME | AUTO / MANUAL | Time source - automatic (NTP + RTC) or manual entry |
 | HOTSPOT | OFF / ON | Turn the web config portal on or off |
 
 Hold center to enter the menu, left/right to browse, tap center to edit, tap center again to confirm.

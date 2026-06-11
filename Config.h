@@ -78,7 +78,7 @@
 #define LAST_STYLE_TIMEOUT_MINUTES                  360                                 // Reset remembered clock view to configured View after N idle min (0=off)
 #define LAST_DATEVIEW_TIMEOUT_MINUTES               5                                   // Reset remembered date view to configured after N idle min (0=off)
 
-#define HOTSPOT_TIMEOUT_MINUTES                     0                                   // Auto-stop hotspot after N min (0 = stay until manual exit)
+#define HOTSPOT_TIMEOUT_MINUTES                     60                                  // Auto-stop hotspot after N min (0 = stay until manual exit)
 
 // ---------------------------------------------------------------------------
 // WiFi reconnection backoff (used by WiFiManagerLite)

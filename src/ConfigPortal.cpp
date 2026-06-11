@@ -342,7 +342,7 @@ void ConfigPortal::handleRoot() {
             <div class="setting-row">
                 <div class="setting-label">Time</div>
                 <div class="toggle-group">
-                    <button class="toggle-btn active" id="wifiAuto" onclick="setWifiMode('auto'); applySetting('timeMode', 'auto')">ATOMIC</button>
+                    <button class="toggle-btn active" id="wifiAuto" onclick="setWifiMode('auto'); applySetting('timeMode', 'auto')">AUTO</button>
                     <button class="toggle-btn" id="wifiManual" onclick="setWifiMode('manual'); applySetting('timeMode', 'manual')">MANUAL</button>
                 </div>
             </div>
