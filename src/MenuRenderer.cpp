@@ -95,8 +95,8 @@ void MenuRenderer::renderSetTimeEdit() {
         case 1: label = "HOUR"; break;
         case 2: label = "MIN";  break;
         case 3: label = "SEC";  break;
-        case 4: label = "DATE"; break;
-        case 5: label = "MONTH"; break;
+        case 4: label = "MONTH"; break;
+        case 5: label = "DATE"; break;
         case 6: label = "YEAR"; break;
     }
     int lw = _display->menuTextWidth(label, 4, 1);
@@ -146,8 +146,8 @@ void MenuRenderer::renderSetTimeEdit() {
         int mw = _display->menuTextWidth(mn, 6, 1);
         int totalW = mw + gap + digW * 2 + gap;
         int x = (COLS_PER_ROW - totalW) / 2;
-        bool blinkMonth = (step == 5);
-        bool blinkDay = (step == 4);
+        bool blinkMonth = (step == 4);
+        bool blinkDay = (step == 5);
 
         if (!blinkMonth || bo) {
             _display->drawMediumText(mn, x, 6);
