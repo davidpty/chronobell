@@ -116,19 +116,20 @@ void MenuRenderer::renderSetTimeEdit() {
         d2 = g_setMin / 10;  d3 = g_setMin % 10;
         blinkFirst = false; blinkSecond = true;
     } else if (step == 3) {
-        d0 = g_setMin / 10;  d1 = g_setMin % 10;
-        d2 = g_setSec / 10;  d3 = g_setSec % 10;
-        blinkFirst = false; blinkSecond = true;
+        d0 = g_setSec / 10;  d1 = g_setSec % 10;
+        d2 = 0; d3 = 0;
+        blinkFirst = true; blinkSecond = false;
+        sep = 0;
     } else if (step == 4) {
         d0 = g_setDay / 10;   d1 = g_setDay % 10;
         d2 = g_setMonth / 10; d3 = g_setMonth % 10;
         blinkFirst = true;  blinkSecond = false;
-        sep = '/';
+        sep = '-';
     } else if (step == 5) {
         d0 = g_setDay / 10;   d1 = g_setDay % 10;
         d2 = g_setMonth / 10; d3 = g_setMonth % 10;
         blinkFirst = false; blinkSecond = true;
-        sep = '/';
+        sep = '-';
     } else {
         d0 = (g_setYear / 1000) % 10;
         d1 = (g_setYear / 100) % 10;
@@ -141,8 +142,9 @@ void MenuRenderer::renderSetTimeEdit() {
     bool bo = _menu->blinkOn();
     int digW = 6;
     int gap = 1;
+    bool twoDigit = (step == 3);
     int sepContentW = sep ? Display::charWidth(sep, false) : 0;
-    int totalW = (digW * 4) + (gap * 4) + sepContentW;
+    int totalW = twoDigit ? (digW * 2 + gap) : (digW * 4 + gap * 4 + sepContentW);
     int startX = (COLS_PER_ROW - totalW) / 2;
     int digY = 6;
     int x = startX;
@@ -151,22 +153,24 @@ void MenuRenderer::renderSetTimeEdit() {
         _display->drawMediumDigit(d0, x, digY);
         x += digW + gap;
         _display->drawMediumDigit(d1, x, digY);
-        x += digW + gap;
+        if (!twoDigit) x += digW + gap;
     } else {
         x += (digW + gap) * 2;
     }
 
-    if (sep) {
-        char sepStr[2] = {sep, '\0'};
-        _display->drawMediumText(sepStr, x, digY);
-        x += sepContentW + gap;
-    } else {
-        x += gap;
-    }
+    if (!twoDigit) {
+        if (sep) {
+            char sepStr[2] = {sep, '\0'};
+            _display->drawMediumText(sepStr, x, digY);
+            x += sepContentW + gap;
+        } else {
+            x += gap;
+        }
 
-    if (!blinkSecond || bo) {
-        _display->drawMediumDigit(d2, x, digY);
-        x += digW + gap;
-        _display->drawMediumDigit(d3, x, digY);
+        if (!blinkSecond || bo) {
+            _display->drawMediumDigit(d2, x, digY);
+            x += digW + gap;
+            _display->drawMediumDigit(d3, x, digY);
+        }
     }
 }
