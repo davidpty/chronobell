@@ -134,15 +134,12 @@ Open `Config.h` to adjust these:
 
 | Constant | Default | What it does |
 |----------|---------|-------------|
-| `CAP1188_TOUCH_THRESHOLD` | `0x35` | Touch sensitivity - lower numbers trip more easily |
 | `DISPLAY_FLIP` | `0` | Set to `1` if your display is mounted upside-down |
-| `BELL_PULSE_MS` | `500` | How long the bell coil stays on per strike |
-| `NIGHT_DIM_START_HOUR` | `19` (7 PM) | When dimming starts |
-| `TIME_SYNC_INTERVAL_MINUTES` | `60` | How often to re-sync NTP |
-| `GUEST_WIFI_URL` | *(see file)* | URL to fetch a guest password from; set to `""` to disable |
-| `HOTSPOT_TIMEOUT_MINUTES` | `0` | Auto-turn-off the hotspot after N minutes (`0` = stay on) |
-| `BLINK_ON_MS` | `750` | How long menu values and timer alerts stay visible while blinking |
-| `BLINK_OFF_MS` | `250` | How long they stay hidden |
+| `CAP1188_TOUCH_THRESHOLD` | `0x35` | Touch sensitivity — lower numbers trip more easily |
+| `NIGHT_DIM_START_HOUR` | `19` (7 PM) | When night dimming starts |
+| `GUEST_WIFI_URL` | *(see file)* | Guest WiFi password URL; set to `""` to disable |
+| `TIME_SYNC_INTERVAL_MINUTES` | `60` | How often NTP re-syncs |
+| `HOTSPOT_TIMEOUT_MINUTES` | `0` | Auto-stop hotspot after N minutes (`0` = stays on) |
 
 ---
 
