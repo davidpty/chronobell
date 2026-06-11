@@ -58,8 +58,6 @@ public:
 
     // Top-level render dispatcher used by ClockApp::render().
     void showTime();
-    void showHotspotSymbol();
-
     // OTA update status display (called from ArduinoOTA callbacks, which fire
     // inside the blocking handle() loop, so we must render here directly).
     void showOtaUpdate(bool active, unsigned int progress, unsigned int total);
@@ -106,10 +104,6 @@ public:
     static int menuTextWidth(const char* s, int cellW, int spacing);
 
 private:
-    void drawHotspotSymbolGlyph();
-
-    void showHotspotOnBuffer();
-
     // --- Owned child renderers (constructed in ctor) ---
     ClockRenderer*  _clockRenderer  = nullptr;
     MenuRenderer*   _menuRenderer   = nullptr;

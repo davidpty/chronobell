@@ -193,11 +193,6 @@ void Display::showTime() {
     renderBuffer();
 }
 
-void Display::showHotspotSymbol() {
-    showHotspotOnBuffer();
-    renderBuffer();
-}
-
 void Display::drawStylePreview(DisplayMode mode) {
     ClockTime time = _timeProvider.displayTime();
     _clockRenderer->drawPreview(mode, time);
@@ -212,11 +207,6 @@ void Display::runTest(uint8_t seconds) {
     delay(seconds * 1000);
     _leds.clear();
     _leds.update();
-}
-
-void Display::showHotspotOnBuffer() {
-    memset(pixelBuffer, 0, sizeof(pixelBuffer));
-    drawHotspotSymbolGlyph();
 }
 
 // =============================================================================
@@ -605,14 +595,4 @@ void Display::drawGuestWifiText(bool showSsid) {
     }
     // If either line overflows, nothing is drawn (text was displayable
     // at fetch time, so this is defensive only)
-}
-
-void Display::drawHotspotSymbolGlyph() {
-    for (int row = 0; row < SYMBOL_FONT_HEIGHT; row++) {
-        for (int col = 0; col < SYMBOL_FONT_WIDTH; col++) {
-            if (FONT_SYMBOLS[SYMBOL_HOTSPOT][row][col]) {
-                setPixel(col, row, true);
-            }
-        }
-    }
 }
