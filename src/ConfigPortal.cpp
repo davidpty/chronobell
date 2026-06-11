@@ -275,18 +275,6 @@ void ConfigPortal::handleRoot() {
             </div>
 
             <div class="setting-row">
-                <div class="setting-label">Bell</div>
-                <select id="bellmode" onchange="applySetting('bellmode', this.value)">
-                    <option value="0" selected>NO BELL - Silent</option>
-                    <option value="1">SINGLE HOURLY - One bell every full hour</option>
-                    <option value="2">HOUR COUNT - Count full hours only</option>
-                    <option value="3">HOUR COUNT + HALF - Count full hours, one bell at half hour</option>
-                    <option value="4">PAIR - Hour count grouped in pairs</option>
-                    <option value="5">SHIP'S BELL - Traditional 4-hour watch cycle</option>
-                </select>
-            </div>
-
-            <div class="setting-row">
                 <div class="setting-label">Night</div>
                 <select id="nightmode" onchange="applySetting('nightmode', this.value)">
                     <option value="0" selected>OFF - No night mode</option>
@@ -304,6 +292,18 @@ void ConfigPortal::handleRoot() {
                     <input type="range" id="brightness" min="0" max="15" value="4" oninput="updateBrightness(this.value)">
                     <span class="brightness-display" id="brightnessVal">4</span>
                 </div>
+            </div>
+
+            <div class="setting-row">
+                <div class="setting-label">Bell</div>
+                <select id="bellmode" onchange="applySetting('bellmode', this.value)">
+                    <option value="0" selected>NO BELL - Silent</option>
+                    <option value="1">SINGLE HOURLY - One bell every full hour</option>
+                    <option value="2">HOUR COUNT - Count full hours only</option>
+                    <option value="3">HOUR COUNT + HALF - Count full hours, one bell at half hour</option>
+                    <option value="4">PAIR - Hour count grouped in pairs</option>
+                    <option value="5">SHIP'S BELL - Traditional 4-hour watch cycle</option>
+                </select>
             </div>
 
             <div class="setting-row">
@@ -430,8 +430,9 @@ void ConfigPortal::handleRoot() {
                     ['style', data.style],
                     ['datestyle', data.datestyle],
                     ['timefmt', data.timefmt],
-                    ['bellmode', data.bellmode],
                     ['nightmode', data.nightmode],
+                    ['brightness', data.brightness],
+                    ['bellmode', data.bellmode],
                     ['timezone', data.timezone]
                 ];
                 selects.forEach(function(item) {
@@ -1008,4 +1009,3 @@ void ConfigPortal::handleUpdateUpload() {
         LOGLN("Update aborted");
     }
 }
-

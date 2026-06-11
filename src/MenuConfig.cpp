@@ -47,6 +47,17 @@ uint8_t  g_setDay = 1;
 uint8_t  g_setMonth = 1;
 uint16_t g_setYear = 2025;
 
+enum MenuIndex : uint8_t {
+    MENU_STYLE = 0,
+    MENU_DATE,
+    MENU_FORMAT,
+    MENU_NIGHT,
+    MENU_BRIGHT,
+    MENU_BELL,
+    MENU_SETTIME,
+    MENU_HOTSPOT,
+};
+
 MenuItem MENU_ITEMS[] = {
   {"STYLE",   (int16_t)DisplayMode::Rnd,  (int16_t)DisplayMode::Bin,
               getDisplayModeMenu, previewDisplayModeMenu, commitDisplayModeMenu, nullptr},
@@ -60,10 +71,10 @@ MenuItem MENU_ITEMS[] = {
               getBrightnessMenu, previewBrightnessMenu, commitBrightnessMenu, nullptr},
   {"BELL",    (int16_t)BellMode::Off,      (int16_t)BellMode::Ships,
               getBellModeMenu, previewBellModeMenu, commitBellModeMenu, previewBellForMode},
-  {"HOTSPOT", 0, 1,
-              getHotspotMenu, previewHotspotMenu, commitHotspotMenu, nullptr},
   {"SETTIME", 0, 1,
               getSetTimeMenu, previewSetTimeMenu, commitSetTimeMenu, nullptr, editCommitSetTimeMenu, cancelSetTimeMenu},
+  {"HOTSPOT", 0, 1,
+              getHotspotMenu, previewHotspotMenu, commitHotspotMenu, nullptr},
 };
 const uint8_t MENU_ITEM_COUNT = sizeof(MENU_ITEMS) / sizeof(MENU_ITEMS[0]);
 
@@ -129,13 +140,13 @@ static const char* setTimeValueName(int16_t value) {
 }
 
 const char* menuValueName(uint8_t index, int16_t value, void* /*ctx*/) {
-    if (index == 0) return styleValueName(value);
-    if (index == 1) return dateStyleValueName(value);
-    if (index == 2) return formatValueName(value);
-    if (index == 3) return nightValueName(value);
-    if (index == 5) return bellValueName(value);
-    if (index == 6) return onOffValueName(value);
-    if (index == 7) return setTimeValueName(value);
+    if (index == MENU_STYLE) return styleValueName(value);
+    if (index == MENU_DATE) return dateStyleValueName(value);
+    if (index == MENU_FORMAT) return formatValueName(value);
+    if (index == MENU_NIGHT) return nightValueName(value);
+    if (index == MENU_BELL) return bellValueName(value);
+    if (index == MENU_SETTIME) return setTimeValueName(value);
+    if (index == MENU_HOTSPOT) return onOffValueName(value);
     return nullptr;
 }
 
@@ -283,14 +294,15 @@ static void commitSetTimeMenu(void* ctx, int16_t v) {
 }
 
 static void setSetTimeRange(uint8_t step) {
+    MenuItem& item = MENU_ITEMS[MENU_SETTIME];
     switch (step) {
-        case 0: MENU_ITEMS[7].minValue = 0; MENU_ITEMS[7].maxValue = 1; break;
-        case 1: MENU_ITEMS[7].minValue = 0; MENU_ITEMS[7].maxValue = 23; break;
+        case 0: item.minValue = 0; item.maxValue = 1; break;
+        case 1: item.minValue = 0; item.maxValue = 23; break;
         case 2:
-        case 3: MENU_ITEMS[7].minValue = 0; MENU_ITEMS[7].maxValue = 59; break;
-        case 4: MENU_ITEMS[7].minValue = 1; MENU_ITEMS[7].maxValue = 31; break;
-        case 5: MENU_ITEMS[7].minValue = 1; MENU_ITEMS[7].maxValue = 12; break;
-        case 6: MENU_ITEMS[7].minValue = 2024; MENU_ITEMS[7].maxValue = 2035; break;
+        case 3: item.minValue = 0; item.maxValue = 59; break;
+        case 4: item.minValue = 1; item.maxValue = 31; break;
+        case 5: item.minValue = 1; item.maxValue = 12; break;
+        case 6: item.minValue = 2024; item.maxValue = 2035; break;
     }
 }
 
