@@ -14,7 +14,7 @@ An ESP32-powered LED matrix clock with capacitive touch, a ship's bell, 8 displa
 
 **Set time manually or let it self-correct** — NTP syncs over WiFi when connected, backed by a battery-powered RTC chip that keeps time even offline. Or switch to manual mode and set the clock from the menu — hour, minute, second, month, day, year, all in sequence.
 
-**Two ways to configure** — Tap the menu to change any setting on the device itself. Or flip HOTSPOT to ON in the menu and open the setup portal in your browser for WiFi, timezone, brightness — even firmware updates. The BOOT button on the ESP32 board opens the portal too.
+**Two ways to configure** — Tap the menu to change any setting on the device itself. Or press the BOOT button or flip HOTSPOT to ON in the menu to open the setup portal in your browser for WiFi, timezone, brightness — even firmware updates.
 
 **Three touch pads, no moving parts** — Left, center, right. Tap to navigate, hold for the menu, hold longer for auto-repeat. No buttons to wear out.
 
@@ -55,7 +55,7 @@ The clock reboots, connects to WiFi, syncs time from the internet, and starts ru
 
 ### Reopen the config portal
 
-Toggle **HOTSPOT** to ON in the on-device menu, or press the BOOT button on the ESP32 board.
+Press the **BOOT** button or toggle **HOTSPOT** to ON in the menu.
 
 ---
 
@@ -112,7 +112,7 @@ Tap center to advance each step. On the last step, the clock saves the new time 
 | RTC | DS1307 or DS3231 (battery-backed, keeps time when power is off) |
 | Touch | CAP1188 capacitive controller, 3 pads (left / center / right) |
 | Bell | Driven by GPIO 13 (active-high) |
-| Boot button | GPIO 0 — opens the config portal on short press |
+| Boot button | GPIO 0 — short press opens the config portal |
 
 ### Pin map
 

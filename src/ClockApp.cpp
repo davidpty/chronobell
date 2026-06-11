@@ -250,11 +250,9 @@ void ClockApp::pollBootButton() {
 
         LOG("Boot button short press: ");
         LOG(millis() - _buttonPressStart);
-        LOGLN("ms - entering menu");
+        LOGLN("ms - starting hotspot");
 
-        if (!_menuController.isActive()) {
-            _menuController.enterBrowse();
-        }
+        _wifiManager.startHotspot();
     }
 }
 
