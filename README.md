@@ -85,8 +85,10 @@ The clock will reboot, connect to your network, sync time via NTP, and start run
 ### Config Portal
 
 - Scan and join WiFi networks
-- Set timezone from a picker
-- See connection status and IP address
+- Choose timezone from a picker
+- Configure display mode, date style, bell, night mode, brightness
+- Toggle hotspot access point on/off
+- Set time manually (date picker + time input)
 - Upload firmware via web browser
 
 Reopen the portal by holding the center touch pad for 5 seconds, or press the BOOT button, or toggle HOTSPOT to ON in the menu.
