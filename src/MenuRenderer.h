@@ -23,6 +23,7 @@ public:
 private:
     void renderMenuBrowse();
     void renderMenuEdit();
+    void renderSetTimeEdit();
     void drawMenuValue(const MenuItem& it, int16_t v, int y);
     void drawMenuName(const MenuItem& it, int y);
 

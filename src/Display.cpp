@@ -293,6 +293,8 @@ static uint8_t fontIndex(char c) {
     if (c == '^') return 40;
     if (c == '@') return 41;
     if (c == 'v') return 42;
+    if (c == ':') return 43;
+    if (c == '/') return 44;
     return 0;
 }
 

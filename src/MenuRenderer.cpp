@@ -6,6 +6,7 @@
 #include "Config.h"
 #include "Display.h"
 #include "MenuBindings.h"
+#include "MenuConfig.h"
 
 void MenuRenderer::init(Display& display, MenuController& menu) {
     _display = &display;
@@ -31,6 +32,13 @@ void MenuRenderer::renderMenuBrowse() {
 
 void MenuRenderer::renderMenuEdit() {
     const MenuItem& it = _menu->currentItem();
+
+    // SETTIME multi-step: custom time editing display
+    if (strcmp(it.name, "SETTIME") == 0 && g_settimeStep > 0) {
+        renderSetTimeEdit();
+        return;
+    }
+
     // STYLE: show the chosen mode's name once (NameIntro), then transition
     // to ClockPreview where the clock blinks on/off continuously.
     if (strcmp(it.name, "STYLE") == 0 &&
@@ -77,4 +85,88 @@ void MenuRenderer::drawMenuName(const MenuItem& it, int y) {
     int w = _display->menuTextWidth(it.name, 4, 1);
     int x = (COLS_PER_ROW - w) / 2;
     _display->drawSmallText(it.name, x, y);
+}
+
+void MenuRenderer::renderSetTimeEdit() {
+    uint8_t step = g_settimeStep;
+
+    const char* label = "";
+    switch (step) {
+        case 1: label = "HOUR"; break;
+        case 2: label = "MIN";  break;
+        case 3: label = "SEC";  break;
+        case 4: label = "DATE"; break;
+        case 5: label = "MONTH"; break;
+        case 6: label = "YEAR"; break;
+    }
+    int lw = _display->menuTextWidth(label, 4, 1);
+    int lx = (COLS_PER_ROW - lw) / 2;
+    _display->drawSmallText(label, lx, 0);
+
+    uint8_t d0, d1, d2, d3;
+    char sep = ':';
+    bool blinkFirst, blinkSecond;
+
+    if (step == 1) {
+        d0 = g_setHour / 10; d1 = g_setHour % 10;
+        d2 = g_setMin / 10;  d3 = g_setMin % 10;
+        blinkFirst = true;  blinkSecond = false;
+    } else if (step == 2) {
+        d0 = g_setHour / 10; d1 = g_setHour % 10;
+        d2 = g_setMin / 10;  d3 = g_setMin % 10;
+        blinkFirst = false; blinkSecond = true;
+    } else if (step == 3) {
+        d0 = g_setMin / 10;  d1 = g_setMin % 10;
+        d2 = g_setSec / 10;  d3 = g_setSec % 10;
+        blinkFirst = false; blinkSecond = true;
+    } else if (step == 4) {
+        d0 = g_setDay / 10;   d1 = g_setDay % 10;
+        d2 = g_setMonth / 10; d3 = g_setMonth % 10;
+        blinkFirst = true;  blinkSecond = false;
+        sep = '/';
+    } else if (step == 5) {
+        d0 = g_setDay / 10;   d1 = g_setDay % 10;
+        d2 = g_setMonth / 10; d3 = g_setMonth % 10;
+        blinkFirst = false; blinkSecond = true;
+        sep = '/';
+    } else {
+        d0 = (g_setYear / 1000) % 10;
+        d1 = (g_setYear / 100) % 10;
+        d2 = (g_setYear / 10) % 10;
+        d3 = g_setYear % 10;
+        blinkFirst = true; blinkSecond = true;
+        sep = 0;
+    }
+
+    bool bo = _menu->blinkOn();
+    int digW = 6;
+    int gap = 1;
+    int sepContentW = sep ? Display::charWidth(sep, false) : 0;
+    int totalW = (digW * 4) + (gap * 4) + sepContentW;
+    int startX = (COLS_PER_ROW - totalW) / 2;
+    int digY = 6;
+    int x = startX;
+
+    if (!blinkFirst || bo) {
+        _display->drawMediumDigit(d0, x, digY);
+        x += digW + gap;
+        _display->drawMediumDigit(d1, x, digY);
+        x += digW + gap;
+    } else {
+        x += (digW + gap) * 2;
+    }
+
+    if (sep) {
+        char sepStr[2] = {sep, '\0'};
+        _display->drawMediumText(sepStr, x, digY);
+        x += sepContentW + gap;
+    } else {
+        x += gap;
+    }
+
+    if (!blinkSecond || bo) {
+        _display->drawMediumDigit(d2, x, digY);
+        x += digW + gap;
+        _display->drawMediumDigit(d3, x, digY);
+    }
 }

@@ -29,6 +29,8 @@ struct MenuItem {
     void (*previewValue)(void* ctx, int16_t value);
     void (*commitValue)(void* ctx, int16_t value);
     void (*previewAction)(void* ctx, int16_t value);
+    bool (*editCommit)(void* ctx, int16_t value);
+    void (*cancelValue)(void* ctx);
 };
 
 class MenuController {

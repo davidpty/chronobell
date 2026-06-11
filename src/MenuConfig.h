@@ -4,7 +4,15 @@
 #include <Arduino.h>
 #include "MenuController.h"
 
-extern const MenuItem MENU_ITEMS[];
+extern MenuItem MENU_ITEMS[];
 extern const uint8_t MENU_ITEM_COUNT;
+
+extern uint8_t g_settimeStep;
+extern uint8_t  g_setHour;
+extern uint8_t  g_setMin;
+extern uint8_t  g_setSec;
+extern uint8_t  g_setDay;
+extern uint8_t  g_setMonth;
+extern uint16_t g_setYear;
 
 #endif // MENU_CONFIG_H

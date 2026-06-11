@@ -51,6 +51,16 @@ void MenuController::saveEdit() {
     const MenuItem& item = _items[_index];
     if (item.commitValue) item.commitValue(_ctx, _editValue);
     _originalValue = _editValue;
+
+    if (item.editCommit && item.editCommit(_ctx, _editValue)) {
+        _editValue = item.getValue ? item.getValue(_ctx) : _editValue;
+        _originalValue = _editValue;
+        _brightPreviewActive = false;
+        previewCurrent();
+        markActivity();
+        return;
+    }
+
     _brightPreviewActive = false;
     LOGF("Menu: SAVED %s = %d\n", item.name, (int)_editValue);
     _state = MenuState::Browse;
@@ -66,6 +76,7 @@ void MenuController::cancelEdit() {
     if (item.previewValue) item.previewValue(_ctx, _originalValue);
     _editValue = _originalValue;
     _brightPreviewActive = false;
+    if (item.cancelValue) item.cancelValue(_ctx);
     _state = MenuState::Browse;
     markActivity();
 }
@@ -74,8 +85,13 @@ void MenuController::exit() {
     if (_state != MenuState::Off) {
         LOGLN("Menu: EXIT to NORMAL");
     }
-    if (_settingsStore && _items && _index < _itemCount) {
-        _settingsStore->saveMenuIndex(_index);
+    if (_items && _index < _itemCount) {
+        if (_items[_index].cancelValue) {
+            _items[_index].cancelValue(_ctx);
+        }
+        if (_settingsStore) {
+            _settingsStore->saveMenuIndex(_index);
+        }
     }
     _state = MenuState::Off;
     _editValue = 0;
