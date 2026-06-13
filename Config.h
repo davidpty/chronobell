@@ -10,7 +10,7 @@
 // Debug logging
 // ---------------------------------------------------------------------------
 
-#define DEBUG_SERIAL                                1                                   // 1 = enable Serial.print logging; 0 = compile out all LOG* calls
+#define DEBUG_SERIAL                                0                                   // 1 = enable Serial.print logging; 0 = compile out all LOG* calls
 
 #if DEBUG_SERIAL
   #define LOG(...)     Serial.print(__VA_ARGS__)
@@ -49,10 +49,10 @@
 // Bell output timing
 // ---------------------------------------------------------------------------
 
-#define BELL_COIL_ON_MS                             150                                 // Minimum coil energize time for one strike
-#define BELL_COIL_OFF_MS                            150                                 // Minimum coil de-energize time between strikes
-#define BELL_STRIKE_GAP_MS                          150                                 // Additional pause within a group (added after COIL_OFF)
-#define BELL_GROUP_GAP_MS                           550                                 // Additional pause between groups / un-grouped strikes (added after COIL_OFF)
+#define BELL_COIL_ON_MS                             100                                 // Minimum coil energize time for one strike
+#define BELL_COIL_OFF_MS                            100                                 // Minimum coil de-energize time between strikes
+#define BELL_STRIKE_GAP_MS                          250                                 // Additional pause within a group (added after COIL_OFF)
+#define BELL_GROUP_GAP_MS                           750                                 // Additional pause between groups / un-grouped strikes (added after COIL_OFF)
 
 // ---------------------------------------------------------------------------
 // Timer alerts

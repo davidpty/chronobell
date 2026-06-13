@@ -41,7 +41,9 @@ public:
     void setOtaDisplayCallback(std::function<void(bool, unsigned int, unsigned int)> cb);
     void setSaveCallback(std::function<bool(bool, bool, bool, const String&, const String&)> cb);
     void setPreviewCallback(std::function<void(const String&)> cb);
-    void setHotspotCallbacks(std::function<bool()> status, std::function<void(bool)> toggle);
+    void setHotspotCallbacks(std::function<bool()> status,
+                             std::function<int16_t()> remaining,
+                             std::function<void(bool)> toggle);
     void setScanPreflightCallback(std::function<void()> cb);
 
 #if ENABLE_OTA
@@ -67,6 +69,7 @@ private:
     std::function<bool(bool, bool, bool, const String&, const String&)> _saveCb;
     std::function<void(const String&)> _previewCb;
     std::function<bool()> _hotspotStatusCb = nullptr;
+    std::function<int16_t()> _hotspotRemainingCb = nullptr;
     std::function<void(bool)> _hotspotToggleCb = nullptr;
     std::function<void()> _scanPreflightCb = nullptr;
 

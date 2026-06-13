@@ -683,6 +683,10 @@ bool ClockApp::onSettingsSaved(bool wifiChanged, bool tzChanged, bool manualTime
     if (manualTimeChanged) {
         LOGLN("Applying manual time...");
         applyManualTime();
+        if (_wifiManager.isHotspotActive()) {
+            LOGLN("Manual time changed - resetting hotspot timer");
+            _wifiManager.resetHotspotTimer();
+        }
     }
 
     if (tzChanged) {

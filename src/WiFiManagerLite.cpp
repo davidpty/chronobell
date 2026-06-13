@@ -43,7 +43,8 @@ WiFiManagerLite::WiFiManagerLite(SettingsStore& settingsStore)
     _portal.setStatusProvider(this, statusConnected, statusInConfigMode, statusIPAddress, statusReconnectActive, statusReconnectFailed);
     _portal.setHotspotCallbacks(
         [this]() -> bool { return _hotspotActive; },
-        [this](bool on) { if (on) startHotspot(); else stopHotspot(); }
+        [this]() -> int16_t { return hotspotRemainingMenuMinutes(); },
+        [this](bool on) { if (on) resetHotspotTimer(); else stopHotspot(); }
     );
     _portal.setScanPreflightCallback([this]() {
         suspendPendingNetworkReconnect();
@@ -925,8 +926,10 @@ void WiFiManagerLite::setPreviewCallback(std::function<void(const String&)> cb) 
     _portal.setPreviewCallback(cb);
 }
 
-void WiFiManagerLite::setHotspotCallbacks(std::function<bool()> status, std::function<void(bool)> toggle) {
-    _portal.setHotspotCallbacks(status, toggle);
+void WiFiManagerLite::setHotspotCallbacks(std::function<bool()> status,
+                                          std::function<int16_t()> remaining,
+                                          std::function<void(bool)> toggle) {
+    _portal.setHotspotCallbacks(status, remaining, toggle);
 }
 
 void WiFiManagerLite::setReconnectResultCallback(std::function<void(bool)> cb) {

@@ -159,6 +159,7 @@ void ConfigPortal::handleRoot() {
     String initialBrightness = String(_settingsStore.loadBrightness(4));
     String initialTimezone = portalTimezoneValue(_settings.timezone.offsetMinutes);
     String initialManualMode = _settings.manualTime.enabled ? "manual" : "auto";
+    String initialHotspotRemaining = String(_hotspotRemainingCb ? _hotspotRemainingCb() : 0);
 
     String html = R"rawliteral(
 <!DOCTYPE html>
@@ -418,11 +419,14 @@ void ConfigPortal::handleRoot() {
         let pendingSSID = "__PENDING_SSID__";
         let pendingPassword = "__PENDING_PASSWORD__";
         let hotspotActive = __HOTSPOT_ACTIVE__;
+        let hotspotRemaining = __HOTSPOT_REMAINING__;
+        let hotspotTimeout = __HOTSPOT_TIMEOUT__;
         let selectedSSID = '';
         let selectedSecured = false;
         let isScanning = false;
         let wifiMode = 'auto';
         let pendingPollTimer = null;
+        let statusPollTimer = null;
         let wifiFieldsDirty = false;
 
         function htmlEscape(value) {
@@ -459,8 +463,17 @@ void ConfigPortal::handleRoot() {
         }
 
         function syncHotspotToggle() {
-            document.getElementById('hotspotOff').classList.toggle('active', !hotspotActive);
-            document.getElementById('hotspotOn').classList.toggle('active', hotspotActive);
+            const offBtn = document.getElementById('hotspotOff');
+            const onBtn = document.getElementById('hotspotOn');
+            offBtn.classList.toggle('active', !hotspotActive);
+            onBtn.classList.toggle('active', hotspotActive);
+            if (!hotspotActive) {
+                onBtn.textContent = 'ON';
+            } else if (hotspotTimeout === 0) {
+                onBtn.textContent = 'ON - no timeout';
+            } else {
+                onBtn.textContent = 'ON - ' + hotspotRemaining + ' min';
+            }
         }
 
         function applyInitialState() {
@@ -513,6 +526,13 @@ void ConfigPortal::handleRoot() {
             pendingPollTimer = setInterval(function() {
                 loadSettings(true);
             }, 2000);
+        }
+
+        function startStatusPoll() {
+            if (statusPollTimer) return;
+            statusPollTimer = setInterval(function() {
+                loadSettings(false);
+            }, 15000);
         }
 
         function updateConnectButton(state) {
@@ -576,6 +596,8 @@ void ConfigPortal::handleRoot() {
 
                 if (data.hotspotActive !== undefined) {
                     hotspotActive = !!data.hotspotActive;
+                    hotspotRemaining = data.hotspotRemaining || 0;
+                    hotspotTimeout = data.hotspotTimeout || 0;
                     syncHotspotToggle();
                 }
 
@@ -797,6 +819,7 @@ void ConfigPortal::handleRoot() {
     applyInitialState();
     window.onload = function() {
         loadSettings(false);
+        startStatusPoll();
     };
     </script>
 </body>
@@ -810,6 +833,8 @@ void ConfigPortal::handleRoot() {
     html.replace("__PENDING_SSID__", "");
     html.replace("__PENDING_PASSWORD__", "");
     html.replace("__HOTSPOT_ACTIVE__", hotspotActive ? "true" : "false");
+    html.replace("__HOTSPOT_REMAINING__", initialHotspotRemaining);
+    html.replace("__HOTSPOT_TIMEOUT__", String(HOTSPOT_TIMEOUT_MINUTES));
     html.replace("__HOTSPOT_OFF_CLASS__", hotspotOffClass);
     html.replace("__HOTSPOT_ON_CLASS__", hotspotOnClass);
     html.replace("__INITIAL_STYLE__", initialStyle);
@@ -1080,6 +1105,10 @@ void ConfigPortal::handleStatus() {
     json += (int)_settingsStore.loadBrightness(4);
     json += ",\"hotspotActive\":";
     json += (_hotspotStatusCb ? _hotspotStatusCb() : false) ? "true" : "false";
+    json += ",\"hotspotRemaining\":";
+    json += _hotspotRemainingCb ? _hotspotRemainingCb() : 0;
+    json += ",\"hotspotTimeout\":";
+    json += HOTSPOT_TIMEOUT_MINUTES;
 
     json += ",\"manualTime\":";
     json += _settings.manualTime.enabled ? "true" : "false";
@@ -1194,8 +1223,11 @@ void ConfigPortal::setPreviewCallback(std::function<void(const String&)> cb) {
     _previewCb = cb;
 }
 
-void ConfigPortal::setHotspotCallbacks(std::function<bool()> status, std::function<void(bool)> toggle) {
+void ConfigPortal::setHotspotCallbacks(std::function<bool()> status,
+                                       std::function<int16_t()> remaining,
+                                       std::function<void(bool)> toggle) {
     _hotspotStatusCb = status;
+    _hotspotRemainingCb = remaining;
     _hotspotToggleCb = toggle;
 }
 
