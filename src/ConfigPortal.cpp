@@ -35,17 +35,23 @@ ConfigPortal::ConfigPortal(SettingsStore& settingsStore)
     , _connectedCallback(nullptr)
     , _inConfigModeCallback(nullptr)
     , _ipAddressCallback(nullptr)
+    , _reconnectActiveCallback(nullptr)
+    , _reconnectFailedCallback(nullptr)
 {
 }
 
 void ConfigPortal::setStatusProvider(void* context,
                                      BoolStatusCallback connected,
                                      BoolStatusCallback inConfigMode,
-                                     StringStatusCallback ipAddress) {
+                                     StringStatusCallback ipAddress,
+                                     BoolStatusCallback reconnectActive,
+                                     BoolStatusCallback reconnectFailed) {
     _statusContext = context;
     _connectedCallback = connected;
     _inConfigModeCallback = inConfigMode;
     _ipAddressCallback = ipAddress;
+    _reconnectActiveCallback = reconnectActive;
+    _reconnectFailedCallback = reconnectFailed;
 }
 
 bool ConfigPortal::currentConnected() {
@@ -60,38 +66,36 @@ String ConfigPortal::currentIPAddress() {
     return _ipAddressCallback ? _ipAddressCallback(_statusContext) : String("");
 }
 
-void ConfigPortal::beginNormalMode() {
-    _configModeStation = true;
+bool ConfigPortal::currentReconnectActive() {
+    return _reconnectActiveCallback ? _reconnectActiveCallback(_statusContext) : false;
+}
+
+bool ConfigPortal::currentReconnectFailed() {
+    return _reconnectFailedCallback ? _reconnectFailedCallback(_statusContext) : false;
+}
+
+void ConfigPortal::begin(PortalMode mode) {
+    stop();
     _settings = _settingsStore.load();
+    _configModeStation = (mode == PortalMode::Lan);
+    _dnsActive = (mode == PortalMode::Hotspot);
+
+    if (_dnsActive) {
+        _dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
+        _dnsServer.start(53, "*", WiFi.softAPIP());
+    }
+
     configureWebServerRoutes();
     _webServer.begin();
-    LOGLN("Config portal active on port 80 (normal mode)");
+
+    if (_dnsActive) {
+        LOGLN("Config portal active on hotspot interface");
+    } else {
+        LOGLN("Config portal active on LAN interface");
+    }
 }
 
-void ConfigPortal::beginAPMode() {
-    _configModeStation = false;
-    _settings = _settingsStore.load();
-    _dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
-    _dnsServer.start(53, "*", WiFi.softAPIP());
-    configureWebServerRoutes();
-    _webServer.begin();
-}
-
-void ConfigPortal::beginStationMode() {
-    _configModeStation = true;
-    _settings = _settingsStore.load();
-    configureWebServerRoutes();
-    _webServer.begin();
-}
-
-void ConfigPortal::beginApOnly() {
-    _dnsActive = true;
-    _dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
-    _dnsServer.start(53, "*", WiFi.softAPIP());
-    LOGLN("Hotspot DNS active on softAP interface");
-}
-
-void ConfigPortal::stopApOnly() {
+void ConfigPortal::stopHotspotDns() {
     _dnsActive = false;
     _dnsServer.stop();
     LOGLN("Hotspot DNS stopped");
@@ -102,7 +106,7 @@ bool ConfigPortal::isApActive() {
 }
 
 void ConfigPortal::loop() {
-    if (!_configModeStation || _dnsActive) {
+    if (_dnsActive) {
         _dnsServer.processNextRequest();
     }
     _webServer.handleClient();
@@ -111,6 +115,7 @@ void ConfigPortal::loop() {
 void ConfigPortal::stop() {
     _dnsServer.stop();
     _webServer.stop();
+    _dnsActive = false;
 }
 
 void ConfigPortal::configureWebServerRoutes() {
@@ -141,6 +146,19 @@ void ConfigPortal::configureWebServerRoutes() {
 
 void ConfigPortal::handleRoot() {
     _settings = _settingsStore.load();
+    String displaySsid = _settings.network.ssid;
+    String displayPassword = _settings.network.password;
+    bool hotspotActive = _hotspotStatusCb ? _hotspotStatusCb() : false;
+    String hotspotOffClass = hotspotActive ? String("") : String("active");
+    String hotspotOnClass = hotspotActive ? String("active") : String("");
+    String initialBellMode = String((int)_settings.bellMode);
+    String initialStyle = String((int)_settings.displayMode);
+    String initialDateStyle = String((int)_settings.dateStyle);
+    String initialTimeFormat = String((int)_settings.timeFormat);
+    String initialNightMode = String((int)_settings.nightMode);
+    String initialBrightness = String(_settingsStore.loadBrightness(4));
+    String initialTimezone = portalTimezoneValue(_settings.timezone.offsetMinutes);
+    String initialManualMode = _settings.manualTime.enabled ? "manual" : "auto";
 
     String html = R"rawliteral(
 <!DOCTYPE html>
@@ -354,11 +372,11 @@ void ConfigPortal::handleRoot() {
                 <div class="setup-spacer"></div>
                 <div style="flex:1; min-width:0;">
                     <div class="row">
-                        <input type="text" id="ssidInput" value="__SSID_VALUE__" placeholder="Enter network name">
+                        <input type="text" id="ssidInput" value="__SSID_VALUE__" placeholder="Enter network name" oninput="onWifiInput()">
                         <button class="btn-scan" id="scanBtn" onclick="scanNetworks()">SCAN</button>
                     </div>
                     <div id="networkList" style="margin-top: 0.25em;"></div>
-                    <input type="password" id="password" value="__PASSWORD_VALUE__" placeholder="Enter password" style="margin-top: 0.25em;">
+                    <input type="password" id="password" value="__PASSWORD_VALUE__" placeholder="Enter password" style="margin-top: 0.25em;" oninput="onWifiInput()">
                     <button class="btn btn-primary" id="connectBtn" onclick="connectWifi()" style="margin-top: 0.25em;">Connect</button>
                 </div>
             </div>
@@ -377,8 +395,8 @@ void ConfigPortal::handleRoot() {
             <div class="setting-row">
                 <div class="setting-label">Hotspot</div>
                 <div class="toggle-group">
-                    <button class="toggle-btn active" id="hotspotOff" onclick="setHotspot(0)">OFF</button>
-                    <button class="toggle-btn" id="hotspotOn" onclick="setHotspot(1)">ON</button>
+                    <button class="toggle-btn __HOTSPOT_OFF_CLASS__" id="hotspotOff" onclick="setHotspot(0)">OFF</button>
+                    <button class="toggle-btn __HOTSPOT_ON_CLASS__" id="hotspotOn" onclick="setHotspot(1)">ON</button>
                 </div>
             </div>
 
@@ -395,11 +413,17 @@ void ConfigPortal::handleRoot() {
     </div>
 
     <script>
+        let activeSSID = "__ACTIVE_SSID__";
+        let activePassword = "__ACTIVE_PASSWORD__";
+        let pendingSSID = "__PENDING_SSID__";
+        let pendingPassword = "__PENDING_PASSWORD__";
+        let hotspotActive = __HOTSPOT_ACTIVE__;
         let selectedSSID = '';
+        let selectedSecured = false;
         let isScanning = false;
-        let storedSsid = '';
-        let storedPassword = '';
         let wifiMode = 'auto';
+        let pendingPollTimer = null;
+        let wifiFieldsDirty = false;
 
         function htmlEscape(value) {
             return String(value).replace(/[&<>"']/g, function(ch) {
@@ -415,6 +439,100 @@ void ConfigPortal::handleRoot() {
             document.getElementById('manualPanel').classList.toggle('hidden', mode !== 'manual');
         }
 
+        function syncWifiFields() {
+            if (wifiFieldsDirty) {
+                return;
+            }
+            document.getElementById('ssidInput').value = activeSSID;
+            document.getElementById('password').value = activePassword;
+            selectedSSID = activeSSID;
+        }
+
+        function onWifiInput() {
+            wifiFieldsDirty = true;
+            selectedSSID = '';
+            selectedSecured = false;
+            document.querySelectorAll('.network-item').forEach(el => {
+                el.classList.remove('selected');
+            });
+            document.getElementById('password').disabled = false;
+        }
+
+        function syncHotspotToggle() {
+            document.getElementById('hotspotOff').classList.toggle('active', !hotspotActive);
+            document.getElementById('hotspotOn').classList.toggle('active', hotspotActive);
+        }
+
+        function applyInitialState() {
+            const initial = {
+                style: "__INITIAL_STYLE__",
+                datestyle: "__INITIAL_DATESTYLE__",
+                timefmt: "__INITIAL_TIMEFMT__",
+                nightmode: "__INITIAL_NIGHTMODE__",
+                bellmode: "__INITIAL_BELLMODE__",
+                brightness: "__INITIAL_BRIGHTNESS__",
+                timezone: "__INITIAL_TIMEZONE__",
+                manualMode: "__INITIAL_MANUAL_MODE__"
+            };
+
+            const pairs = [
+                ['style', initial.style],
+                ['datestyle', initial.datestyle],
+                ['timefmt', initial.timefmt],
+                ['nightmode', initial.nightmode],
+                ['bellmode', initial.bellmode],
+                ['timezone', initial.timezone]
+            ];
+            pairs.forEach(function(item) {
+                const el = document.getElementById(item[0]);
+                if (!el || item[1] === undefined) return;
+                const value = String(item[1]);
+                for (let i = 0; i < el.options.length; i++) {
+                    if (el.options[i].value === value) {
+                        el.selectedIndex = i;
+                        break;
+                    }
+                }
+            });
+
+            document.getElementById('brightness').value = initial.brightness;
+            document.getElementById('brightnessVal').textContent = initial.brightness;
+            setWifiMode(initial.manualMode === 'manual' ? 'manual' : 'auto');
+            syncHotspotToggle();
+        }
+
+        function stopPendingPoll() {
+            if (pendingPollTimer) {
+                clearInterval(pendingPollTimer);
+                pendingPollTimer = null;
+            }
+        }
+
+        function startPendingPoll() {
+            if (pendingPollTimer) return;
+            pendingPollTimer = setInterval(function() {
+                loadSettings(true);
+            }, 2000);
+        }
+
+        function updateConnectButton(state) {
+            const btn = document.getElementById('connectBtn');
+            if (!btn) return;
+            if (state === 'connecting') {
+                btn.textContent = 'Connecting...';
+                btn.disabled = true;
+            } else if (state === 'connected') {
+                btn.textContent = 'Connect';
+                btn.disabled = false;
+            } else if (state === 'failed') {
+                btn.textContent = 'FAILED';
+                btn.disabled = false;
+            } else {
+                btn.textContent = 'Connect';
+                btn.disabled = false;
+            }
+        }
+
         function applyManualTime() {
             const date = document.getElementById('manualDate').value;
             const time = document.getElementById('manualTime').value;
@@ -424,7 +542,7 @@ void ConfigPortal::handleRoot() {
             }
         }
 
-        async function loadSettings() {
+        async function loadSettings(fromPoll) {
             try {
                 const response = await fetch('/status');
                 const data = await response.json();
@@ -456,10 +574,9 @@ void ConfigPortal::handleRoot() {
                     document.getElementById('brightnessVal').textContent = b;
                 }
 
-                const h = data.hotspotActive;
-                if (h !== undefined) {
-                    document.getElementById('hotspotOff').classList.toggle('active', !h);
-                    document.getElementById('hotspotOn').classList.toggle('active', !!h);
+                if (data.hotspotActive !== undefined) {
+                    hotspotActive = !!data.hotspotActive;
+                    syncHotspotToggle();
                 }
 
                 const now = new Date();
@@ -470,11 +587,26 @@ void ConfigPortal::handleRoot() {
                     String(now.getMinutes()).padStart(2, '0');
                 document.getElementById('manualSec').value = String(now.getSeconds()).padStart(2, '0');
 
-                storedSsid = data.storedSsid || '';
-                storedPassword = data.storedPassword || '';
-                selectedSSID = storedSsid;
-                document.getElementById('ssidInput').value = storedSsid;
-                document.getElementById('password').value = storedPassword;
+                activeSSID = data.storedSsid || '';
+                activePassword = data.storedPassword || '';
+                syncWifiFields();
+                if (data.wifiState === 'connected') {
+                    pendingSSID = '';
+                    pendingPassword = '';
+                    stopPendingPoll();
+                    updateConnectButton('connected');
+                } else if (data.wifiState === 'failed') {
+                    pendingSSID = '';
+                    pendingPassword = '';
+                    stopPendingPoll();
+                    updateConnectButton('failed');
+                } else if (data.wifiState === 'connecting') {
+                    startPendingPoll();
+                    updateConnectButton('connecting');
+                } else {
+                    stopPendingPoll();
+                    updateConnectButton(data.wifiState || 'idle');
+                }
                 setWifiMode(data.manualTime ? 'manual' : 'auto');
             } catch (e) {
                 console.log('Error loading settings:', e);
@@ -545,9 +677,11 @@ void ConfigPortal::handleRoot() {
                 el.classList.toggle('selected', el.getAttribute('data-ssid') === ssid);
             });
             selectedSSID = ssid;
+            selectedSecured = !!secured;
+            wifiFieldsDirty = true;
             document.getElementById('ssidInput').value = ssid;
             document.getElementById('password').disabled = !secured;
-            if (!secured) document.getElementById('password').value = '';
+            document.getElementById('password').value = '';
             document.getElementById('password').focus();
         }
 
@@ -562,8 +696,8 @@ void ConfigPortal::handleRoot() {
         }
 
         function setHotspot(value) {
-            document.getElementById('hotspotOff').classList.toggle('active', value === 0);
-            document.getElementById('hotspotOn').classList.toggle('active', value === 1);
+            hotspotActive = value === 1;
+            syncHotspotToggle();
             applySetting('hotspot', value);
         }
 
@@ -573,32 +707,55 @@ void ConfigPortal::handleRoot() {
         }
 
         function connectWifi() {
-            const ssid = document.getElementById('ssidInput').value || storedSsid;
-            let password = document.getElementById('password').value;
-            if (!password && ssid === storedSsid) {
-                password = storedPassword;
-            }
             const btn = document.getElementById('connectBtn');
+            const ssid = document.getElementById('ssidInput').value || '';
+            let password = document.getElementById('password').value;
+            if (selectedSecured && !password) {
+                btn.textContent = 'PASSWORD';
+                setTimeout(function() { btn.textContent = 'Connect'; }, 1500);
+                return;
+            }
+            wifiFieldsDirty = false;
             btn.disabled = true;
             btn.textContent = 'Connecting...';
             fetch('/save?ssid=' + encodeURIComponent(ssid) + '&password=' + encodeURIComponent(password))
                 .then(r => r.json())
                 .then(data => {
-                    btn.textContent = data.success ? 'Connected!' : 'Connect';
                     btn.disabled = false;
                     if (data.success) {
-                        storedSsid = ssid;
-                        storedPassword = password;
-                        selectedSSID = ssid;
-                        document.getElementById('ssidInput').value = ssid;
-                        document.getElementById('password').value = password;
+                        if (data.pending) {
+                            pendingSSID = ssid;
+                            pendingPassword = password;
+                            syncWifiFields();
+                            selectedSSID = '';
+                            selectedSecured = false;
+                            updateConnectButton('connecting');
+                            startPendingPoll();
+                        } else {
+                            activeSSID = ssid;
+                            activePassword = password;
+                            pendingSSID = '';
+                            pendingPassword = '';
+                            syncWifiFields();
+                            selectedSSID = '';
+                            selectedSecured = false;
+                            stopPendingPoll();
+                            btn.textContent = 'Connect';
+                        }
                     } else {
-                        setTimeout(function() { btn.textContent = 'Connect'; }, 2000);
+                        stopPendingPoll();
+                        wifiFieldsDirty = false;
+                        selectedSSID = '';
+                        selectedSecured = false;
+                        updateConnectButton('failed');
                     }
                 })
                 .catch(function() {
-                    btn.textContent = 'Connect';
-                    btn.disabled = false;
+                    stopPendingPoll();
+                    wifiFieldsDirty = false;
+                    selectedSSID = '';
+                    selectedSecured = false;
+                    updateConnectButton('failed');
                 });
         }
 
@@ -635,19 +792,45 @@ void ConfigPortal::handleRoot() {
             xhr.send(formData);
         }
 
-    window.onload = loadSettings;
+    syncHotspotToggle();
+    syncWifiFields();
+    applyInitialState();
+    window.onload = function() {
+        loadSettings(false);
+    };
     </script>
 </body>
 </html>
 )rawliteral";
 
-    html.replace("__SSID_VALUE__", encodeHTML(_settings.network.ssid));
-    html.replace("__PASSWORD_VALUE__", encodeHTML(_settings.network.password));
+    html.replace("__SSID_VALUE__", encodeHTML(displaySsid));
+    html.replace("__PASSWORD_VALUE__", encodeHTML(displayPassword));
+    html.replace("__ACTIVE_SSID__", encodeJSON(_settings.network.ssid));
+    html.replace("__ACTIVE_PASSWORD__", encodeJSON(_settings.network.password));
+    html.replace("__PENDING_SSID__", "");
+    html.replace("__PENDING_PASSWORD__", "");
+    html.replace("__HOTSPOT_ACTIVE__", hotspotActive ? "true" : "false");
+    html.replace("__HOTSPOT_OFF_CLASS__", hotspotOffClass);
+    html.replace("__HOTSPOT_ON_CLASS__", hotspotOnClass);
+    html.replace("__INITIAL_STYLE__", initialStyle);
+    html.replace("__INITIAL_DATESTYLE__", initialDateStyle);
+    html.replace("__INITIAL_TIMEFMT__", initialTimeFormat);
+    html.replace("__INITIAL_NIGHTMODE__", initialNightMode);
+    html.replace("__INITIAL_BELLMODE__", initialBellMode);
+    html.replace("__INITIAL_BRIGHTNESS__", initialBrightness);
+    html.replace("__INITIAL_TIMEZONE__", initialTimezone);
+    html.replace("__INITIAL_MANUAL_MODE__", initialManualMode);
 
     _webServer.send(200, "text/html", html);
 }
 
 void ConfigPortal::handleScan() {
+    if (_scanPreflightCb) {
+        _scanPreflightCb();
+    }
+
+    delay(100);
+    WiFi.scanDelete();
     int n = WiFi.scanNetworks();
 
     if (n == WIFI_SCAN_FAILED) {
@@ -743,30 +926,55 @@ void ConfigPortal::handleSave() {
 
     AppSettings current = _settingsStore.load();
     bool wifiChanged = (ssid != current.network.ssid || password != current.network.password);
+    LOG("Portal Wi-Fi save: SSID=\"");
+    LOG(ssid);
+    LOG("\" password=\"");
+    LOG(password);
+    LOGLN("\"");
     if (wifiChanged) {
+        _settingsStore.clearPendingNetwork();
+        _settingsStore.clearNetworkBackup();
+        if (!_settingsStore.saveNetworkBackup(current.network)) {
+            _webServer.send(500, "application/json", "{\"success\":false,\"message\":\"Failed to back up Wi-Fi credentials\"}");
+            return;
+        }
         NetworkCredentials pending;
         pending.ssid = ssid;
         pending.password = password;
         if (!_settingsStore.savePendingNetwork(pending)) {
+            _settingsStore.clearNetworkBackup();
             _webServer.send(500, "application/json", "{\"success\":false,\"message\":\"Failed to stage Wi-Fi credentials\"}");
             return;
         }
+        _settings = current;
     } else {
         _settingsStore.clearPendingNetwork();
+        _settingsStore.clearNetworkBackup();
     }
 
     bool success = true;
     if (_saveCb) {
-        success = _saveCb(wifiChanged, false, false);
+        success = _saveCb(wifiChanged, false, false, ssid, password);
     }
 
     if (!success) {
         _settingsStore.clearPendingNetwork();
+        NetworkCredentials backup;
+        if (_settingsStore.loadNetworkBackup(backup)) {
+            AppSettings restored = current;
+            restored.network = backup;
+            _settingsStore.save(restored);
+            _settings = restored;
+        }
+        _settingsStore.clearNetworkBackup();
         _webServer.send(200, "application/json", "{\"success\":false,\"message\":\"Wi-Fi connection failed\"}");
         return;
     }
 
-    _webServer.send(200, "application/json", "{\"success\":true}");
+    String json = "{\"success\":true,\"pending\":";
+    json += wifiChanged ? "true" : "false";
+    json += "}";
+    _webServer.send(200, "application/json", json);
 }
 
 void ConfigPortal::handleApply() {
@@ -833,7 +1041,7 @@ void ConfigPortal::handleApply() {
     _settings = settings;
 
     if (_saveCb) {
-        (void)_saveCb(false, tzChanged, manualTimeChanged);
+        (void)_saveCb(false, tzChanged, manualTimeChanged, "", "");
     }
 
     if (_previewCb && (field == "style" || field == "datestyle" || field == "timefmt" || field == "timezone" || field == "timeMode" || field == "manualtime" || field == "bellmode" || field == "brightness")) {
@@ -880,6 +1088,21 @@ void ConfigPortal::handleStatus() {
     json += encodeJSON(_settings.network.ssid);
     json += "\",\"storedPassword\":\"";
     json += encodeJSON(_settings.network.password);
+    json += "\"";
+
+    json += ",\"pendingSsid\":\"";
+    json += "\",\"pendingPassword\":\"";
+    json += "\"";
+    json += ",\"wifiState\":\"";
+    if (currentReconnectFailed()) {
+        json += "failed";
+    } else if (currentReconnectActive()) {
+        json += "connecting";
+    } else if (currentConnected()) {
+        json += "connected";
+    } else {
+        json += "idle";
+    }
     json += "\"";
 
     json += "}";
@@ -963,7 +1186,7 @@ void ConfigPortal::setOtaDisplayCallback(std::function<void(bool, unsigned int, 
     _otaDisplayCb = cb;
 }
 
-void ConfigPortal::setSaveCallback(std::function<bool(bool, bool, bool)> cb) {
+void ConfigPortal::setSaveCallback(std::function<bool(bool, bool, bool, const String&, const String&)> cb) {
     _saveCb = cb;
 }
 
@@ -974,6 +1197,10 @@ void ConfigPortal::setPreviewCallback(std::function<void(const String&)> cb) {
 void ConfigPortal::setHotspotCallbacks(std::function<bool()> status, std::function<void(bool)> toggle) {
     _hotspotStatusCb = status;
     _hotspotToggleCb = toggle;
+}
+
+void ConfigPortal::setScanPreflightCallback(std::function<void()> cb) {
+    _scanPreflightCb = cb;
 }
 
 bool ConfigPortal::isUpdating() {

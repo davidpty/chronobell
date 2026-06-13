@@ -13,6 +13,11 @@
 
 class ConfigPortal {
 public:
+    enum class PortalMode {
+        Lan,
+        Hotspot,
+    };
+
     typedef bool (*BoolStatusCallback)(void* context);
     typedef String (*StringStatusCallback)(void* context);
 
@@ -21,13 +26,12 @@ public:
     void setStatusProvider(void* context,
                            BoolStatusCallback connected,
                            BoolStatusCallback inConfigMode,
-                           StringStatusCallback ipAddress);
+                           StringStatusCallback ipAddress,
+                           BoolStatusCallback reconnectActive,
+                           BoolStatusCallback reconnectFailed);
 
-    void beginAPMode();
-    void beginStationMode();
-    void beginNormalMode();
-    void beginApOnly();
-    void stopApOnly();
+    void begin(PortalMode mode);
+    void stopHotspotDns();
     bool isApActive();
     void loop();
     void stop();
@@ -35,9 +39,10 @@ public:
     void startOTAUpdate();
     bool isUpdating();
     void setOtaDisplayCallback(std::function<void(bool, unsigned int, unsigned int)> cb);
-    void setSaveCallback(std::function<bool(bool, bool, bool)> cb);
+    void setSaveCallback(std::function<bool(bool, bool, bool, const String&, const String&)> cb);
     void setPreviewCallback(std::function<void(const String&)> cb);
     void setHotspotCallbacks(std::function<bool()> status, std::function<void(bool)> toggle);
+    void setScanPreflightCallback(std::function<void()> cb);
 
 #if ENABLE_OTA
     void handleUpdateUpload();
@@ -57,14 +62,19 @@ private:
     BoolStatusCallback _connectedCallback;
     BoolStatusCallback _inConfigModeCallback;
     StringStatusCallback _ipAddressCallback;
-    std::function<bool(bool, bool, bool)> _saveCb;
+    BoolStatusCallback _reconnectActiveCallback;
+    BoolStatusCallback _reconnectFailedCallback;
+    std::function<bool(bool, bool, bool, const String&, const String&)> _saveCb;
     std::function<void(const String&)> _previewCb;
     std::function<bool()> _hotspotStatusCb = nullptr;
     std::function<void(bool)> _hotspotToggleCb = nullptr;
+    std::function<void()> _scanPreflightCb = nullptr;
 
     bool currentConnected();
     bool currentInConfigMode();
     String currentIPAddress();
+    bool currentReconnectActive();
+    bool currentReconnectFailed();
 
     void configureWebServerRoutes();
     void handleRoot();

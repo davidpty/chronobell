@@ -112,8 +112,8 @@ bool GuestWifiController::fetch(const char* url) {
         String ssidStr = body.substring(0, newlinePos);
         ssidStr.trim();
         size_t ssidLen = ssidStr.length();
-        if (ssidLen >= GUEST_WIFI_SSID_MAX_LEN) {
-            ssidLen = GUEST_WIFI_SSID_MAX_LEN - 1;
+        if (ssidLen >= GUEST_WIFI_TEXT_MAX_LEN) {
+            ssidLen = GUEST_WIFI_TEXT_MAX_LEN - 1;
         }
         memcpy(_ssid, ssidStr.c_str(), ssidLen);
         _ssid[ssidLen] = '\0';
@@ -141,6 +141,7 @@ bool GuestWifiController::fetch(const char* url) {
     LOG("\" password=\"");
     LOG(_password);
     LOGLN("\"");
+    _fetchFailCount = 0;
     _passwordAvailable = true;
     return true;
 }
@@ -151,8 +152,8 @@ void GuestWifiController::tick(int hours, int minutes, int year, int month, int 
     }
 
     unsigned long nowMs = millis();
-    if (nowMs - _lastFetchMs < 1000) {
-        return; // Throttle: at most 1 fetch attempt per second
+    if (nowMs - _lastFetchMs < (unsigned long)GUEST_WIFI_FETCH_TIMEOUT_SECONDS * 1000UL) {
+        return; // Throttle: at most 1 fetch attempt per minute
     }
 
     // Boot fetch: fire once at startup, but only mark done on success.
@@ -180,10 +181,10 @@ void GuestWifiController::tick(int hours, int minutes, int year, int month, int 
         return;
     }
 
-    // Retry: if a previous fetch (boot or timed) failed, try again every 5
-    // minutes, up to 12 total failures (~1 hour).
-    if (_fetchFailCount > 0 && _fetchFailCount < 12) {
-        if (nowMs - _lastFetchMs >= 300000UL) {
+    // Retry: if a previous fetch (boot or timed) failed, try again once per
+    // fetch interval, up to the configured failure cap.
+    if (_fetchFailCount > 0 && _fetchFailCount < GUEST_WIFI_FETCH_MAX_FAILURES) {
+        if (nowMs - _lastFetchMs >= (unsigned long)GUEST_WIFI_FETCH_TIMEOUT_SECONDS * 1000UL) {
             _lastFetchMs = nowMs;
             _fetchFailCount++;
             if (fetch(GUEST_WIFI_URL)) {
@@ -193,5 +194,3 @@ void GuestWifiController::tick(int hours, int minutes, int year, int month, int 
         return;
     }
 }
-
-

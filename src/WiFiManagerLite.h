@@ -18,6 +18,8 @@ public:
     bool begin();
     bool reconnectSTA(int timeoutMs);
     bool reconnectSTAWithFallback(int timeoutMs);
+    bool startPendingNetworkReconnect(int timeoutMs);
+    bool startPendingNetworkReconnect(const String& ssid, const String& password, int timeoutMs);
     void loop();
     void startConfigMode();
     void startConfigModePreferStation();
@@ -27,6 +29,10 @@ public:
     void startHotspot();
     void stopHotspot();
     bool isHotspotActive();
+    int16_t hotspotRemainingMenuMinutes() const;
+    String hotspotMenuLabel(bool editing, int16_t value) const;
+    void resetHotspotTimer();
+    void suspendPendingNetworkReconnect();
 
     void startNetworkServices();
     void stopNetworkServices();
@@ -36,9 +42,10 @@ public:
 
     bool isUpdating();
     void setOtaDisplayCallback(std::function<void(bool, unsigned int, unsigned int)> cb);
-    void setSaveCallback(std::function<bool(bool, bool, bool)> cb);
+    void setSaveCallback(std::function<bool(bool, bool, bool, const String&, const String&)> cb);
     void setPreviewCallback(std::function<void(const String&)> cb);
     void setHotspotCallbacks(std::function<bool()> status, std::function<void(bool)> toggle);
+    void setReconnectResultCallback(std::function<void(bool)> cb);
 
 private:
     enum class ConnState { Idle, Connecting, Connected };
@@ -66,10 +73,18 @@ private:
     ConfigPortal _portal;
     TimeProvider* _timeProvider;
     unsigned long _hotspotExpiryEpoch;
+    bool _pendingReconnectActive;
+    bool _pendingReconnectFallback;
+    bool _pendingReconnectFailed;
+    unsigned long _pendingReconnectStartedMs;
+    int _pendingReconnectTimeoutMs;
+    NetworkCredentials _pendingReconnectCredentials;
+    bool _pendingReconnectCredentialsValid;
 
     std::function<void(bool, unsigned int, unsigned int)> _otaDisplayCb;
-    std::function<bool(bool, bool, bool)> _saveCb;
+    std::function<bool(bool, bool, bool, const String&, const String&)> _saveCb;
     std::function<void(const String&)> _previewCb;
+    std::function<void(bool)> _reconnectResultCb;
 
     ConnState _connState = ConnState::Idle;
     unsigned long _connStartMs = 0;
@@ -78,6 +93,8 @@ private:
     static bool statusConnected(void* context);
     static bool statusInConfigMode(void* context);
     static String statusIPAddress(void* context);
+    static bool statusReconnectActive(void* context);
+    static bool statusReconnectFailed(void* context);
     bool loadCredentials(String& ssid, String& password);
     void clearCredentials();
     void startConnect(const String& ssid, const String& password, int timeoutMs);

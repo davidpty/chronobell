@@ -10,7 +10,7 @@
 // Debug logging
 // ---------------------------------------------------------------------------
 
-#define DEBUG_SERIAL                                0                                   // 1 = enable Serial.print logging; 0 = compile out all LOG* calls
+#define DEBUG_SERIAL                                1                                   // 1 = enable Serial.print logging; 0 = compile out all LOG* calls
 
 #if DEBUG_SERIAL
   #define LOG(...)     Serial.print(__VA_ARGS__)
@@ -118,15 +118,17 @@
 // time, then shows it in the middle-button view cycle (as "GUEST"). Set
 // GUEST_WIFI_URL to "" to disable the entire feature at runtime.
 
-#define GUEST_WIFI_URL                              "http://192.168.8.1/qr/guest.txt"
-#define GUEST_WIFI_FETCH_HOUR                       0
-#define GUEST_WIFI_FETCH_MINUTE                     1
-#define GUEST_WIFI_FETCH_TIMEOUT_SECONDS            5
-#define GUEST_WIFI_TEXT_MAX_LEN                     64
-#define GUEST_WIFI_SSID_MAX_LEN                     32
-#define GUEST_WIFI_VIEW_TIMEOUT_SECONDS             60
-#define GUEST_WIFI_SSID_SHOW_SECONDS                2
-#define GUEST_WIFI_PASS_SHOW_SECONDS                8
+#define GUEST_WIFI_URL                              "http://192.168.8.1/qr/guest.txt"   // HTTP URL that returns the guest Wi-Fi; empty disables the feature
+#define GUEST_WIFI_FETCH_HOUR                       0                                   // Hour of day to fetch guest Wi-Fi (0-23)
+#define GUEST_WIFI_FETCH_MINUTE                     1                                   // Minute of hour to fetch guest Wi-Fi (0-59)
+#define GUEST_WIFI_FETCH_TIMEOUT_SECONDS            60                                  // HTTP timeout and retry cadence for guest Wi-Fi fetch attempts
+#define GUEST_WIFI_FETCH_MAX_FAILURES               10                                  // Stop retrying after this many failed fetches
+
+#define GUEST_WIFI_TEXT_MAX_LEN                     64                                  // Max guest Wi-Fi text length for SSID and password
+
+#define GUEST_WIFI_VIEW_TIMEOUT_SECONDS             60                                  // Time before the guest Wi-Fi view hides
+#define GUEST_WIFI_SSID_SHOW_SECONDS                2                                   // Seconds to show SSID before switching to password
+#define GUEST_WIFI_PASS_SHOW_SECONDS                8                                   // Seconds to show password in the guest Wi-Fi view
 
 // ═════════════════════════════════════════════════════════════════════════════
 // SECTION 3 — PER-BOARD CALIBRATION
@@ -205,4 +207,3 @@
 #define CAP1188_ENABLED_INPUTS                      0x89                                // Bitmask: 0x89 = CS1 | CS4 | CS8
 
 #endif
-

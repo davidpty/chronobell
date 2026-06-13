@@ -7,6 +7,7 @@
 #include "Display.h"
 #include "MenuBindings.h"
 #include "MenuConfig.h"
+#include "WiFiManagerLite.h"
 
 void MenuRenderer::init(Display& display, MenuController& menu) {
     _display = &display;
@@ -56,8 +57,15 @@ void MenuRenderer::renderMenuEdit() {
 }
 
 void MenuRenderer::drawMenuValue(const MenuItem& it, int16_t v, int y) {
-    (void)it;
-    const char* name = menuValueName(_menu->index(), v, _display->getMenuBindings());
+    const char* name = nullptr;
+    if (strcmp(it.name, "HOTSPOT") == 0) {
+        MenuBindings* bindings = static_cast<MenuBindings*>(_display->getMenuBindings());
+        static String hotspotLabel;
+        hotspotLabel = bindings->wifiManager.hotspotMenuLabel(_menu->isEdit(), v);
+        name = hotspotLabel.c_str();
+    } else {
+        name = menuValueName(_menu->index(), v, _display->getMenuBindings());
+    }
     int x;
     if (name) {
         int w = _display->menuTextWidth(name, 6, 1);

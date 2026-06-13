@@ -32,12 +32,22 @@ WiFiManagerLite::WiFiManagerLite(SettingsStore& settingsStore)
     , _portal(settingsStore)
     , _timeProvider(nullptr)
     , _hotspotExpiryEpoch(0)
+    , _pendingReconnectActive(false)
+    , _pendingReconnectFallback(false)
+    , _pendingReconnectFailed(false)
+    , _pendingReconnectStartedMs(0)
+    , _pendingReconnectTimeoutMs(0)
+    , _pendingReconnectCredentials()
+    , _pendingReconnectCredentialsValid(false)
 {
-    _portal.setStatusProvider(this, statusConnected, statusInConfigMode, statusIPAddress);
+    _portal.setStatusProvider(this, statusConnected, statusInConfigMode, statusIPAddress, statusReconnectActive, statusReconnectFailed);
     _portal.setHotspotCallbacks(
         [this]() -> bool { return _hotspotActive; },
         [this](bool on) { if (on) startHotspot(); else stopHotspot(); }
     );
+    _portal.setScanPreflightCallback([this]() {
+        suspendPendingNetworkReconnect();
+    });
 }
 
 void WiFiManagerLite::setNetworkServiceConfig(const char* mdnsHostname, const char* otaPassword) {
@@ -55,6 +65,13 @@ void WiFiManagerLite::setTimeProvider(TimeProvider* timeProvider) {
 
 bool WiFiManagerLite::begin() {
     String ssid, password;
+
+    _settingsStore.clearPendingNetwork();
+    _settingsStore.clearNetworkBackup();
+    _pendingReconnectActive = false;
+    _pendingReconnectFallback = false;
+    _pendingReconnectFailed = false;
+    _pendingReconnectCredentialsValid = false;
 
     loadSettings();
     restoreHotspotState();
@@ -76,6 +93,8 @@ bool WiFiManagerLite::reconnectSTA(int timeoutMs) {
         return false;
     }
 
+    _pendingReconnectFailed = false;
+
     String ssid, password;
     if (!loadCredentials(ssid, password)) {
         LOGLN("No stored Wi-Fi credentials found");
@@ -96,13 +115,15 @@ bool WiFiManagerLite::reconnectSTA(int timeoutMs) {
 }
 
 bool WiFiManagerLite::reconnectSTAWithFallback(int timeoutMs) {
-    String activeSsid;
-    String activePassword;
-    NetworkCredentials pending;
-    bool haveActive = loadCredentials(activeSsid, activePassword);
-    bool havePending = _settingsStore.loadPendingNetwork(pending);
+    _pendingReconnectFailed = false;
 
-    if (!havePending && !haveActive) {
+    NetworkCredentials pending;
+    NetworkCredentials backup;
+    bool havePending = _settingsStore.loadPendingNetwork(pending);
+    bool haveBackup = _settingsStore.loadNetworkBackup(backup);
+    bool pendingAttempted = false;
+
+    if (!havePending && !haveBackup) {
         LOGLN("No Wi-Fi credentials available for reconnect");
         return false;
     }
@@ -112,6 +133,7 @@ bool WiFiManagerLite::reconnectSTAWithFallback(int timeoutMs) {
     }
 
     if (havePending) {
+        pendingAttempted = true;
         LOG("Trying pending Wi-Fi SSID: ");
         LOGLN(pending.ssid);
         if (connectAndWait(pending.ssid, pending.password, timeoutMs)) {
@@ -122,6 +144,7 @@ bool WiFiManagerLite::reconnectSTAWithFallback(int timeoutMs) {
             settings.manualTime.epoch = 0;
             _settingsStore.save(settings);
             _settingsStore.clearPendingNetwork();
+            _settingsStore.clearNetworkBackup();
             _settings = settings;
             loadSettings();
             return true;
@@ -131,16 +154,101 @@ bool WiFiManagerLite::reconnectSTAWithFallback(int timeoutMs) {
         _settingsStore.clearPendingNetwork();
     }
 
-    if (!haveActive) {
+    if (!haveBackup) {
         return false;
     }
 
-    if (connectAndWait(activeSsid, activePassword, timeoutMs)) {
+    if (connectAndWait(backup.ssid, backup.password, timeoutMs)) {
+        _settingsStore.clearNetworkBackup();
         loadSettings();
-        return true;
+        return !pendingAttempted;
     }
 
     return false;
+}
+
+bool WiFiManagerLite::startPendingNetworkReconnect(int timeoutMs) {
+    if (_inConfigMode || _otaUpdate) {
+        return false;
+    }
+
+    NetworkCredentials pending;
+    if (!_settingsStore.loadPendingNetwork(pending)) {
+        LOGLN("No pending Wi-Fi credentials to test");
+        return false;
+    }
+
+    if (_pendingReconnectActive || _connState == ConnState::Connecting) {
+        LOGLN("Replacing in-progress Wi-Fi test");
+        WiFi.disconnect(!_hotspotActive);
+        _pendingReconnectActive = false;
+        _pendingReconnectFallback = false;
+        _pendingReconnectCredentialsValid = false;
+        _connState = ConnState::Idle;
+        _isConnected = false;
+    }
+
+    if (_networkServicesStarted) {
+        stopNetworkServices();
+    }
+
+    LOG("Testing pending Wi-Fi SSID: ");
+    LOGLN(pending.ssid);
+
+    _pendingReconnectActive = true;
+    _pendingReconnectFallback = false;
+    _pendingReconnectFailed = false;
+    _pendingReconnectStartedMs = millis();
+    _pendingReconnectTimeoutMs = timeoutMs;
+    _pendingReconnectCredentials = pending;
+    _pendingReconnectCredentialsValid = true;
+    _connectionAttempts = 0;
+    _lastConnectionAttempt = millis();
+
+    startConnect(pending.ssid, pending.password, timeoutMs);
+    return true;
+}
+
+bool WiFiManagerLite::startPendingNetworkReconnect(const String& ssid, const String& password, int timeoutMs) {
+    if (_inConfigMode || _otaUpdate) {
+        return false;
+    }
+
+    if (ssid.length() == 0) {
+        LOGLN("No pending Wi-Fi credentials to test");
+        return false;
+    }
+
+    if (_pendingReconnectActive || _connState == ConnState::Connecting) {
+        LOGLN("Replacing in-progress Wi-Fi test");
+        WiFi.disconnect(!_hotspotActive);
+        _pendingReconnectActive = false;
+        _pendingReconnectFallback = false;
+        _pendingReconnectCredentialsValid = false;
+        _connState = ConnState::Idle;
+        _isConnected = false;
+    }
+
+    if (_networkServicesStarted) {
+        stopNetworkServices();
+    }
+
+    LOG("Testing pending Wi-Fi SSID: ");
+    LOGLN(ssid);
+
+    _pendingReconnectActive = true;
+    _pendingReconnectFallback = false;
+    _pendingReconnectFailed = false;
+    _pendingReconnectStartedMs = millis();
+    _pendingReconnectTimeoutMs = timeoutMs;
+    _pendingReconnectCredentials.ssid = ssid;
+    _pendingReconnectCredentials.password = password;
+    _pendingReconnectCredentialsValid = true;
+    _connectionAttempts = 0;
+    _lastConnectionAttempt = millis();
+
+    startConnect(ssid, password, timeoutMs);
+    return true;
 }
 
 void WiFiManagerLite::loadSettings() {
@@ -209,7 +317,8 @@ void WiFiManagerLite::startHotspotInternal(bool persistState, unsigned long expi
     WiFi.softAPConfig(apIP, apGateway, apSubnet);
     WiFi.softAP(AP_SSID, AP_PASSWORD, AP_CHANNEL);
 
-    _portal.beginApOnly();
+    _portal.begin(ConfigPortal::PortalMode::Hotspot);
+    _portalNormalMode = false;
 
     _hotspotActive = true;
     _hotspotExpiryEpoch = 0;
@@ -243,8 +352,8 @@ void WiFiManagerLite::loop() {
         }
     }
 
-    if (!_inConfigMode && _connState == ConnState::Connected && !_portalNormalMode) {
-        _portal.beginNormalMode();
+    if (!_inConfigMode && _connState == ConnState::Connected && !_hotspotActive && !_portalNormalMode) {
+        _portal.begin(ConfigPortal::PortalMode::Lan);
         _portalNormalMode = true;
     }
 
@@ -287,6 +396,9 @@ String WiFiManagerLite::getIPAddress() {
     if (_isConnected && WiFi.status() == WL_CONNECTED) {
         return WiFi.localIP().toString();
     }
+    if (_hotspotActive) {
+        return WiFi.softAPIP().toString();
+    }
     if (_inConfigMode && !_configModeStation) {
         return WiFi.softAPIP().toString();
     }
@@ -308,6 +420,17 @@ bool WiFiManagerLite::statusInConfigMode(void* context) {
 
 String WiFiManagerLite::statusIPAddress(void* context) {
     return static_cast<WiFiManagerLite*>(context)->getIPAddress();
+}
+
+bool WiFiManagerLite::statusReconnectFailed(void* context) {
+    return static_cast<WiFiManagerLite*>(context)->_pendingReconnectFailed;
+}
+
+bool WiFiManagerLite::statusReconnectActive(void* context) {
+    WiFiManagerLite* manager = static_cast<WiFiManagerLite*>(context);
+    return manager->_pendingReconnectActive &&
+           !manager->_pendingReconnectFallback &&
+           manager->_connState == ConnState::Connecting;
 }
 
 bool WiFiManagerLite::hasCredentials() {
@@ -332,6 +455,13 @@ void WiFiManagerLite::clearCredentials() {
 }
 
 void WiFiManagerLite::startConnect(const String& ssid, const String& password, int timeoutMs) {
+    LOG("Wi-Fi connect request: SSID=\"");
+    LOG(ssid);
+    LOG("\" password=\"");
+    LOG(password);
+    LOG("\" timeoutMs=");
+    LOGLN(timeoutMs);
+
     if (_hotspotActive) {
         WiFi.mode(WIFI_AP_STA);
     } else {
@@ -382,6 +512,44 @@ void WiFiManagerLite::pollConnect() {
 #if KEEP_WIFI_ALIVE == 1
         startNetworkServices();
 #endif
+        if (_pendingReconnectActive) {
+            bool pendingAttemptSucceeded = false;
+            if (!_pendingReconnectFallback) {
+                if (_pendingReconnectCredentialsValid &&
+                    _pendingReconnectCredentials.ssid.length() > 0) {
+                    AppSettings settings = _settingsStore.load();
+                    settings.network.ssid = _pendingReconnectCredentials.ssid;
+                    settings.network.password = _pendingReconnectCredentials.password;
+                    settings.manualTime.enabled = false;
+                    settings.manualTime.epoch = 0;
+                    LOG("Committing tested Wi-Fi SSID: ");
+                    LOGLN(_pendingReconnectCredentials.ssid);
+                    _settingsStore.save(settings);
+                    _settingsStore.clearPendingNetwork();
+                    _settingsStore.clearNetworkBackup();
+                    _settings = settings;
+                    loadSettings();
+                    pendingAttemptSucceeded = true;
+                } else {
+                    LOGLN("Pending Wi-Fi connected but tested credentials were unavailable; treating as failed");
+                    _settingsStore.clearPendingNetwork();
+                    _settingsStore.clearNetworkBackup();
+                    _pendingReconnectFailed = true;
+                }
+            } else {
+                LOGLN("Fallback Wi-Fi restored after pending credentials failed");
+                _settingsStore.clearPendingNetwork();
+                _settingsStore.clearNetworkBackup();
+                _pendingReconnectFailed = true;
+            }
+
+            _pendingReconnectActive = false;
+            _pendingReconnectFallback = false;
+            _pendingReconnectCredentialsValid = false;
+            if (_reconnectResultCb) {
+                _reconnectResultCb(pendingAttemptSucceeded);
+            }
+        }
         return;
     }
 
@@ -392,6 +560,42 @@ void WiFiManagerLite::pollConnect() {
         _isConnected = false;
         if (_connectionAttempts < 255) {
             _connectionAttempts++;
+        }
+
+        if (_pendingReconnectActive) {
+            if (!_pendingReconnectFallback) {
+                NetworkCredentials backup;
+                if (_settingsStore.loadNetworkBackup(backup)) {
+                    LOGLN("Pending Wi-Fi failed; restoring previous network");
+                    _pendingReconnectFailed = true;
+                    _pendingReconnectFallback = true;
+                    LOG("Restoring backup Wi-Fi SSID: ");
+                    LOGLN(backup.ssid);
+                    _settingsStore.clearPendingNetwork();
+                    startConnect(backup.ssid, backup.password, _pendingReconnectTimeoutMs);
+                    return;
+                }
+
+                _settingsStore.clearPendingNetwork();
+                _settingsStore.clearNetworkBackup();
+                _pendingReconnectActive = false;
+                _pendingReconnectFallback = false;
+                _pendingReconnectCredentialsValid = false;
+                _pendingReconnectFailed = true;
+                if (_reconnectResultCb) {
+                    _reconnectResultCb(false);
+                }
+            } else {
+                _settingsStore.clearPendingNetwork();
+                _settingsStore.clearNetworkBackup();
+                _pendingReconnectActive = false;
+                _pendingReconnectFallback = false;
+                _pendingReconnectCredentialsValid = false;
+                _pendingReconnectFailed = true;
+                if (_reconnectResultCb) {
+                    _reconnectResultCb(false);
+                }
+            }
         }
     }
 }
@@ -491,6 +695,7 @@ void WiFiManagerLite::startConfigMode() {
     _configModeStation = false;
     _isConnected = false;
     _connState = ConnState::Idle;
+    _portalNormalMode = false;
 
     LOGLN("Starting Configuration Mode...");
     LOG("AP SSID: ");
@@ -514,7 +719,8 @@ void WiFiManagerLite::startConfigMode() {
     WiFi.softAPConfig(apIP, apGateway, apSubnet);
     WiFi.softAP(AP_SSID, AP_PASSWORD, AP_CHANNEL);
 
-    _portal.beginAPMode();
+    _portal.begin(ConfigPortal::PortalMode::Hotspot);
+    _portalNormalMode = false;
 
     LOG("Configuration portal available at: http://");
     LOGLN(WiFi.softAPIP());
@@ -544,7 +750,8 @@ void WiFiManagerLite::startConfigModePreferStation() {
             _configModeStation = true;
             _isConnected = true;
 
-            _portal.beginStationMode();
+            _portal.begin(ConfigPortal::PortalMode::Lan);
+            _portalNormalMode = true;
             startNetworkServices();
 
             LOG("LAN configuration portal available at: http://");
@@ -569,6 +776,7 @@ void WiFiManagerLite::stopConfigMode() {
     _inConfigMode = false;
     stopNetworkServices();
     _portal.stop();
+    _portalNormalMode = false;
     if (_configModeStation) {
         WiFi.disconnect(true);
         WiFi.mode(WIFI_OFF);
@@ -588,11 +796,16 @@ void WiFiManagerLite::stopHotspot() {
     if (!_hotspotActive) return;
 
     LOGLN("Stopping hotspot...");
-    _portal.stopApOnly();
+    _portal.stopHotspotDns();
     WiFi.softAPdisconnect(true);
     _hotspotActive = false;
     _hotspotExpiryEpoch = 0;
     _settingsStore.saveHotspotState(false, 0);
+    if (!_inConfigMode && _connState == ConnState::Connected) {
+        _portal.begin(ConfigPortal::PortalMode::Lan);
+        _portalNormalMode = true;
+        startNetworkServices();
+    }
     LOGLN("Hotspot stopped - station WiFi continues normally");
 }
 
@@ -600,15 +813,110 @@ bool WiFiManagerLite::isHotspotActive() {
     return _hotspotActive;
 }
 
+int16_t WiFiManagerLite::hotspotRemainingMenuMinutes() const {
+    if (!_hotspotActive) {
+        return 0;
+    }
+#if HOTSPOT_TIMEOUT_MINUTES == 0
+    return 0;
+#else
+    if (_hotspotExpiryEpoch == 0) {
+        return HOTSPOT_TIMEOUT_MINUTES;
+    }
+
+    time_t nowEpoch = 0;
+    if (!_timeProvider || !_timeProvider->currentEpoch(nowEpoch)) {
+        return HOTSPOT_TIMEOUT_MINUTES;
+    }
+
+    if ((time_t)_hotspotExpiryEpoch <= nowEpoch) {
+        return 0;
+    }
+
+    time_t remainingSec = (time_t)_hotspotExpiryEpoch - nowEpoch;
+    int16_t remainingMin = (int16_t)((remainingSec + 59) / 60);
+    int16_t bucketedMin = ((remainingMin + 4) / 5) * 5;
+    if (bucketedMin > HOTSPOT_TIMEOUT_MINUTES) {
+        bucketedMin = HOTSPOT_TIMEOUT_MINUTES;
+    }
+    return bucketedMin;
+#endif
+}
+
+String WiFiManagerLite::hotspotMenuLabel(bool editing, int16_t value) const {
+    if (value == 0) {
+        return String("OFF");
+    }
+#if HOTSPOT_TIMEOUT_MINUTES == 0
+    return String("ON");
+#else
+    char buf[12];
+    if (editing) {
+        snprintf(buf, sizeof(buf), "%d MIN", HOTSPOT_TIMEOUT_MINUTES);
+        return String(buf);
+    }
+
+    if (!_hotspotActive) {
+        return String("OFF");
+    }
+
+    int16_t minutes = hotspotRemainingMenuMinutes();
+    if (minutes <= 0) {
+        minutes = 5;
+    }
+    snprintf(buf, sizeof(buf), "%d MIN", minutes);
+    return String(buf);
+#endif
+}
+
+void WiFiManagerLite::resetHotspotTimer() {
+#if HOTSPOT_TIMEOUT_MINUTES == 0
+    if (!_hotspotActive) {
+        startHotspot();
+    }
+    return;
+#else
+    if (!_hotspotActive) {
+        startHotspot();
+        return;
+    }
+
+    unsigned long expiryEpoch = 0;
+    time_t nowEpoch = 0;
+    if (_timeProvider && _timeProvider->currentEpoch(nowEpoch)) {
+        expiryEpoch = (unsigned long)(nowEpoch + (time_t)HOTSPOT_TIMEOUT_MINUTES * 60);
+    }
+    _hotspotExpiryEpoch = expiryEpoch;
+    _settingsStore.saveHotspotState(true, expiryEpoch);
+    LOGLN("Hotspot timer reset");
+#endif
+}
+
+void WiFiManagerLite::suspendPendingNetworkReconnect() {
+    if (!_pendingReconnectActive && _connState != ConnState::Connecting) {
+        return;
+    }
+
+    LOGLN("Pausing pending Wi-Fi reconnect for scan");
+    WiFi.disconnect(!_hotspotActive);
+    _pendingReconnectActive = false;
+    _pendingReconnectFallback = false;
+    _pendingReconnectCredentialsValid = false;
+    _pendingReconnectStartedMs = 0;
+    _pendingReconnectTimeoutMs = 0;
+    _connState = ConnState::Idle;
+    _isConnected = false;
+}
+
 void WiFiManagerLite::setOtaDisplayCallback(std::function<void(bool, unsigned int, unsigned int)> cb) {
     _otaDisplayCb = cb;
     _portal.setOtaDisplayCallback(cb);
 }
 
-void WiFiManagerLite::setSaveCallback(std::function<bool(bool, bool, bool)> cb) {
+void WiFiManagerLite::setSaveCallback(std::function<bool(bool, bool, bool, const String&, const String&)> cb) {
     _saveCb = cb;
-    _portal.setSaveCallback([this](bool w, bool t, bool m) -> bool {
-        return _saveCb ? _saveCb(w, t, m) : true;
+    _portal.setSaveCallback([this](bool w, bool t, bool m, const String& ssid, const String& password) -> bool {
+        return _saveCb ? _saveCb(w, t, m, ssid, password) : true;
     });
 }
 
@@ -619,6 +927,10 @@ void WiFiManagerLite::setPreviewCallback(std::function<void(const String&)> cb) 
 
 void WiFiManagerLite::setHotspotCallbacks(std::function<bool()> status, std::function<void(bool)> toggle) {
     _portal.setHotspotCallbacks(status, toggle);
+}
+
+void WiFiManagerLite::setReconnectResultCallback(std::function<void(bool)> cb) {
+    _reconnectResultCb = cb;
 }
 
 bool WiFiManagerLite::isUpdating() {

@@ -18,7 +18,7 @@ public:
     bool isDisabled() const { return _disabled; }
 
 private:
-    char _ssid[GUEST_WIFI_SSID_MAX_LEN];
+    char _ssid[GUEST_WIFI_TEXT_MAX_LEN];
     char _password[GUEST_WIFI_TEXT_MAX_LEN];
     bool _passwordAvailable = false;
     bool _disabled = false;

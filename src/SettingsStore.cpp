@@ -3,6 +3,8 @@
 const char* SettingsStore::PREFS_NAMESPACE = "settings";
 const char* SettingsStore::KEY_SSID = "ssid";
 const char* SettingsStore::KEY_PASSWORD = "password";
+const char* SettingsStore::KEY_BACKUP_SSID = "backup_ssid";
+const char* SettingsStore::KEY_BACKUP_PASSWORD = "backup_password";
 const char* SettingsStore::KEY_PENDING_SSID = "pending_ssid";
 const char* SettingsStore::KEY_PENDING_PASSWORD = "pending_password";
 const char* SettingsStore::KEY_HOTSPOT_ENABLED = "hotspot_enabled";
@@ -71,6 +73,46 @@ bool SettingsStore::save(const AppSettings& settings) {
     prefs.putBool(KEY_MANUAL_TIME_ENABLED, settings.manualTime.enabled);
     prefs.putULong(KEY_MANUAL_EPOCH, settings.manualTime.epoch);
 
+    prefs.end();
+    return true;
+}
+
+bool SettingsStore::saveNetworkBackup(const NetworkCredentials& network) {
+    if (network.ssid.length() == 0) {
+        return clearNetworkBackup();
+    }
+
+    Preferences prefs;
+    if (!prefs.begin(PREFS_NAMESPACE, false)) {
+        return false;
+    }
+
+    prefs.putString(KEY_BACKUP_SSID, network.ssid);
+    prefs.putString(KEY_BACKUP_PASSWORD, network.password);
+    prefs.end();
+    return true;
+}
+
+bool SettingsStore::loadNetworkBackup(NetworkCredentials& network) {
+    Preferences prefs;
+    if (!prefs.begin(PREFS_NAMESPACE, true)) {
+        return false;
+    }
+
+    network.ssid = prefs.getString(KEY_BACKUP_SSID, "");
+    network.password = prefs.getString(KEY_BACKUP_PASSWORD, "");
+    prefs.end();
+    return network.ssid.length() > 0;
+}
+
+bool SettingsStore::clearNetworkBackup() {
+    Preferences prefs;
+    if (!prefs.begin(PREFS_NAMESPACE, false)) {
+        return false;
+    }
+
+    prefs.remove(KEY_BACKUP_SSID);
+    prefs.remove(KEY_BACKUP_PASSWORD);
     prefs.end();
     return true;
 }

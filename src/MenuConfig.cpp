@@ -138,15 +138,25 @@ static const char* onOffValueName(int16_t value) {
 }
 
 static const char* hotspotValueName(void* ctx, int16_t value) {
-    (void)ctx;
     if (value == 0) {
         return "OFF";
     }
 #if HOTSPOT_TIMEOUT_MINUTES == 0
     return "ON";
 #else
+    if (!ctx) {
+        return "ON";
+    }
+    MenuBindings* b = static_cast<MenuBindings*>(ctx);
+    if (!b->wifiManager.isHotspotActive()) {
+        return "ON";
+    }
     static char label[12];
-    snprintf(label, sizeof(label), "%d MIN", HOTSPOT_TIMEOUT_MINUTES);
+    int16_t minutes = b->wifiManager.hotspotRemainingMenuMinutes();
+    if (minutes <= 0) {
+        minutes = 5;
+    }
+    snprintf(label, sizeof(label), "%d MIN", minutes);
     return label;
 #endif
 }
@@ -266,7 +276,7 @@ static void previewHotspotMenu(void* ctx, int16_t v) {
 static void commitHotspotMenu(void* ctx, int16_t v) {
     MenuBindings* b = static_cast<MenuBindings*>(ctx);
     if (v) {
-        b->wifiManager.startHotspot();
+        b->wifiManager.resetHotspotTimer();
     } else {
         b->wifiManager.stopHotspot();
     }

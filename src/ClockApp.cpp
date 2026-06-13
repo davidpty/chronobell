@@ -73,8 +73,15 @@ void ClockApp::beginControllers() {
         });
     _wifiManager.setTimeProvider(&_timeProvider);
 
-    _wifiManager.setSaveCallback([this](bool w, bool t, bool m) -> bool {
-        return onSettingsSaved(w, t, m);
+    _wifiManager.setSaveCallback([this](bool w, bool t, bool m, const String& ssid, const String& password) -> bool {
+        return onSettingsSaved(w, t, m, ssid, password);
+    });
+    _wifiManager.setReconnectResultCallback([this](bool success) {
+        LOGLN(success ? "Wi-Fi reconnect test finished" : "Wi-Fi reconnect test failed");
+        reloadSettings();
+        if (success) {
+            _wifiSync.requestSync();
+        }
     });
 
     _wifiManager.setPreviewCallback([this](const String& field) {
@@ -666,7 +673,7 @@ void ClockApp::stopBell() {
 // Live settings apply (called from config portal save callback)
 // =============================================================================
 
-bool ClockApp::onSettingsSaved(bool wifiChanged, bool tzChanged, bool manualTimeChanged) {
+bool ClockApp::onSettingsSaved(bool wifiChanged, bool tzChanged, bool manualTimeChanged, const String& wifiSsid, const String& wifiPassword) {
     LOGLN("Applying saved settings live...");
 
     int16_t oldTzOffset = _appSettings.timezone.offsetMinutes;
@@ -710,15 +717,10 @@ bool ClockApp::onSettingsSaved(bool wifiChanged, bool tzChanged, bool manualTime
     applyDisplayBrightness();
 
     if (wifiChanged) {
-        LOGLN("Wi-Fi credentials changed — testing new credentials...");
-        if (!_wifiManager.reconnectSTAWithFallback(15000)) {
-            LOGLN("Wi-Fi credentials failed; previous network restored");
+        LOGLN("Wi-Fi credentials changed — starting background test...");
+        if (!_wifiManager.startPendingNetworkReconnect(wifiSsid, wifiPassword, 15000)) {
+            LOGLN("Unable to start pending Wi-Fi test");
             return false;
-        }
-        reloadSettings();
-        if (oldManualEnabled && !_appSettings.manualTime.enabled) {
-            LOGLN("Manual → atomic transition — forcing NTP sync...");
-            _wifiSync.requestSync();
         }
     }
 
