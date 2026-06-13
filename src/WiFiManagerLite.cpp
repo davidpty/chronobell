@@ -1,5 +1,6 @@
 #include "Config.h"
 #include "WiFiManagerLite.h"
+#include "TimeProvider.h"
 #if ENABLE_OTA
 #include <ArduinoOTA.h>
 #endif
@@ -29,6 +30,8 @@ WiFiManagerLite::WiFiManagerLite(SettingsStore& settingsStore)
     , _networkServicesStarted(false)
     , _portalNormalMode(false)
     , _portal(settingsStore)
+    , _timeProvider(nullptr)
+    , _hotspotExpiryEpoch(0)
 {
     _portal.setStatusProvider(this, statusConnected, statusInConfigMode, statusIPAddress);
     _portal.setHotspotCallbacks(
@@ -46,10 +49,15 @@ void WiFiManagerLite::setNetworkServiceConfig(const char* mdnsHostname, const ch
     }
 }
 
+void WiFiManagerLite::setTimeProvider(TimeProvider* timeProvider) {
+    _timeProvider = timeProvider;
+}
+
 bool WiFiManagerLite::begin() {
     String ssid, password;
 
     loadSettings();
+    restoreHotspotState();
 
     if (!loadCredentials(ssid, password)) {
         LOGLN("No stored Wi-Fi credentials found");
@@ -87,6 +95,54 @@ bool WiFiManagerLite::reconnectSTA(int timeoutMs) {
     return true;
 }
 
+bool WiFiManagerLite::reconnectSTAWithFallback(int timeoutMs) {
+    String activeSsid;
+    String activePassword;
+    NetworkCredentials pending;
+    bool haveActive = loadCredentials(activeSsid, activePassword);
+    bool havePending = _settingsStore.loadPendingNetwork(pending);
+
+    if (!havePending && !haveActive) {
+        LOGLN("No Wi-Fi credentials available for reconnect");
+        return false;
+    }
+
+    if (_networkServicesStarted) {
+        stopNetworkServices();
+    }
+
+    if (havePending) {
+        LOG("Trying pending Wi-Fi SSID: ");
+        LOGLN(pending.ssid);
+        if (connectAndWait(pending.ssid, pending.password, timeoutMs)) {
+            AppSettings settings = _settingsStore.load();
+            settings.network.ssid = pending.ssid;
+            settings.network.password = pending.password;
+            settings.manualTime.enabled = false;
+            settings.manualTime.epoch = 0;
+            _settingsStore.save(settings);
+            _settingsStore.clearPendingNetwork();
+            _settings = settings;
+            loadSettings();
+            return true;
+        }
+
+        LOGLN("Pending Wi-Fi credentials failed; restoring previous network");
+        _settingsStore.clearPendingNetwork();
+    }
+
+    if (!haveActive) {
+        return false;
+    }
+
+    if (connectAndWait(activeSsid, activePassword, timeoutMs)) {
+        loadSettings();
+        return true;
+    }
+
+    return false;
+}
+
 void WiFiManagerLite::loadSettings() {
     _settings = _settingsStore.load();
 
@@ -107,8 +163,85 @@ void WiFiManagerLite::loadSettings() {
     LOGLN(timeFormatLabel(_settings.timeFormat));
 }
 
+void WiFiManagerLite::restoreHotspotState() {
+    bool enabled = false;
+    unsigned long expiryEpoch = 0;
+    if (!_settingsStore.loadHotspotState(enabled, expiryEpoch) || !enabled) {
+        return;
+    }
+
+    if (_hotspotActive) {
+        return;
+    }
+
+    if (HOTSPOT_TIMEOUT_MINUTES == 0) {
+        LOGLN("Restoring persistent hotspot (forever)");
+        startHotspotInternal(false, 0);
+        return;
+    }
+
+    time_t nowEpoch = 0;
+    if (_timeProvider && _timeProvider->currentEpoch(nowEpoch) && expiryEpoch > 0) {
+        if ((time_t)expiryEpoch > nowEpoch) {
+            LOGLN("Restoring persistent hotspot until saved expiry");
+            startHotspotInternal(false, expiryEpoch);
+            return;
+        }
+
+        LOGLN("Saved hotspot expiry already passed - clearing state");
+        _settingsStore.saveHotspotState(false, 0);
+        return;
+    }
+
+    LOGLN("No valid time available to restore hotspot state - clearing saved state");
+    _settingsStore.saveHotspotState(false, 0);
+}
+
+void WiFiManagerLite::startHotspotInternal(bool persistState, unsigned long expiryEpoch) {
+    if (_hotspotActive) return;
+
+    LOGLN("Starting hotspot AP alongside station...");
+
+    WiFi.mode(WIFI_AP_STA);
+    IPAddress apIP(192, 168, 4, 1);
+    IPAddress apGateway(192, 168, 4, 1);
+    IPAddress apSubnet(255, 255, 255, 0);
+    WiFi.softAPConfig(apIP, apGateway, apSubnet);
+    WiFi.softAP(AP_SSID, AP_PASSWORD, AP_CHANNEL);
+
+    _portal.beginApOnly();
+
+    _hotspotActive = true;
+    _hotspotExpiryEpoch = 0;
+    if (persistState) {
+        if (HOTSPOT_TIMEOUT_MINUTES > 0) {
+            time_t nowEpoch = 0;
+            if (_timeProvider && _timeProvider->currentEpoch(nowEpoch)) {
+                expiryEpoch = (unsigned long)(nowEpoch + (time_t)HOTSPOT_TIMEOUT_MINUTES * 60);
+            }
+        }
+        _hotspotExpiryEpoch = expiryEpoch;
+        _settingsStore.saveHotspotState(true, expiryEpoch);
+    } else if (expiryEpoch > 0) {
+        _hotspotExpiryEpoch = expiryEpoch;
+    }
+    LOG("Hotspot active on SSID: ");
+    LOGLN(AP_SSID);
+}
+
 void WiFiManagerLite::loop() {
     pollConnect();
+
+    if (_hotspotActive && HOTSPOT_TIMEOUT_MINUTES > 0 && _hotspotExpiryEpoch > 0) {
+        time_t nowEpoch = 0;
+        if (_timeProvider && _timeProvider->currentEpoch(nowEpoch) &&
+            (time_t)_hotspotExpiryEpoch <= nowEpoch) {
+            LOG("Hotspot expiry reached at ");
+            LOG(_hotspotExpiryEpoch);
+            LOGLN(", stopping hotspot");
+            stopHotspot();
+        }
+    }
 
     if (!_inConfigMode && _connState == ConnState::Connected && !_portalNormalMode) {
         _portal.beginNormalMode();
@@ -199,13 +332,36 @@ void WiFiManagerLite::clearCredentials() {
 }
 
 void WiFiManagerLite::startConnect(const String& ssid, const String& password, int timeoutMs) {
-    WiFi.disconnect(true);
-    WiFi.mode(WIFI_STA);
+    if (_hotspotActive) {
+        WiFi.mode(WIFI_AP_STA);
+    } else {
+        WiFi.disconnect(true);
+        WiFi.mode(WIFI_STA);
+    }
     WiFi.begin(ssid.c_str(), password.c_str());
     _connState = ConnState::Connecting;
     _connStartMs = millis();
     _connTimeoutMs = timeoutMs;
     _isConnected = false;
+}
+
+bool WiFiManagerLite::connectAndWait(const String& ssid, const String& password, int timeoutMs) {
+    startConnect(ssid, password, timeoutMs);
+
+    unsigned long startedAt = millis();
+    while (true) {
+        pollConnect();
+        if (_connState == ConnState::Connected) {
+            return true;
+        }
+        if (_connState == ConnState::Idle) {
+            return false;
+        }
+        if (millis() - startedAt >= (unsigned long)timeoutMs + 2000UL) {
+            return false;
+        }
+        delay(100);
+    }
 }
 
 void WiFiManagerLite::pollConnect() {
@@ -231,7 +387,7 @@ void WiFiManagerLite::pollConnect() {
 
     if (millis() - _connStartMs >= (unsigned long)_connTimeoutMs) {
         LOGLN("Wi-Fi connection timeout");
-        WiFi.disconnect(true);
+        WiFi.disconnect(!_hotspotActive);
         _connState = ConnState::Idle;
         _isConnected = false;
         if (_connectionAttempts < 255) {
@@ -425,22 +581,7 @@ void WiFiManagerLite::stopConfigMode() {
 }
 
 void WiFiManagerLite::startHotspot() {
-    if (_hotspotActive) return;
-
-    LOGLN("Starting hotspot AP alongside station...");
-
-    WiFi.mode(WIFI_AP_STA);
-    IPAddress apIP(192, 168, 4, 1);
-    IPAddress apGateway(192, 168, 4, 1);
-    IPAddress apSubnet(255, 255, 255, 0);
-    WiFi.softAPConfig(apIP, apGateway, apSubnet);
-    WiFi.softAP(AP_SSID, AP_PASSWORD, AP_CHANNEL);
-
-    _portal.beginApOnly();
-
-    _hotspotActive = true;
-    LOG("Hotspot active on SSID: ");
-    LOGLN(AP_SSID);
+    startHotspotInternal(true);
 }
 
 void WiFiManagerLite::stopHotspot() {
@@ -450,6 +591,8 @@ void WiFiManagerLite::stopHotspot() {
     _portal.stopApOnly();
     WiFi.softAPdisconnect(true);
     _hotspotActive = false;
+    _hotspotExpiryEpoch = 0;
+    _settingsStore.saveHotspotState(false, 0);
     LOGLN("Hotspot stopped - station WiFi continues normally");
 }
 
@@ -462,10 +605,10 @@ void WiFiManagerLite::setOtaDisplayCallback(std::function<void(bool, unsigned in
     _portal.setOtaDisplayCallback(cb);
 }
 
-void WiFiManagerLite::setSaveCallback(std::function<void(bool, bool, bool)> cb) {
+void WiFiManagerLite::setSaveCallback(std::function<bool(bool, bool, bool)> cb) {
     _saveCb = cb;
-    _portal.setSaveCallback([this](bool w, bool t, bool m) {
-        if (_saveCb) _saveCb(w, t, m);
+    _portal.setSaveCallback([this](bool w, bool t, bool m) -> bool {
+        return _saveCb ? _saveCb(w, t, m) : true;
     });
 }
 

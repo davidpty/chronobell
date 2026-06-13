@@ -83,7 +83,7 @@ public:
     void wireGuestWifiCallback(TimerController::GuestWifiAvailableFn fn);
     void onTouchLeftRepeat(uint8_t pad);
     void onTouchRightRepeat(uint8_t pad);
-    void onSettingsSaved(bool wifiChanged, bool tzChanged, bool manualTimeChanged);
+    bool onSettingsSaved(bool wifiChanged, bool tzChanged, bool manualTimeChanged);
     void onWebPreview(const String& field);
 
 private:
@@ -125,7 +125,6 @@ private:
 
     MenuBindings     _menuBindings;
 
-    unsigned long _configModeStartMs = 0;
     unsigned long _buttonPressStart = 0;
     bool          _buttonWasPressed = false;
     bool          _t4LongPressHandled = false;

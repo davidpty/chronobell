@@ -11,6 +11,7 @@ public:
     bool readRtc();
     void updateRtcTracking();
     void setRtcFromEpoch(time_t epochTime);
+    bool currentEpoch(time_t& epochTime) const;
     bool currentTime(ClockTime& time) const;
     ClockTime displayTime() const;
     bool currentDate(ClockDate& date) const;

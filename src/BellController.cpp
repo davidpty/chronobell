@@ -14,10 +14,10 @@ void BellController::update(const ClockTime& currentTime, bool timeValid, BellMo
             int eventKey = (currentTime.hours * 60) + currentTime.minutes;
             if (eventKey != _lastEventKey) {
                 _lastEventKey = eventKey;
-                bool groupedPairs = false;
-                uint8_t count = computeStrikesForEvent(mode, currentTime.hours, currentTime.minutes, groupedPairs);
+                uint8_t strikeGroupSize = 0;
+                uint8_t count = computeStrikesForEvent(mode, currentTime.hours, currentTime.minutes, strikeGroupSize);
                 if (count > 0) {
-                    queue(count, groupedPairs ? 2 : 0, false);
+                    queue(count, strikeGroupSize, false);
                 }
             }
         }
@@ -40,10 +40,10 @@ void BellController::preview(BellMode mode, const ClockTime& currentTime, bool t
         return;
     }
 
-    bool groupedPairs = false;
-    uint8_t count = computeStrikesForEvent(mode, eventH, eventM, groupedPairs);
+    uint8_t strikeGroupSize = 0;
+    uint8_t count = computeStrikesForEvent(mode, eventH, eventM, strikeGroupSize);
     if (count > 0) {
-        queuePreview(count, groupedPairs ? 2 : 0);
+        queuePreview(count, strikeGroupSize);
     }
 }
 
@@ -79,8 +79,8 @@ uint8_t BellController::shipBellCount(int hours, int minutes) {
     return count == 0 ? 8 : count;
 }
 
-uint8_t BellController::computeStrikesForEvent(BellMode mode, int eventH, int eventM, bool& groupedPairs) {
-    groupedPairs = false;
+uint8_t BellController::computeStrikesForEvent(BellMode mode, int eventH, int eventM, uint8_t& strikeGroupSize) {
+    strikeGroupSize = 0;
 
     if (mode == BellMode::Off) {
         return 0;
@@ -96,11 +96,16 @@ uint8_t BellController::computeStrikesForEvent(BellMode mode, int eventH, int ev
     }
     if (mode == BellMode::Pair) {
         if (eventM != 0) return 0;
-        groupedPairs = true;
+        strikeGroupSize = 2;
+        return hourCount12(eventH);
+    }
+    if (mode == BellMode::Triple) {
+        if (eventM != 0) return 0;
+        strikeGroupSize = 3;
         return hourCount12(eventH);
     }
     if (mode == BellMode::Ships) {
-        groupedPairs = true;
+        strikeGroupSize = 2;
         return shipBellCount(eventH, eventM);
     }
     return 0;
@@ -109,7 +114,8 @@ uint8_t BellController::computeStrikesForEvent(BellMode mode, int eventH, int ev
 bool BellController::computeMostRecentEventTime(BellMode mode, int currentH, int currentM, int& eventH, int& eventM) {
     if (mode == BellMode::SingleHour ||
         mode == BellMode::HourCount ||
-        mode == BellMode::Pair) {
+        mode == BellMode::Pair ||
+        mode == BellMode::Triple) {
         eventH = currentH;
         eventM = 0;
         return true;
@@ -167,11 +173,11 @@ void BellController::updateSequence() {
         return;
     }
 
-    unsigned long nextGapMs = BELL_HOUR_GAP_MS;
-    if (_sequenceGroupSize > 1) {
-        nextGapMs = (_sequenceIndex % _sequenceGroupSize == 0) ? BELL_SHIP_GROUP_GAP_MS : BELL_SHIP_PAIR_GAP_MS;
+    unsigned long nextGapMs = BELL_GROUP_GAP_MS;
+    if (_sequenceGroupSize > 1 && _sequenceIndex % _sequenceGroupSize != 0) {
+        nextGapMs = BELL_STRIKE_GAP_MS;
     }
-    _nextStrikeMs = currentMs + BELL_PULSE_MS + nextGapMs;
+    _nextStrikeMs = currentMs + BELL_COIL_ON_MS + BELL_COIL_OFF_MS + nextGapMs;
 }
 
 void BellController::triggerPulse() {
@@ -185,7 +191,7 @@ void BellController::triggerPulse() {
 }
 
 void BellController::updatePulse() {
-    if (_pulseActive && millis() - _pulseStartMs >= BELL_PULSE_MS) {
+    if (_pulseActive && millis() - _pulseStartMs >= BELL_COIL_ON_MS) {
         digitalWrite(BELL_PIN, LOW);
         _pulseActive = false;
     }

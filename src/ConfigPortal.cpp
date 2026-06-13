@@ -140,7 +140,9 @@ void ConfigPortal::configureWebServerRoutes() {
 }
 
 void ConfigPortal::handleRoot() {
-    const char* html = R"rawliteral(
+    _settings = _settingsStore.load();
+
+    String html = R"rawliteral(
 <!DOCTYPE html>
 <html>
 <head>
@@ -302,7 +304,8 @@ void ConfigPortal::handleRoot() {
                     <option value="2">HOUR COUNT - Count full hours only</option>
                     <option value="3">HOUR COUNT + HALF - Count full hours, one bell at half hour</option>
                     <option value="4">PAIR - Hour count grouped in pairs</option>
-                    <option value="5">SHIP'S BELL - Traditional 4-hour watch cycle</option>
+                    <option value="5">TRIPLE - Hour count grouped in triples</option>
+                    <option value="6">SHIP'S BELL - Traditional 4-hour watch cycle</option>
                 </select>
             </div>
 
@@ -351,11 +354,11 @@ void ConfigPortal::handleRoot() {
                 <div class="setup-spacer"></div>
                 <div style="flex:1; min-width:0;">
                     <div class="row">
-                        <input type="text" id="ssidInput" placeholder="Enter network name">
+                        <input type="text" id="ssidInput" value="__SSID_VALUE__" placeholder="Enter network name">
                         <button class="btn-scan" id="scanBtn" onclick="scanNetworks()">SCAN</button>
                     </div>
                     <div id="networkList" style="margin-top: 0.25em;"></div>
-                    <input type="password" id="password" placeholder="Enter password" style="margin-top: 0.25em;">
+                    <input type="password" id="password" value="__PASSWORD_VALUE__" placeholder="Enter password" style="margin-top: 0.25em;">
                     <button class="btn btn-primary" id="connectBtn" onclick="connectWifi()" style="margin-top: 0.25em;">Connect</button>
                 </div>
             </div>
@@ -469,11 +472,9 @@ void ConfigPortal::handleRoot() {
 
                 storedSsid = data.storedSsid || '';
                 storedPassword = data.storedPassword || '';
-                if (storedSsid) {
-                    selectedSSID = storedSsid;
-                    document.getElementById('ssidInput').value = storedSsid;
-                    document.getElementById('password').value = storedPassword;
-                }
+                selectedSSID = storedSsid;
+                document.getElementById('ssidInput').value = storedSsid;
+                document.getElementById('password').value = storedPassword;
                 setWifiMode(data.manualTime ? 'manual' : 'auto');
             } catch (e) {
                 console.log('Error loading settings:', e);
@@ -585,7 +586,13 @@ void ConfigPortal::handleRoot() {
                 .then(data => {
                     btn.textContent = data.success ? 'Connected!' : 'Connect';
                     btn.disabled = false;
-                    if (!data.success) {
+                    if (data.success) {
+                        storedSsid = ssid;
+                        storedPassword = password;
+                        selectedSSID = ssid;
+                        document.getElementById('ssidInput').value = ssid;
+                        document.getElementById('password').value = password;
+                    } else {
                         setTimeout(function() { btn.textContent = 'Connect'; }, 2000);
                     }
                 })
@@ -628,11 +635,15 @@ void ConfigPortal::handleRoot() {
             xhr.send(formData);
         }
 
-        window.onload = loadSettings;
+    window.onload = loadSettings;
     </script>
 </body>
 </html>
 )rawliteral";
+
+    html.replace("__SSID_VALUE__", encodeHTML(_settings.network.ssid));
+    html.replace("__PASSWORD_VALUE__", encodeHTML(_settings.network.password));
+
     _webServer.send(200, "text/html", html);
 }
 
@@ -717,6 +728,10 @@ void ConfigPortal::handleSave() {
     String ssid = _webServer.arg("ssid");
     String password = _webServer.arg("password");
 
+    if (ssid.length() == 0) {
+        _webServer.send(400, "application/json", "{\"success\":false}");
+        return;
+    }
     if (ssid.length() > 32) {
         _webServer.send(400, "application/json", "{\"success\":false,\"message\":\"SSID too long\"}");
         return;
@@ -726,18 +741,29 @@ void ConfigPortal::handleSave() {
         return;
     }
 
-    bool wifiChanged = false;
-    if (ssid.length() > 0) {
-        wifiChanged = (ssid != _settings.network.ssid || password != _settings.network.password);
-        AppSettings settings = _settingsStore.load();
-        settings.network.ssid = ssid;
-        settings.network.password = password;
-        _settingsStore.save(settings);
-        _settings = settings;
+    AppSettings current = _settingsStore.load();
+    bool wifiChanged = (ssid != current.network.ssid || password != current.network.password);
+    if (wifiChanged) {
+        NetworkCredentials pending;
+        pending.ssid = ssid;
+        pending.password = password;
+        if (!_settingsStore.savePendingNetwork(pending)) {
+            _webServer.send(500, "application/json", "{\"success\":false,\"message\":\"Failed to stage Wi-Fi credentials\"}");
+            return;
+        }
+    } else {
+        _settingsStore.clearPendingNetwork();
     }
 
+    bool success = true;
     if (_saveCb) {
-        _saveCb(wifiChanged, false, false);
+        success = _saveCb(wifiChanged, false, false);
+    }
+
+    if (!success) {
+        _settingsStore.clearPendingNetwork();
+        _webServer.send(200, "application/json", "{\"success\":false,\"message\":\"Wi-Fi connection failed\"}");
+        return;
     }
 
     _webServer.send(200, "application/json", "{\"success\":true}");
@@ -807,7 +833,7 @@ void ConfigPortal::handleApply() {
     _settings = settings;
 
     if (_saveCb) {
-        _saveCb(false, tzChanged, manualTimeChanged);
+        (void)_saveCb(false, tzChanged, manualTimeChanged);
     }
 
     if (_previewCb && (field == "style" || field == "datestyle" || field == "timefmt" || field == "timezone" || field == "timeMode" || field == "manualtime" || field == "bellmode" || field == "brightness")) {
@@ -850,14 +876,11 @@ void ConfigPortal::handleStatus() {
     json += ",\"manualTime\":";
     json += _settings.manualTime.enabled ? "true" : "false";
 
-    // Include stored credentials if available
-    if (_settings.network.ssid.length() > 0) {
-        json += ",\"storedSsid\":\"";
-        json += encodeJSON(_settings.network.ssid);
-        json += "\",\"storedPassword\":\"";
-        json += encodeJSON(_settings.network.password);
-        json += "\"";
-    }
+    json += ",\"storedSsid\":\"";
+    json += encodeJSON(_settings.network.ssid);
+    json += "\",\"storedPassword\":\"";
+    json += encodeJSON(_settings.network.password);
+    json += "\"";
 
     json += "}";
     _webServer.send(200, "application/json", json);
@@ -940,7 +963,7 @@ void ConfigPortal::setOtaDisplayCallback(std::function<void(bool, unsigned int, 
     _otaDisplayCb = cb;
 }
 
-void ConfigPortal::setSaveCallback(std::function<void(bool, bool, bool)> cb) {
+void ConfigPortal::setSaveCallback(std::function<bool(bool, bool, bool)> cb) {
     _saveCb = cb;
 }
 

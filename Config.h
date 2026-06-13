@@ -49,10 +49,10 @@
 // Bell output timing
 // ---------------------------------------------------------------------------
 
-#define BELL_PULSE_MS                               500                                 // Coil-on time for one strike
-#define BELL_HOUR_GAP_MS                            1000                                // Gap between strikes in hourly / hour-count modes
-#define BELL_SHIP_PAIR_GAP_MS                       125                                 // Gap between the two strikes of a ship's-bell "double"
-#define BELL_SHIP_GROUP_GAP_MS                      750                                 // Gap between bell groups in ship's-bell sequences
+#define BELL_COIL_ON_MS                             150                                 // Minimum coil energize time for one strike
+#define BELL_COIL_OFF_MS                            150                                 // Minimum coil de-energize time between strikes
+#define BELL_STRIKE_GAP_MS                          150                                 // Additional pause within a group (added after COIL_OFF)
+#define BELL_GROUP_GAP_MS                           550                                 // Additional pause between groups / un-grouped strikes (added after COIL_OFF)
 
 // ---------------------------------------------------------------------------
 // Timer alerts

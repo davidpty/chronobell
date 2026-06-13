@@ -22,7 +22,7 @@ An ESP32-powered LED matrix clock with capacitive touch, a ship's bell, 8 displa
 
 ## What you can do with it
 
-- **Bell** - Off, single ding, hour count, half-hour, pair, or ship's bell. Hear a preview as you scroll.
+- **Bell** - Off, single ding, hour count, half-hour, pair, triple, or ship's bell. Hear a preview as you scroll.
 - **Timer** - Stopwatch and countdown with 11 built-in presets (1 to 90 minutes). When time's up: 9 bell strikes and a blinking `00:00` that auto-dismisses after 15 minutes.
 - **Night mode** - Dim the display, turn it off, mute the bell, or any combo - all on a schedule. Touch the clock to wake it for a minute.
 - **Manual time** - Switch from atomic (NTP + RTC) to manual and step through HH→MM→SS→Month→Day→Year. Persists across reboots.
@@ -82,7 +82,7 @@ When night mode turns the display off, any touch wakes it for a minute.
 | FORMAT | 24H / 12H | 24-hour or AM/PM |
 | NIGHT | OFF / LOW / LOWM / DARK / DRKM / MUTE | Dim, mute, or turn off the display and bell on a schedule |
 | BRIGHT | 0-15 | How bright the LEDs shine |
-| BELL | OFF / DING / HOUR / HALF / PAIR / SHIP | Bell mode (scroll to hear a preview) |
+| BELL | OFF / DING / HOUR / HALF / PAIR / TRIP / SHIP | Bell mode (scroll to hear a preview) |
 | SETTIME | AUTO / MANUAL | Time source - automatic (NTP + RTC) or manual entry |
 | HOTSPOT | OFF / ON | Turn the web config portal on or off |
 

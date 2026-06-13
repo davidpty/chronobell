@@ -20,11 +20,20 @@ public:
     uint8_t loadCountdownPreset(uint8_t presetCount, uint8_t defaultPresetIndex = 0);
     bool saveCountdownPreset(uint8_t presetIndex);
     bool clearManualTime();
+    bool savePendingNetwork(const NetworkCredentials& network);
+    bool loadPendingNetwork(NetworkCredentials& network);
+    bool clearPendingNetwork();
+    bool saveHotspotState(bool enabled, unsigned long expiryEpoch);
+    bool loadHotspotState(bool& enabled, unsigned long& expiryEpoch);
 
 private:
     static const char* PREFS_NAMESPACE;
     static const char* KEY_SSID;
     static const char* KEY_PASSWORD;
+    static const char* KEY_PENDING_SSID;
+    static const char* KEY_PENDING_PASSWORD;
+    static const char* KEY_HOTSPOT_ENABLED;
+    static const char* KEY_HOTSPOT_EXPIRY;
     static const char* KEY_TIMEZONE_MINUTES;
     static const char* KEY_TIMEZONE_NAME;
     static const char* KEY_DISPLAY_MODE;

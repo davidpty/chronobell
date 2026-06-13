@@ -7,13 +7,17 @@
 #include "ConfigPortal.h"
 #include "SettingsStore.h"
 
+class TimeProvider;
+
 class WiFiManagerLite {
 public:
     WiFiManagerLite(SettingsStore& settingsStore);
 
     void setNetworkServiceConfig(const char* mdnsHostname, const char* otaPassword);
+    void setTimeProvider(TimeProvider* timeProvider);
     bool begin();
     bool reconnectSTA(int timeoutMs);
+    bool reconnectSTAWithFallback(int timeoutMs);
     void loop();
     void startConfigMode();
     void startConfigModePreferStation();
@@ -32,7 +36,7 @@ public:
 
     bool isUpdating();
     void setOtaDisplayCallback(std::function<void(bool, unsigned int, unsigned int)> cb);
-    void setSaveCallback(std::function<void(bool, bool, bool)> cb);
+    void setSaveCallback(std::function<bool(bool, bool, bool)> cb);
     void setPreviewCallback(std::function<void(const String&)> cb);
     void setHotspotCallbacks(std::function<bool()> status, std::function<void(bool)> toggle);
 
@@ -60,9 +64,11 @@ private:
     bool _networkServicesStarted;
     bool _portalNormalMode;
     ConfigPortal _portal;
+    TimeProvider* _timeProvider;
+    unsigned long _hotspotExpiryEpoch;
 
     std::function<void(bool, unsigned int, unsigned int)> _otaDisplayCb;
-    std::function<void(bool, bool, bool)> _saveCb;
+    std::function<bool(bool, bool, bool)> _saveCb;
     std::function<void(const String&)> _previewCb;
 
     ConnState _connState = ConnState::Idle;
@@ -75,8 +81,11 @@ private:
     bool loadCredentials(String& ssid, String& password);
     void clearCredentials();
     void startConnect(const String& ssid, const String& password, int timeoutMs);
+    bool connectAndWait(const String& ssid, const String& password, int timeoutMs);
     void pollConnect();
     void loadSettings();
+    void restoreHotspotState();
+    void startHotspotInternal(bool persistState, unsigned long expiryEpoch = 0);
 #if ENABLE_MDNS
     void startMDNS();
 #endif

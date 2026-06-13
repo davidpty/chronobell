@@ -71,9 +71,10 @@ void ClockApp::beginControllers() {
         [this](bool a, unsigned int p, unsigned int t) {
             _display.showOtaUpdate(a, p, t);
         });
+    _wifiManager.setTimeProvider(&_timeProvider);
 
-    _wifiManager.setSaveCallback([this](bool w, bool t, bool m) {
-        onSettingsSaved(w, t, m);
+    _wifiManager.setSaveCallback([this](bool w, bool t, bool m) -> bool {
+        return onSettingsSaved(w, t, m);
     });
 
     _wifiManager.setPreviewCallback([this](const String& field) {
@@ -262,25 +263,6 @@ void ClockApp::pollTouch() {
 
 void ClockApp::tickWifiManager() {
     _wifiManager.loop();
-
-    if (_wifiManager.isHotspotActive() && _configModeStartMs == 0) {
-        _configModeStartMs = millis();
-    } else if (!_wifiManager.isHotspotActive() && _configModeStartMs != 0) {
-        _configModeStartMs = 0;
-    }
-
-#if HOTSPOT_TIMEOUT_MINUTES > 0
-    if (_wifiManager.isHotspotActive() && _configModeStartMs != 0) {
-        unsigned long elapsed = (millis() - _configModeStartMs) / 60000UL;
-        if (elapsed >= HOTSPOT_TIMEOUT_MINUTES) {
-            LOG("Hotspot timeout (");
-            LOG(HOTSPOT_TIMEOUT_MINUTES);
-            LOGLN(" min) — stopping hotspot");
-            _wifiManager.stopHotspot();
-            _configModeStartMs = 0;
-        }
-    }
-#endif
 }
 
 void ClockApp::tickWifiSync() {
@@ -684,7 +666,7 @@ void ClockApp::stopBell() {
 // Live settings apply (called from config portal save callback)
 // =============================================================================
 
-void ClockApp::onSettingsSaved(bool wifiChanged, bool tzChanged, bool manualTimeChanged) {
+bool ClockApp::onSettingsSaved(bool wifiChanged, bool tzChanged, bool manualTimeChanged) {
     LOGLN("Applying saved settings live...");
 
     int16_t oldTzOffset = _appSettings.timezone.offsetMinutes;
@@ -728,9 +710,19 @@ void ClockApp::onSettingsSaved(bool wifiChanged, bool tzChanged, bool manualTime
     applyDisplayBrightness();
 
     if (wifiChanged) {
-        LOGLN("Wi-Fi credentials changed — reconnecting...");
-        _wifiManager.reconnectSTA(15000);
+        LOGLN("Wi-Fi credentials changed — testing new credentials...");
+        if (!_wifiManager.reconnectSTAWithFallback(15000)) {
+            LOGLN("Wi-Fi credentials failed; previous network restored");
+            return false;
+        }
+        reloadSettings();
+        if (oldManualEnabled && !_appSettings.manualTime.enabled) {
+            LOGLN("Manual → atomic transition — forcing NTP sync...");
+            _wifiSync.requestSync();
+        }
     }
+
+    return true;
 }
 
 void ClockApp::onWebPreview(const String& field) {
@@ -748,5 +740,3 @@ void ClockApp::onWebPreview(const String& field) {
         _timerController.dismissView();
     }
 }
-
-

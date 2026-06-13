@@ -3,6 +3,10 @@
 const char* SettingsStore::PREFS_NAMESPACE = "settings";
 const char* SettingsStore::KEY_SSID = "ssid";
 const char* SettingsStore::KEY_PASSWORD = "password";
+const char* SettingsStore::KEY_PENDING_SSID = "pending_ssid";
+const char* SettingsStore::KEY_PENDING_PASSWORD = "pending_password";
+const char* SettingsStore::KEY_HOTSPOT_ENABLED = "hotspot_enabled";
+const char* SettingsStore::KEY_HOTSPOT_EXPIRY = "hotspot_expiry";
 const char* SettingsStore::KEY_TIMEZONE_MINUTES = "tz_min";
 const char* SettingsStore::KEY_TIMEZONE_NAME = "tz_name";
 const char* SettingsStore::KEY_DISPLAY_MODE = "display";
@@ -39,6 +43,11 @@ AppSettings SettingsStore::load() {
     settings.nightMode = clampNightMode(prefs.getUChar(KEY_NIGHT_MODE, (uint8_t)NightMode::Off));
     settings.manualTime.enabled = prefs.getBool(KEY_MANUAL_TIME_ENABLED, false);
     settings.manualTime.epoch = prefs.getULong(KEY_MANUAL_EPOCH, 0);
+    if (settings.network.ssid.length() == 0) {
+        // No network is configured, so the clock should not stay in AUTO mode.
+        settings.network.password = "";
+        settings.manualTime.enabled = true;
+    }
 
     prefs.end();
     return settings;
@@ -64,6 +73,72 @@ bool SettingsStore::save(const AppSettings& settings) {
 
     prefs.end();
     return true;
+}
+
+bool SettingsStore::savePendingNetwork(const NetworkCredentials& network) {
+    Preferences prefs;
+    if (!prefs.begin(PREFS_NAMESPACE, false)) {
+        return false;
+    }
+
+    prefs.putString(KEY_PENDING_SSID, network.ssid);
+    prefs.putString(KEY_PENDING_PASSWORD, network.password);
+    prefs.end();
+    return true;
+}
+
+bool SettingsStore::loadPendingNetwork(NetworkCredentials& network) {
+    Preferences prefs;
+    if (!prefs.begin(PREFS_NAMESPACE, true)) {
+        return false;
+    }
+
+    network.ssid = prefs.getString(KEY_PENDING_SSID, "");
+    network.password = prefs.getString(KEY_PENDING_PASSWORD, "");
+    prefs.end();
+    return network.ssid.length() > 0;
+}
+
+bool SettingsStore::clearPendingNetwork() {
+    Preferences prefs;
+    if (!prefs.begin(PREFS_NAMESPACE, false)) {
+        return false;
+    }
+
+    prefs.remove(KEY_PENDING_SSID);
+    prefs.remove(KEY_PENDING_PASSWORD);
+    prefs.end();
+    return true;
+}
+
+bool SettingsStore::saveHotspotState(bool enabled, unsigned long expiryEpoch) {
+    Preferences prefs;
+    if (!prefs.begin(PREFS_NAMESPACE, false)) {
+        return false;
+    }
+
+    prefs.putBool(KEY_HOTSPOT_ENABLED, enabled);
+    if (enabled) {
+        prefs.putULong(KEY_HOTSPOT_EXPIRY, expiryEpoch);
+    } else {
+        prefs.remove(KEY_HOTSPOT_EXPIRY);
+    }
+    prefs.end();
+    return true;
+}
+
+bool SettingsStore::loadHotspotState(bool& enabled, unsigned long& expiryEpoch) {
+    Preferences prefs;
+    if (!prefs.begin(PREFS_NAMESPACE, true)) {
+        enabled = false;
+        expiryEpoch = 0;
+        return false;
+    }
+
+    enabled = prefs.getBool(KEY_HOTSPOT_ENABLED, false);
+    expiryEpoch = prefs.getULong(KEY_HOTSPOT_EXPIRY, 0);
+    prefs.end();
+    return enabled;
 }
 
 bool SettingsStore::saveDisplayMode(DisplayMode mode) {

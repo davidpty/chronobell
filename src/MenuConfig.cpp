@@ -1,7 +1,9 @@
 #include "MenuConfig.h"
 
 #include <time.h>
+#include <stdio.h>
 
+#include "Config.h"
 #include "AppSettings.h"
 #include "BellController.h"
 #include "Display.h"
@@ -80,7 +82,7 @@ const uint8_t MENU_ITEM_COUNT = sizeof(MENU_ITEMS) / sizeof(MENU_ITEMS[0]);
 
 const char* bellValueName(int16_t value) {
     static const char* const NAMES[] = {
-        "OFF", "DING", "HOUR", "HALF", "PAIR", "SHIP", nullptr
+        "OFF", "DING", "HOUR", "HALF", "PAIR", "TRIP", "SHIP", nullptr
     };
     for (uint8_t i = 0; NAMES[i]; i++) {
         if ((int16_t)i == value) return NAMES[i];
@@ -135,18 +137,32 @@ static const char* onOffValueName(int16_t value) {
     return value == 0 ? "OFF" : "ON";
 }
 
+static const char* hotspotValueName(void* ctx, int16_t value) {
+    (void)ctx;
+    if (value == 0) {
+        return "OFF";
+    }
+#if HOTSPOT_TIMEOUT_MINUTES == 0
+    return "ON";
+#else
+    static char label[12];
+    snprintf(label, sizeof(label), "%d MIN", HOTSPOT_TIMEOUT_MINUTES);
+    return label;
+#endif
+}
+
 static const char* setTimeValueName(int16_t value) {
     return value == 0 ? "AUTO" : "MANUAL";
 }
 
-const char* menuValueName(uint8_t index, int16_t value, void* /*ctx*/) {
+const char* menuValueName(uint8_t index, int16_t value, void* ctx) {
     if (index == MENU_STYLE) return styleValueName(value);
     if (index == MENU_DATE) return dateStyleValueName(value);
     if (index == MENU_FORMAT) return formatValueName(value);
     if (index == MENU_NIGHT) return nightValueName(value);
     if (index == MENU_BELL) return bellValueName(value);
     if (index == MENU_SETTIME) return setTimeValueName(value);
-    if (index == MENU_HOTSPOT) return onOffValueName(value);
+    if (index == MENU_HOTSPOT) return hotspotValueName(ctx, value);
     return nullptr;
 }
 

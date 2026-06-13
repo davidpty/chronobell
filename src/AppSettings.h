@@ -28,7 +28,8 @@ enum class BellMode : uint8_t {
     HourCount = 2,
     HourCountHalf = 3,
     Pair = 4,
-    Ships = 5
+    Triple = 5,
+    Ships = 6
 };
 
 enum class TimeFormat : uint8_t {

@@ -18,7 +18,7 @@ public:
 private:
     static uint8_t hourCount12(int hours);
     static uint8_t shipBellCount(int hours, int minutes);
-    static uint8_t computeStrikesForEvent(BellMode mode, int eventH, int eventM, bool& groupedPairs);
+    static uint8_t computeStrikesForEvent(BellMode mode, int eventH, int eventM, uint8_t& strikeGroupSize);
     static bool computeMostRecentEventTime(BellMode mode, int currentH, int currentM, int& eventH, int& eventM);
     void queue(uint8_t count, uint8_t groupSize, bool force, const char* label = nullptr);
     void queuePreview(uint8_t count, uint8_t groupSize);
