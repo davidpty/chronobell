@@ -51,7 +51,7 @@ public:
     void onLeft();
     void onRight();
     void onMiddleShort();
-    void acknowledgeAlert();
+    void acknowledgeAlert(bool forceCountdownView);
 
     typedef bool (*GuestWifiAvailableFn)();
 

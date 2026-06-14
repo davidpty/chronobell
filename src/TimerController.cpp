@@ -274,7 +274,7 @@ void TimerController::updateAlert() {
 
 #if defined(TIMER_ALERT_SHOW_TIMEOUT_MINUTES) && TIMER_ALERT_SHOW_TIMEOUT_MINUTES > 0
     if (_alertBellStopped && now - _alertBellStoppedMs >= TIMER_ALERT_SHOW_TIMEOUT_MINUTES * 60000UL) {
-        acknowledgeAlert();
+        acknowledgeAlert(false);
         LOGLN("Countdown 00:00 timed out");
         return;
     }
@@ -299,7 +299,7 @@ void TimerController::updateAlert() {
 
 void TimerController::onLeft() {
     if (_countdownExpired) {
-        acknowledgeAlert();
+        acknowledgeAlert(true);
         return;
     }
 
@@ -385,7 +385,7 @@ void TimerController::onRight() {
 
 void TimerController::onMiddleShort() {
     if (_countdownExpired) {
-        acknowledgeAlert();
+        acknowledgeAlert(false);
         return;
     }
 
@@ -426,7 +426,7 @@ void TimerController::onMiddleShort() {
     LOGF("View: %u\n", (unsigned)_view);
 }
 
-void TimerController::acknowledgeAlert() {
+void TimerController::acknowledgeAlert(bool forceCountdownView) {
     _countdownExpired = false;
     _countdownRunning = false;
     _countdownRemainingMs = countdownPresetMs();
@@ -438,7 +438,7 @@ void TimerController::acknowledgeAlert() {
     _countdownAlertBellWasBusy = false;
     clearPersistedTargetEpoch();
     if (_stopBell) _stopBell();
-    setView(_countdownAlertReturnView);
+    setView(forceCountdownView ? TimerView::Countdown : _countdownAlertReturnView);
     noteActivity();
     LOGLN("Countdown alert acknowledged");
 }

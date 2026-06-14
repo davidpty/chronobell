@@ -63,8 +63,8 @@ Press the **BOOT** button or toggle **HOTSPOT** to ON in the menu.
 
 | Gesture | Pad | What it does |
 |---------|-----|-------------|
-| Tap | Left | Previous menu item / previous display style / stopwatch start-stop / acknowledge expired countdown |
-| Tap | Center | Confirm a menu choice / cycle views (Clock → Date → Guest WiFi → Stopwatch → Countdown) / acknowledge timer alert |
+| Tap | Left | Previous menu item / previous display style / stopwatch start-stop / acknowledge expired countdown and stay on Countdown |
+| Tap | Center | Confirm a menu choice / cycle views (Clock → Date → Guest WiFi → Stopwatch → Countdown) / acknowledge timer alert (returns to Clock only if the alert came from Clock) |
 | Tap | Right | Next menu item / next display style / cycle countdown preset |
 | Hold 1.5s | Center | Enter the menu |
 | Hold (auto-repeat) | Left or Right | Scroll fast through menu items or countdown presets |
