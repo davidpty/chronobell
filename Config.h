@@ -10,7 +10,7 @@
 // Debug logging
 // ---------------------------------------------------------------------------
 
-#define DEBUG                                      1                                   // 1 = enable all logging (LOGLN, LOG, LOGF + hotspot DBG logs); 0 = compile out
+#define DEBUG                                      0                                   // 1 = enable all logging (LOGLN, LOG, LOGF + hotspot DBG logs); 0 = compile out
 
 #if DEBUG
   #define LOG(...)     Serial.print(__VA_ARGS__)
