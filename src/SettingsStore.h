@@ -24,6 +24,9 @@ public:
     time_t loadCountdownTargetEpoch();
     bool saveCountdownTargetEpoch(time_t targetEpoch);
     bool clearCountdownTargetEpoch();
+    uint32_t loadCountdownRemainingMs();
+    bool saveCountdownRemainingMs(uint32_t remainingMs);
+    bool clearCountdownRemainingMs();
     bool loadCountdownViewActive();
     bool saveCountdownViewActive(bool active);
     uint64_t loadStopwatchElapsed();
@@ -69,6 +72,7 @@ private:
     static const char* TIMER_PREFS_NAMESPACE;
     static const char* KEY_COUNTDOWN_PRESET;
     static const char* KEY_COUNTDOWN_TARGET_EPOCH;
+    static const char* KEY_COUNTDOWN_REMAINING;
     static const char* KEY_COUNTDOWN_VIEW_ACTIVE;
     static const char* KEY_STOPWATCH_ELAPSED;
     static const char* KEY_STOPWATCH_START_EPOCH;

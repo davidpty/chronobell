@@ -101,9 +101,12 @@ void ClockApp::wireTimerCallbacks(SavePresetFn savePreset,
 void ClockApp::wireTimerPersistenceCallbacks(CurrentEpochFn currentEpoch,
                                              SaveTargetEpochFn saveTargetEpoch,
                                              ClearTargetEpochFn clearTargetEpoch,
-                                             SaveViewActiveFn saveViewActive) {
+                                             SaveViewActiveFn saveViewActive,
+                                             SaveUInt32Fn saveRemaining,
+                                             ClearFn clearRemaining) {
     _timerController.setPersistenceCallbacks(currentEpoch, saveTargetEpoch,
-                                             clearTargetEpoch, saveViewActive);
+                                             clearTargetEpoch, saveViewActive,
+                                             saveRemaining, clearRemaining);
 }
 
 void ClockApp::wireStopwatchPersistenceCallbacks(SaveUInt64Fn saveElapsed,
@@ -193,8 +196,9 @@ void ClockApp::loadTimerSettings() {
     uint8_t presetIndex = _settingsStore.loadCountdownPreset(COUNTDOWN_PRESET_COUNT);
     _timerController.begin(COUNTDOWN_PRESET_MINUTES, COUNTDOWN_PRESET_COUNT, presetIndex);
     time_t targetEpoch = _settingsStore.loadCountdownTargetEpoch();
+    uint32_t remainingMs = _settingsStore.loadCountdownRemainingMs();
     bool countdownViewActive = _settingsStore.loadCountdownViewActive();
-    _timerController.restoreCountdown(targetEpoch, countdownViewActive);
+    _timerController.restoreCountdown(targetEpoch, countdownViewActive, remainingMs);
     LOGF("Countdown preset: %u min\n",
                   (unsigned)COUNTDOWN_PRESET_MINUTES[presetIndex]);
 
@@ -347,24 +351,12 @@ void ClockApp::pollLongPress() {
     if (heldMs < MENU_LONG_PRESS_MS) return;
 
     _t4LongPressHandled = true;
-
-    if (_timerController.isCountdownExpired()) {
-        LOGLN("T4 1.5s: acknowledge countdown alert");
-        _timerController.onLongPress();
-    } else if (!_menuController.isActive() &&
-               (_timerController.isClockView() || _timerController.isDateView() || _timerController.isGuestWifiView())) {
-        LOGLN("T4 1.5s: enter menu");
-        _menuController.enterBrowse();
-    } else if (!_menuController.isActive() &&
-               _timerController.onLongPress() == TimerLongPressAction::ExitTimerToClock) {
-        LOGLN("T4 1.5s: exit timer to clock");
-    } else {
-        LOGLN("T4 1.5s: cancel & exit");
-        if (_menuController.isEdit()) {
-            _menuController.cancelEdit();
-        }
-        _menuController.exit();
+    if (_menuController.isActive()) {
+        return;
     }
+
+    LOGLN("T4 1.5s: enter menu");
+    _menuController.enterBrowse();
 }
 
 void ClockApp::tickMenu() {
@@ -702,6 +694,14 @@ bool ClockApp::saveCountdownViewActive(bool active) {
     return _settingsStore.saveCountdownViewActive(active);
 }
 
+bool ClockApp::saveCountdownRemainingMs(uint32_t remainingMs) {
+    return _settingsStore.saveCountdownRemainingMs(remainingMs);
+}
+
+bool ClockApp::clearCountdownRemainingMs() {
+    return _settingsStore.clearCountdownRemainingMs();
+}
+
 bool ClockApp::saveStopwatchElapsed(uint64_t elapsedMs) {
     return _settingsStore.saveStopwatchElapsed(elapsedMs);
 }
@@ -723,7 +723,8 @@ bool ClockApp::saveStopwatchViewActive(bool active) {
 }
 
 void ClockApp::queueBellAlert(uint8_t groups) {
-    _bellController.queueForcedGrouped(groups, 3);
+    (void)groups;
+    _bellController.queueCountdownAlert();
 }
 
 bool ClockApp::isBellBusy() const {
@@ -808,6 +809,6 @@ void ClockApp::onWebPreview(const String& field) {
             _bellController.preview(_appSettings.bellMode, now, true);
         }
     } else {
-        _timerController.dismissView();
+        _timerController.showClockPreview();
     }
 }

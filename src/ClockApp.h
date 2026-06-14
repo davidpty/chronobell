@@ -31,6 +31,7 @@ using CurrentEpochFn  = bool (*)(time_t& epoch);
 using SaveTargetEpochFn = bool (*)(time_t targetEpoch);
 using ClearTargetEpochFn = bool (*)();
 using SaveViewActiveFn = bool (*)(bool active);
+using SaveUInt32Fn = bool (*)(uint32_t value);
 using SaveUInt64Fn = bool (*)(uint64_t value);
 using ClearFn = bool (*)();
 using SaveTimeFn = bool (*)(time_t value);
@@ -48,7 +49,9 @@ public:
     void wireTimerPersistenceCallbacks(CurrentEpochFn currentEpoch,
                                        SaveTargetEpochFn saveTargetEpoch,
                                        ClearTargetEpochFn clearTargetEpoch,
-                                       SaveViewActiveFn saveViewActive);
+                                       SaveViewActiveFn saveViewActive,
+                                       SaveUInt32Fn saveRemaining = nullptr,
+                                       ClearFn clearRemaining = nullptr);
     void wireStopwatchPersistenceCallbacks(SaveUInt64Fn saveElapsed,
                                            ClearFn clearElapsed,
                                            SaveTimeFn saveStartEpoch,
@@ -97,6 +100,8 @@ public:
     bool saveCountdownTargetEpoch(time_t targetEpoch);
     bool clearCountdownTargetEpoch();
     bool saveCountdownViewActive(bool active);
+    bool saveCountdownRemainingMs(uint32_t remainingMs);
+    bool clearCountdownRemainingMs();
     bool saveStopwatchElapsed(uint64_t elapsedMs);
     bool clearStopwatchElapsed();
     bool saveStopwatchStartEpoch(time_t epoch);

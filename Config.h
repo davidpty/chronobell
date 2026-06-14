@@ -10,7 +10,7 @@
 // Debug logging
 // ---------------------------------------------------------------------------
 
-#define DEBUG                                      1                                   // 1 = enable all logging (LOGLN, LOG, LOGF + hotspot DBG logs); 0 = compile out
+#define DEBUG                                      0                                   // 1 = enable all logging (LOGLN, LOG, LOGF + hotspot DBG logs); 0 = compile out
 
 #if DEBUG
   #define LOG(...)     Serial.print(__VA_ARGS__)
@@ -60,7 +60,7 @@
 
 #define TIMER_ALERT_DURATION_MINUTES                5                                   // Auto-silience after N min (0 = ring until manual tap)
 #define TIMER_ALERT_SHOW_TIMEOUT_MINUTES            30                                  // Auto-dismiss after N min (0 = stay until manual tap)
-#define TIMER_ALERT_REPEAT_SECONDS                  10                                  // Gap between repeat alerts
+#define TIMER_ALERT_REPEAT_SECONDS                  5                                   // Gap between repeat alerts
 
 // ---------------------------------------------------------------------------
 // UI / interaction

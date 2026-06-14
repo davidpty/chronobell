@@ -12,6 +12,7 @@ void TimerController::begin(const uint16_t* presetMinutes, uint8_t presetCount, 
     _viewActivityMs = millis();
     _countdownTargetEpoch = 0;
     _persistedCountdownViewActive = false;
+    _countdownAlertBellWasBusy = false;
 
     _stopwatchRunning = false;
     _stopwatchElapsedMs = 0;
@@ -31,13 +32,17 @@ void TimerController::setCallbacks(SavePresetCallback savePreset,
 }
 
 void TimerController::setPersistenceCallbacks(CurrentEpochCallback currentEpoch,
-                                              SaveTargetEpochCallback saveTargetEpoch,
-                                              ClearTargetEpochCallback clearTargetEpoch,
-                                              SaveViewActiveCallback saveViewActive) {
+                                               SaveTargetEpochCallback saveTargetEpoch,
+                                               ClearTargetEpochCallback clearTargetEpoch,
+                                               SaveViewActiveCallback saveViewActive,
+                                               SaveUInt32Callback saveRemaining,
+                                               ClearCallback clearRemaining) {
     _currentEpoch = currentEpoch;
     _saveTargetEpoch = saveTargetEpoch;
     _clearTargetEpoch = clearTargetEpoch;
     _saveViewActive = saveViewActive;
+    _saveCountdownRemaining = saveRemaining;
+    _clearCountdownRemaining = clearRemaining;
 }
 
 void TimerController::setStopwatchPersistenceCallbacks(SaveUInt64Callback saveElapsed,
@@ -52,17 +57,19 @@ void TimerController::setStopwatchPersistenceCallbacks(SaveUInt64Callback saveEl
     _saveStopwatchViewActive = saveViewActive;
 }
 
-void TimerController::restoreCountdown(time_t targetEpoch, bool countdownViewActive) {
+void TimerController::restoreCountdown(time_t targetEpoch, bool countdownViewActive, uint32_t remainingMs) {
     uint32_t now = millis();
     _persistedCountdownViewActive = countdownViewActive;
     _view = countdownViewActive ? TimerView::Countdown : TimerView::Clock;
     _lastNonClockView = countdownViewActive ? TimerView::Countdown : TimerView::Date;
     _viewActivityMs = now;
+    _countdownAlertBellWasBusy = false;
 
     if (targetEpoch <= 0) {
         _countdownRunning = false;
         _countdownTargetEpoch = 0;
-        _countdownRemainingMs = countdownPresetMs();
+        _countdownRemainingMs = remainingMs > 0 ? remainingMs : countdownPresetMs();
+        LOGF("Countdown restored paused: %lu ms\n", (unsigned long)_countdownRemainingMs);
         return;
     }
 
@@ -83,6 +90,7 @@ void TimerController::restoreCountdown(time_t targetEpoch, bool countdownViewAct
         _countdownExpired = true;
         _countdownAlertStartedMs = now;
         _countdownLastAlertMs = 0;
+        _countdownAlertBellWasBusy = false;
         clearPersistedTargetEpoch();
         LOGLN("Countdown restored expired");
         return;
@@ -129,9 +137,17 @@ void TimerController::restoreStopwatch(uint64_t elapsedMs, time_t startEpoch, bo
 }
 
 void TimerController::showDateView() {
+    beginPreview();
     setView(TimerView::Date);
     _viewActivityMs = millis();
     LOGLN("Date view shown");
+}
+
+void TimerController::showClockPreview() {
+    beginPreview();
+    setView(TimerView::Clock);
+    _viewActivityMs = millis();
+    LOGLN("Clock preview shown");
 }
 
 void TimerController::dismissView() {
@@ -170,8 +186,15 @@ void TimerController::update() {
 
     if (_view == TimerView::Date) {
         if (now - _viewActivityMs >= MENU_TIMEOUT_SHORT_SECONDS * 1000UL) {
-            setView(TimerView::Clock);
-            LOGLN("View timeout: date -> clock");
+            if (_previewUntilMs > 0) {
+                _previewUntilMs = 0;
+                setView(_viewBeforePreview);
+                LOGLN("View timeout: date -> restored");
+            } else {
+                setView(TimerView::Clock);
+                LOGLN("View timeout: date -> clock");
+            }
+            _viewActivityMs = now;
         }
         return;
     }
@@ -207,6 +230,13 @@ void TimerController::update() {
         LOGLN("Last view timeout: reset to Date");
     }
 #endif
+
+    if (_previewUntilMs > 0 && now >= _previewUntilMs) {
+        _previewUntilMs = 0;
+        setView(_viewBeforePreview);
+        _viewActivityMs = now;
+        LOGLN("Preview timeout -> restored");
+    }
 }
 
 void TimerController::setGuestWifiAvailableCallback(GuestWifiAvailableFn fn) {
@@ -223,12 +253,20 @@ void TimerController::updateAlert() {
     }
 
     uint32_t now = millis();
+    bool busy = _bellBusy && _bellBusy();
+
+    if (_countdownAlertBellWasBusy && !busy) {
+        _countdownAlertBellWasBusy = false;
+        _countdownLastAlertMs = now;
+        LOGLN("Countdown alert cycle finished");
+    }
 
 #if defined(TIMER_ALERT_DURATION_MINUTES) && TIMER_ALERT_DURATION_MINUTES > 0
     if (!_alertBellStopped && now - _countdownAlertStartedMs >= TIMER_ALERT_DURATION_MINUTES * 60000UL) {
         if (_stopBell) _stopBell();
         _alertBellStopped = true;
         _alertBellStoppedMs = now;
+        _countdownAlertBellWasBusy = false;
         LOGLN("Countdown alert bell silenced");
         return;
     }
@@ -243,11 +281,17 @@ void TimerController::updateAlert() {
 #endif
 
     if (!_alertBellStopped) {
+        if (busy) {
+            _countdownAlertBellWasBusy = true;
+            return;
+        }
+
         if (_countdownLastAlertMs == 0 || now - _countdownLastAlertMs >= TIMER_ALERT_REPEAT_SECONDS * 1000UL) {
-            bool busy = _bellBusy && _bellBusy();
-            if (!busy && _queueAlert) {
+            if (_queueAlert) {
                 _queueAlert(3);
-                _countdownLastAlertMs = now;
+                _countdownAlertBellWasBusy = false;
+                _countdownLastAlertMs = 0;
+                LOGLN("Countdown alert queued");
             }
         }
     }
@@ -255,6 +299,7 @@ void TimerController::updateAlert() {
 
 void TimerController::onLeft() {
     if (_countdownExpired) {
+        acknowledgeAlert();
         return;
     }
 
@@ -322,6 +367,7 @@ void TimerController::onRight() {
             _countdownRemainingMs = countdownPresetMs();
             _countdownTargetEpoch = 0;
             clearPersistedTargetEpoch();
+            if (_clearCountdownRemaining) _clearCountdownRemaining();
             LOGLN("Countdown reset");
             return;
         }
@@ -330,6 +376,7 @@ void TimerController::onRight() {
         _countdownRemainingMs = countdownPresetMs();
         _countdownTargetEpoch = 0;
         clearPersistedTargetEpoch();
+        if (_clearCountdownRemaining) _clearCountdownRemaining();
         if (_savePreset) _savePreset(_presetIndex);
         LOGF("Countdown preset: %u min\n",
                       (unsigned)_presetMinutes[_presetIndex]);
@@ -379,20 +426,6 @@ void TimerController::onMiddleShort() {
     LOGF("View: %u\n", (unsigned)_view);
 }
 
-TimerLongPressAction TimerController::onLongPress() {
-    if (_countdownExpired) {
-        acknowledgeAlert();
-        return TimerLongPressAction::AcknowledgedAlert;
-    }
-    if (_view != TimerView::Clock) {
-        setView(TimerView::Clock);
-        noteActivity();
-        LOGLN("View: clock");
-        return TimerLongPressAction::ExitTimerToClock;
-    }
-    return TimerLongPressAction::None;
-}
-
 void TimerController::acknowledgeAlert() {
     _countdownExpired = false;
     _countdownRunning = false;
@@ -402,6 +435,7 @@ void TimerController::acknowledgeAlert() {
     _countdownLastAlertMs = 0;
     _alertBellStopped = false;
     _alertBellStoppedMs = 0;
+    _countdownAlertBellWasBusy = false;
     clearPersistedTargetEpoch();
     if (_stopBell) _stopBell();
     setView(_countdownAlertReturnView);
@@ -502,13 +536,16 @@ void TimerController::expireCountdown(uint32_t now) {
         : TimerView::Clock;
     _countdownAlertStartedMs = now;
     _countdownLastAlertMs = 0;
+    _countdownAlertBellWasBusy = false;
     clearPersistedTargetEpoch();
+    if (_clearCountdownRemaining) _clearCountdownRemaining();
     LOGLN("Countdown expired");
 }
 
 bool TimerController::startCountdownFromRemaining() {
     _countdownStartedMs = millis();
     _countdownTargetEpoch = 0;
+    if (_clearCountdownRemaining) _clearCountdownRemaining();
 
     time_t epoch = 0;
     if (currentEpoch(epoch)) {
@@ -532,6 +569,7 @@ void TimerController::pauseCountdown() {
     _countdownRunning = false;
     _countdownTargetEpoch = 0;
     clearPersistedTargetEpoch();
+    if (_saveCountdownRemaining) _saveCountdownRemaining(_countdownRemainingMs);
     LOGLN("Countdown paused");
 }
 
@@ -559,6 +597,13 @@ void TimerController::saveStopwatchViewActive(bool active) {
     if (_saveStopwatchViewActive) {
         _saveStopwatchViewActive(active);
     }
+}
+
+void TimerController::beginPreview() {
+    if (_previewUntilMs == 0) {
+        _viewBeforePreview = _view;
+    }
+    _previewUntilMs = millis() + MENU_TIMEOUT_SHORT_SECONDS * 1000UL;
 }
 
 void TimerController::setView(TimerView view, bool persist) {

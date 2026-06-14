@@ -53,6 +53,8 @@ static bool onClearCountdownTargetEpoch()    { return app.clearCountdownTargetEp
 static bool onSaveCountdownViewActive(bool active) {
     return app.saveCountdownViewActive(active);
 }
+static bool onSaveCountdownRemainingMs(uint32_t ms) { return app.saveCountdownRemainingMs(ms); }
+static bool onClearCountdownRemainingMs()            { return app.clearCountdownRemainingMs(); }
 static bool onSaveStopwatchElapsed(uint64_t ms) { return app.saveStopwatchElapsed(ms); }
 static bool onClearStopwatchElapsed()           { return app.clearStopwatchElapsed(); }
 static bool onSaveStopwatchStartEpoch(time_t e) { return app.saveStopwatchStartEpoch(e); }
@@ -77,7 +79,9 @@ void setup() {
                            onBellBusy, onStopBell);
     app.wireTimerPersistenceCallbacks(onCurrentEpoch, onSaveCountdownTargetEpoch,
                                       onClearCountdownTargetEpoch,
-                                      onSaveCountdownViewActive);
+                                      onSaveCountdownViewActive,
+                                      onSaveCountdownRemainingMs,
+                                      onClearCountdownRemainingMs);
     app.wireStopwatchPersistenceCallbacks(onSaveStopwatchElapsed, onClearStopwatchElapsed,
                                           onSaveStopwatchStartEpoch, onClearStopwatchStartEpoch,
                                           onSaveStopwatchViewActive);

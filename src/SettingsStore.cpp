@@ -24,6 +24,7 @@ const char* SettingsStore::KEY_MENU_INDEX = "last_idx";
 const char* SettingsStore::TIMER_PREFS_NAMESPACE = "timer";
 const char* SettingsStore::KEY_COUNTDOWN_PRESET = "cdpreset";
 const char* SettingsStore::KEY_COUNTDOWN_TARGET_EPOCH = "cdtarget";
+const char* SettingsStore::KEY_COUNTDOWN_REMAINING = "cd_remain";
 const char* SettingsStore::KEY_COUNTDOWN_VIEW_ACTIVE = "cdview";
 const char* SettingsStore::KEY_STOPWATCH_ELAPSED = "sw_elapsed";
 const char* SettingsStore::KEY_STOPWATCH_START_EPOCH = "sw_start_ep";
@@ -361,6 +362,43 @@ bool SettingsStore::clearCountdownTargetEpoch() {
     }
 
     prefs.remove(KEY_COUNTDOWN_TARGET_EPOCH);
+    prefs.end();
+    return true;
+}
+
+uint32_t SettingsStore::loadCountdownRemainingMs() {
+    Preferences prefs;
+    if (!prefs.begin(TIMER_PREFS_NAMESPACE, true)) {
+        return 0;
+    }
+
+    uint32_t remaining = prefs.getULong(KEY_COUNTDOWN_REMAINING, 0);
+    prefs.end();
+    return remaining;
+}
+
+bool SettingsStore::saveCountdownRemainingMs(uint32_t remainingMs) {
+    Preferences prefs;
+    if (!prefs.begin(TIMER_PREFS_NAMESPACE, false)) {
+        return false;
+    }
+
+    if (remainingMs > 0) {
+        prefs.putULong(KEY_COUNTDOWN_REMAINING, remainingMs);
+    } else {
+        prefs.remove(KEY_COUNTDOWN_REMAINING);
+    }
+    prefs.end();
+    return true;
+}
+
+bool SettingsStore::clearCountdownRemainingMs() {
+    Preferences prefs;
+    if (!prefs.begin(TIMER_PREFS_NAMESPACE, false)) {
+        return false;
+    }
+
+    prefs.remove(KEY_COUNTDOWN_REMAINING);
     prefs.end();
     return true;
 }

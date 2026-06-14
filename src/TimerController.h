@@ -12,12 +12,6 @@ enum class TimerView : uint8_t {
     Countdown = 4
 };
 
-enum class TimerLongPressAction : uint8_t {
-    None = 0,
-    AcknowledgedAlert = 1,
-    ExitTimerToClock = 2
-};
-
 class TimerController {
 public:
     typedef void (*SavePresetCallback)(uint8_t presetIndex);
@@ -28,6 +22,7 @@ public:
     typedef bool (*SaveTargetEpochCallback)(time_t targetEpoch);
     typedef bool (*ClearTargetEpochCallback)();
     typedef bool (*SaveViewActiveCallback)(bool active);
+    typedef bool (*SaveUInt32Callback)(uint32_t value);
     typedef bool (*SaveUInt64Callback)(uint64_t value);
     typedef bool (*ClearCallback)();
     typedef bool (*SaveTimeCallback)(time_t value);
@@ -40,13 +35,15 @@ public:
     void setPersistenceCallbacks(CurrentEpochCallback currentEpoch,
                                  SaveTargetEpochCallback saveTargetEpoch,
                                  ClearTargetEpochCallback clearTargetEpoch,
-                                 SaveViewActiveCallback saveViewActive);
+                                 SaveViewActiveCallback saveViewActive,
+                                 SaveUInt32Callback saveRemaining = nullptr,
+                                 ClearCallback clearRemaining = nullptr);
     void setStopwatchPersistenceCallbacks(SaveUInt64Callback saveElapsed,
                                           ClearCallback clearElapsed,
                                           SaveTimeCallback saveStartEpoch,
                                           ClearCallback clearStartEpoch,
                                           SaveViewActiveCallback saveViewActive);
-    void restoreCountdown(time_t targetEpoch, bool countdownViewActive);
+    void restoreCountdown(time_t targetEpoch, bool countdownViewActive, uint32_t remainingMs = 0);
     void restoreStopwatch(uint64_t elapsedMs, time_t startEpoch, bool stopwatchViewActive);
     void update();
     void noteActivity();
@@ -54,7 +51,6 @@ public:
     void onLeft();
     void onRight();
     void onMiddleShort();
-    TimerLongPressAction onLongPress();
     void acknowledgeAlert();
 
     typedef bool (*GuestWifiAvailableFn)();
@@ -67,6 +63,7 @@ public:
     bool isCountdownView() const;
 
     void showDateView();
+    void showClockPreview();
     void dismissView();
     void setGuestWifiAvailableCallback(GuestWifiAvailableFn fn);
     bool stopwatchRunning() const;
@@ -85,6 +82,7 @@ private:
     void clearPersistedTargetEpoch();
     void saveCountdownViewActive(bool active);
     void saveStopwatchViewActive(bool active);
+    void beginPreview();
     void setView(TimerView view, bool persist = true);
     void setLastNonClockView(TimerView view);
 
@@ -108,9 +106,12 @@ private:
     uint32_t _countdownLastAlertMs = 0;
     bool _alertBellStopped = false;
     uint32_t _alertBellStoppedMs = 0;
+    bool _countdownAlertBellWasBusy = false;
 
     TimerView _view = TimerView::Clock;
     TimerView _lastNonClockView = TimerView::Date;
+    TimerView _viewBeforePreview = TimerView::Clock;
+    uint32_t _previewUntilMs = 0;
     uint32_t _viewActivityMs = 0;
 
     SavePresetCallback _savePreset = nullptr;
@@ -121,6 +122,8 @@ private:
     CurrentEpochCallback _currentEpoch = nullptr;
     SaveTargetEpochCallback _saveTargetEpoch = nullptr;
     ClearTargetEpochCallback _clearTargetEpoch = nullptr;
+    SaveUInt32Callback _saveCountdownRemaining = nullptr;
+    ClearCallback _clearCountdownRemaining = nullptr;
     SaveViewActiveCallback _saveViewActive = nullptr;
     bool _persistedCountdownViewActive = false;
 

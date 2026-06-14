@@ -163,7 +163,7 @@ void TimerRenderer::drawTimerDuration(uint32_t totalSeconds, bool blinkSeparator
         _display->drawMediumDigit(d, x, startY);
         x += digitWidth + spacing;
         if (i == digitCount - 3) {
-            if (!blinkSeparator || ((millis() / 500UL) % 2UL) == 0) {
+            if (blinkSeparator && ((millis() / 500UL) % 2UL) == 0) {
                 _display->drawTimerColon(x, startY);
             }
             x += sepWidth + spacing;

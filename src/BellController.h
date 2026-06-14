@@ -11,7 +11,7 @@ public:
     void update(const ClockTime& currentTime, bool timeValid, BellMode mode,
                 bool countdownExpired, bool muteAutomatic = false);
     void preview(BellMode mode, const ClockTime& currentTime, bool timeValid);
-    void queueForcedGrouped(uint8_t groupCount, uint8_t groupSize);
+    void queueCountdownAlert();
     void stop();
     bool isBusy() const;
 
@@ -21,6 +21,7 @@ private:
     static uint8_t computeStrikesForEvent(BellMode mode, int eventH, int eventM, uint8_t& strikeGroupSize);
     static bool computeMostRecentEventTime(BellMode mode, int currentH, int currentM, int& eventH, int& eventM);
     void queue(uint8_t count, uint8_t groupSize, bool force, const char* label = nullptr);
+    void queuePattern(uint8_t count, const uint8_t* groupPattern, uint8_t patternCount, bool force, const char* label = nullptr);
     void queuePreview(uint8_t count, uint8_t groupSize);
     void updateSequence();
     void triggerPulse();
@@ -30,6 +31,10 @@ private:
     bool _pulseActive = false;
     bool _sequenceActive = false;
     uint8_t _sequenceGroupSize = 0;
+    const uint8_t* _sequenceGroupPattern = nullptr;
+    uint8_t _sequenceGroupPatternCount = 0;
+    uint8_t _sequenceGroupPatternIndex = 0;
+    uint8_t _sequenceGroupProgress = 0;
     uint8_t _sequenceTotal = 0;
     uint8_t _sequenceRemaining = 0;
     uint8_t _sequenceIndex = 0;

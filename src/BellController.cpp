@@ -47,18 +47,28 @@ void BellController::preview(BellMode mode, const ClockTime& currentTime, bool t
     }
 }
 
-void BellController::queueForcedGrouped(uint8_t groupCount, uint8_t groupSize) {
-    if (groupCount == 0 || groupSize == 0) {
+void BellController::queueCountdownAlert() {
+    static const uint8_t kCountdownAlertPattern[] = {3, 2, 1};
+    const uint8_t groupCount = sizeof(kCountdownAlertPattern) / sizeof(kCountdownAlertPattern[0]);
+    const uint8_t totalStrikes = 3 + 2 + 1;
+    if (groupCount == 0) {
         return;
     }
 
-    queue((uint8_t)(groupCount * groupSize), groupSize, true);
+    queuePattern(totalStrikes, kCountdownAlertPattern, groupCount, true);
 }
 
 void BellController::stop() {
     _sequenceActive = false;
+    _sequenceTotal = 0;
     _sequenceRemaining = 0;
+    _sequenceIndex = 0;
+    _sequenceGroupSize = 0;
     _nextStrikeMs = 0;
+    _sequenceGroupPattern = nullptr;
+    _sequenceGroupPatternCount = 0;
+    _sequenceGroupPatternIndex = 0;
+    _sequenceGroupProgress = 0;
     if (_pulseActive) {
         digitalWrite(BELL_PIN, LOW);
         _pulseActive = false;
@@ -136,6 +146,34 @@ void BellController::queue(uint8_t count, uint8_t groupSize, bool force, const c
 
     _sequenceActive = true;
     _sequenceGroupSize = groupSize;
+    _sequenceGroupPattern = nullptr;
+    _sequenceGroupPatternCount = 0;
+    _sequenceGroupPatternIndex = 0;
+    _sequenceGroupProgress = 0;
+    _sequenceTotal = count;
+    _sequenceRemaining = count;
+    _sequenceIndex = 0;
+    _nextStrikeMs = 0;
+
+    if (label) {
+        LOG(label);
+    } else {
+        LOG(force ? "Queued timer alert strikes: " : "Queued bell strikes: ");
+    }
+    LOGLN(count);
+}
+
+void BellController::queuePattern(uint8_t count, const uint8_t* groupPattern, uint8_t patternCount, bool force, const char* label) {
+    if (count == 0 || (!force && _sequenceActive)) {
+        return;
+    }
+
+    _sequenceActive = true;
+    _sequenceGroupSize = 0;
+    _sequenceGroupPattern = groupPattern;
+    _sequenceGroupPatternCount = patternCount;
+    _sequenceGroupPatternIndex = 0;
+    _sequenceGroupProgress = 0;
     _sequenceTotal = count;
     _sequenceRemaining = count;
     _sequenceIndex = 0;
@@ -173,10 +211,20 @@ void BellController::updateSequence() {
         return;
     }
 
-    unsigned long nextGapMs = BELL_GROUP_GAP_MS;
-    if (_sequenceGroupSize > 1 && _sequenceIndex % _sequenceGroupSize != 0) {
-        nextGapMs = BELL_STRIKE_GAP_MS;
+    bool groupComplete = false;
+    if (_sequenceGroupPattern && _sequenceGroupPatternIndex < _sequenceGroupPatternCount) {
+        uint8_t currentGroupSize = _sequenceGroupPattern[_sequenceGroupPatternIndex];
+        _sequenceGroupProgress++;
+        if (_sequenceGroupProgress >= currentGroupSize) {
+            _sequenceGroupProgress = 0;
+            _sequenceGroupPatternIndex++;
+            groupComplete = true;
+        }
+    } else if (_sequenceGroupSize > 1 && _sequenceIndex % _sequenceGroupSize == 0) {
+        groupComplete = true;
     }
+
+    unsigned long nextGapMs = groupComplete ? BELL_GROUP_GAP_MS : BELL_STRIKE_GAP_MS;
     _nextStrikeMs = currentMs + BELL_COIL_ON_MS + BELL_COIL_OFF_MS + nextGapMs;
 }
 
