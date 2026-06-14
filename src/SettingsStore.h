@@ -26,6 +26,14 @@ public:
     bool clearCountdownTargetEpoch();
     bool loadCountdownViewActive();
     bool saveCountdownViewActive(bool active);
+    uint64_t loadStopwatchElapsed();
+    bool saveStopwatchElapsed(uint64_t elapsedMs);
+    bool clearStopwatchElapsed();
+    time_t loadStopwatchStartEpoch();
+    bool saveStopwatchStartEpoch(time_t epoch);
+    bool clearStopwatchStartEpoch();
+    bool loadStopwatchViewActive();
+    bool saveStopwatchViewActive(bool active);
     bool clearManualTime();
     bool saveNetworkBackup(const NetworkCredentials& network);
     bool loadNetworkBackup(NetworkCredentials& network);
@@ -62,6 +70,9 @@ private:
     static const char* KEY_COUNTDOWN_PRESET;
     static const char* KEY_COUNTDOWN_TARGET_EPOCH;
     static const char* KEY_COUNTDOWN_VIEW_ACTIVE;
+    static const char* KEY_STOPWATCH_ELAPSED;
+    static const char* KEY_STOPWATCH_START_EPOCH;
+    static const char* KEY_STOPWATCH_VIEW_ACTIVE;
 };
 
 #endif // SETTINGS_STORE_H

@@ -53,6 +53,11 @@ static bool onClearCountdownTargetEpoch()    { return app.clearCountdownTargetEp
 static bool onSaveCountdownViewActive(bool active) {
     return app.saveCountdownViewActive(active);
 }
+static bool onSaveStopwatchElapsed(uint64_t ms) { return app.saveStopwatchElapsed(ms); }
+static bool onClearStopwatchElapsed()           { return app.clearStopwatchElapsed(); }
+static bool onSaveStopwatchStartEpoch(time_t e) { return app.saveStopwatchStartEpoch(e); }
+static bool onClearStopwatchStartEpoch()        { return app.clearStopwatchStartEpoch(); }
+static bool onSaveStopwatchViewActive(bool a)   { return app.saveStopwatchViewActive(a); }
 static void onQueueBellAlert(uint8_t g)      { app.queueBellAlert(g); }
 static bool onBellBusy()                     { return app.isBellBusy(); }
 static void onStopBell()                     { app.stopBell(); }
@@ -73,6 +78,9 @@ void setup() {
     app.wireTimerPersistenceCallbacks(onCurrentEpoch, onSaveCountdownTargetEpoch,
                                       onClearCountdownTargetEpoch,
                                       onSaveCountdownViewActive);
+    app.wireStopwatchPersistenceCallbacks(onSaveStopwatchElapsed, onClearStopwatchElapsed,
+                                          onSaveStopwatchStartEpoch, onClearStopwatchStartEpoch,
+                                          onSaveStopwatchViewActive);
     app.installTouchHandlers(onTouchPad1Press, onTouchPad8Press,
                              onTouchPad4Release);
     app.configureTouchRepeat(1, onTouchPad1Repeat,

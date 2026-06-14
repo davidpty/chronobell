@@ -31,6 +31,9 @@ using CurrentEpochFn  = bool (*)(time_t& epoch);
 using SaveTargetEpochFn = bool (*)(time_t targetEpoch);
 using ClearTargetEpochFn = bool (*)();
 using SaveViewActiveFn = bool (*)(bool active);
+using SaveUInt64Fn = bool (*)(uint64_t value);
+using ClearFn = bool (*)();
+using SaveTimeFn = bool (*)(time_t value);
 
 class ClockApp {
 public:
@@ -46,6 +49,11 @@ public:
                                        SaveTargetEpochFn saveTargetEpoch,
                                        ClearTargetEpochFn clearTargetEpoch,
                                        SaveViewActiveFn saveViewActive);
+    void wireStopwatchPersistenceCallbacks(SaveUInt64Fn saveElapsed,
+                                           ClearFn clearElapsed,
+                                           SaveTimeFn saveStartEpoch,
+                                           ClearFn clearStartEpoch,
+                                           SaveViewActiveFn saveViewActive);
     void installTouchHandlers(OnTouchFn onPad1Press,
                               OnTouchFn onPad8Press,
                               OnTouchFn onPad4Release);
@@ -89,6 +97,11 @@ public:
     bool saveCountdownTargetEpoch(time_t targetEpoch);
     bool clearCountdownTargetEpoch();
     bool saveCountdownViewActive(bool active);
+    bool saveStopwatchElapsed(uint64_t elapsedMs);
+    bool clearStopwatchElapsed();
+    bool saveStopwatchStartEpoch(time_t epoch);
+    bool clearStopwatchStartEpoch();
+    bool saveStopwatchViewActive(bool active);
     void queueBellAlert(uint8_t groups);
     bool isBellBusy() const;
     void stopBell();

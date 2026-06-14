@@ -31,18 +31,18 @@ void TimerRenderer::renderDateView() {
 }
 
 void TimerRenderer::renderStopwatch() {
-    uint32_t totalMs = _timer->stopwatchMs();
-    drawStopwatchTime(totalMs / 1000UL, (totalMs / 10UL) % 100, _timer->stopwatchRunning());
+    uint64_t totalMs = _timer->stopwatchMs();
+    drawStopwatchTime(totalMs / 1000ULL, (uint8_t)((totalMs / 10ULL) % 100), _timer->stopwatchRunning());
 }
 
-void TimerRenderer::drawStopwatchTime(uint32_t totalSec, uint8_t centisec, bool running) {
+void TimerRenderer::drawStopwatchTime(uint64_t totalSec, uint8_t centisec, bool running) {
     bool blink = running && ((millis() / 500UL) % 2UL == 0);
     const int y = 3;
     const int dw = 6, sp = 1, sw = 1;
 
-    if (totalSec < 60) {
+    if (totalSec < 100) {
         char buf[5];
-        snprintf(buf, sizeof(buf), "%02u%02u", (unsigned)(totalSec % 60), (unsigned)centisec);
+        snprintf(buf, sizeof(buf), "%02u%02u", (unsigned)totalSec, (unsigned)centisec);
         int totalW = dw * 4 + sp * 3 + sw;
         int x = (COLS_PER_ROW - totalW) / 2;
         for (int i = 0; i < 4; i++) {
@@ -55,8 +55,8 @@ void TimerRenderer::drawStopwatchTime(uint32_t totalSec, uint8_t centisec, bool 
         }
     } else if (totalSec < 600) {
         char buf[5];
-        unsigned m = totalSec / 60;
-        unsigned s = totalSec % 60;
+        unsigned m = (unsigned)(totalSec / 60);
+        unsigned s = (unsigned)(totalSec % 60);
         unsigned ds = centisec / 10;
         snprintf(buf, sizeof(buf), "%u%02u%u", m, s, ds);
         int totalW = dw * 4 + sp * 3 + sw * 2;
@@ -74,7 +74,7 @@ void TimerRenderer::drawStopwatchTime(uint32_t totalSec, uint8_t centisec, bool 
         _display->drawMediumDigit(buf[3] - '0', x, y);
     } else if (totalSec < 6000) {
         char buf[5];
-        snprintf(buf, sizeof(buf), "%02u%02u", (unsigned)(totalSec / 60), (unsigned)(totalSec % 60));
+        snprintf(buf, sizeof(buf), "%02u%02u", (unsigned)(totalSec / 60ULL), (unsigned)(totalSec % 60ULL));
         int totalW = dw * 4 + sp * 3 + sw;
         int x = (COLS_PER_ROW - totalW) / 2;
         for (int i = 0; i < 4; i++) {
@@ -87,8 +87,8 @@ void TimerRenderer::drawStopwatchTime(uint32_t totalSec, uint8_t centisec, bool 
         }
     } else if (totalSec < 360000) {
         char buf[5];
-        unsigned h = totalSec / 3600;
-        unsigned m = (totalSec % 3600) / 60;
+        unsigned h = (unsigned)(totalSec / 3600);
+        unsigned m = (unsigned)((totalSec % 3600) / 60);
         snprintf(buf, sizeof(buf), "%02u%02u", h, m);
         int totalW = dw * 4 + sp * 3 + sw;
         int x = (COLS_PER_ROW - totalW) / 2;
@@ -102,8 +102,8 @@ void TimerRenderer::drawStopwatchTime(uint32_t totalSec, uint8_t centisec, bool 
         }
     } else {
         char buf[5];
-        unsigned d = totalSec / 86400;
-        unsigned h = (totalSec % 86400) / 3600;
+        unsigned d = (unsigned)(totalSec / 86400);
+        unsigned h = (unsigned)((totalSec % 86400) / 3600);
         if (d > 99) d = 99;
         snprintf(buf, sizeof(buf), "%02u%02u", d, h);
         int totalW = dw * 4 + sp * 3 + sw;
@@ -130,7 +130,8 @@ void TimerRenderer::renderCountdown() {
 
 void TimerRenderer::renderCountdownAlert() {
     if ((millis() % (BLINK_ON_MS + BLINK_OFF_MS)) < BLINK_ON_MS) {
-        drawTimerDuration(0, false);
+        uint32_t elapsedSec = _timer->countdownElapsedSinceExpiryMs() / 1000UL;
+        drawTimerDuration(elapsedSec >= 6000 ? 0 : elapsedSec, false);
     }
 }
 

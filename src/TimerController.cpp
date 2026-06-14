@@ -12,6 +12,12 @@ void TimerController::begin(const uint16_t* presetMinutes, uint8_t presetCount, 
     _viewActivityMs = millis();
     _countdownTargetEpoch = 0;
     _persistedCountdownViewActive = false;
+
+    _stopwatchRunning = false;
+    _stopwatchElapsedMs = 0;
+    _stopwatchStartedMs = 0;
+    _stopwatchStartEpoch = 0;
+    _persistedStopwatchViewActive = false;
 }
 
 void TimerController::setCallbacks(SavePresetCallback savePreset,
@@ -32,6 +38,18 @@ void TimerController::setPersistenceCallbacks(CurrentEpochCallback currentEpoch,
     _saveTargetEpoch = saveTargetEpoch;
     _clearTargetEpoch = clearTargetEpoch;
     _saveViewActive = saveViewActive;
+}
+
+void TimerController::setStopwatchPersistenceCallbacks(SaveUInt64Callback saveElapsed,
+                                                       ClearCallback clearElapsed,
+                                                       SaveTimeCallback saveStartEpoch,
+                                                       ClearCallback clearStartEpoch,
+                                                       SaveViewActiveCallback saveViewActive) {
+    _saveStopwatchElapsed = saveElapsed;
+    _clearStopwatchElapsed = clearElapsed;
+    _saveStopwatchStartEpoch = saveStartEpoch;
+    _clearStopwatchStartEpoch = clearStartEpoch;
+    _saveStopwatchViewActive = saveViewActive;
 }
 
 void TimerController::restoreCountdown(time_t targetEpoch, bool countdownViewActive) {
@@ -77,6 +95,37 @@ void TimerController::restoreCountdown(time_t targetEpoch, bool countdownViewAct
     _countdownRunning = true;
     _countdownExpired = false;
     LOGLN("Countdown restored running");
+}
+
+void TimerController::restoreStopwatch(uint64_t elapsedMs, time_t startEpoch, bool stopwatchViewActive) {
+    uint32_t now = millis();
+    _persistedStopwatchViewActive = stopwatchViewActive;
+    _stopwatchElapsedMs = elapsedMs;
+
+    if (startEpoch > 0) {
+        time_t epoch = 0;
+        if (currentEpoch(epoch) && epoch >= startEpoch) {
+            _stopwatchElapsedMs += (uint64_t)(epoch - startEpoch) * 1000ULL;
+            _stopwatchStartEpoch = epoch;
+            _stopwatchStartedMs = now;
+            _stopwatchRunning = true;
+            LOGLN("Stopwatch restored running");
+        } else {
+            _stopwatchRunning = false;
+            _stopwatchStartEpoch = 0;
+            LOGLN("Stopwatch restore: no RTC epoch or invalid");
+        }
+    } else {
+        _stopwatchRunning = false;
+        _stopwatchStartEpoch = 0;
+        LOGLN("Stopwatch restored paused");
+    }
+
+    if (stopwatchViewActive && !_countdownExpired && _view != TimerView::Countdown) {
+        _view = TimerView::Stopwatch;
+        _lastNonClockView = TimerView::Stopwatch;
+        _viewActivityMs = now;
+    }
 }
 
 void TimerController::showDateView() {
@@ -211,14 +260,31 @@ void TimerController::onLeft() {
 
     if (_view == TimerView::Stopwatch) {
         if (_stopwatchRunning) {
-            _stopwatchElapsedMs += millis() - _stopwatchStartedMs;
+            time_t epoch = 0;
+            if (_stopwatchStartEpoch > 0 && currentEpoch(epoch) && epoch >= _stopwatchStartEpoch) {
+                _stopwatchElapsedMs += (uint64_t)(epoch - _stopwatchStartEpoch) * 1000ULL;
+            } else {
+                _stopwatchElapsedMs += (uint64_t)(millis() - _stopwatchStartedMs);
+            }
             _stopwatchRunning = false;
+            _stopwatchStartEpoch = 0;
+            if (_saveStopwatchElapsed) _saveStopwatchElapsed(_stopwatchElapsedMs);
+            if (_clearStopwatchStartEpoch) _clearStopwatchStartEpoch();
             LOGLN("Stopwatch paused");
         } else {
             if (_countdownRunning) {
                 pauseCountdown();
             }
+            if (_saveStopwatchElapsed) _saveStopwatchElapsed(_stopwatchElapsedMs);
             _stopwatchStartedMs = millis();
+            time_t epoch = 0;
+            if (currentEpoch(epoch)) {
+                _stopwatchStartEpoch = epoch;
+                if (_saveStopwatchStartEpoch) _saveStopwatchStartEpoch(epoch);
+            } else {
+                _stopwatchStartEpoch = 0;
+                if (_clearStopwatchStartEpoch) _clearStopwatchStartEpoch();
+            }
             _stopwatchRunning = true;
             LOGLN("Stopwatch started");
         }
@@ -230,8 +296,16 @@ void TimerController::onLeft() {
             pauseCountdown();
         } else if (_countdownRemainingMs > 0) {
             if (_stopwatchRunning) {
-                _stopwatchElapsedMs += millis() - _stopwatchStartedMs;
+                time_t epoch = 0;
+                if (_stopwatchStartEpoch > 0 && currentEpoch(epoch) && epoch >= _stopwatchStartEpoch) {
+                    _stopwatchElapsedMs += (uint64_t)(epoch - _stopwatchStartEpoch) * 1000ULL;
+                } else {
+                    _stopwatchElapsedMs += (uint64_t)(millis() - _stopwatchStartedMs);
+                }
                 _stopwatchRunning = false;
+                _stopwatchStartEpoch = 0;
+                if (_saveStopwatchElapsed) _saveStopwatchElapsed(_stopwatchElapsedMs);
+                if (_clearStopwatchStartEpoch) _clearStopwatchStartEpoch();
                 LOGLN("Stopwatch paused");
             }
             startCountdownFromRemaining();
@@ -247,6 +321,9 @@ void TimerController::onRight() {
     if (_view == TimerView::Stopwatch) {
         if (!_stopwatchRunning) {
             _stopwatchElapsedMs = 0;
+            _stopwatchStartEpoch = 0;
+            if (_clearStopwatchElapsed) _clearStopwatchElapsed();
+            if (_clearStopwatchStartEpoch) _clearStopwatchStartEpoch();
             LOGLN("Stopwatch reset");
         }
         return;
@@ -380,11 +457,17 @@ bool TimerController::countdownRunning() const {
     return _countdownRunning;
 }
 
-uint32_t TimerController::stopwatchMs() const {
+uint64_t TimerController::stopwatchMs() const {
     if (!_stopwatchRunning) {
         return _stopwatchElapsedMs;
     }
-    return _stopwatchElapsedMs + (millis() - _stopwatchStartedMs);
+    time_t epoch = 0;
+    if (_stopwatchStartEpoch > 0 && currentEpoch(epoch) && epoch >= _stopwatchStartEpoch) {
+        uint64_t epochPart = (uint64_t)(epoch - _stopwatchStartEpoch) * 1000ULL;
+        uint64_t millisSub = (uint64_t)(millis() - _stopwatchStartedMs) % 1000ULL;
+        return _stopwatchElapsedMs + epochPart + millisSub;
+    }
+    return _stopwatchElapsedMs + (uint64_t)(millis() - _stopwatchStartedMs);
 }
 
 uint32_t TimerController::countdownMs() const {
@@ -403,6 +486,11 @@ uint32_t TimerController::countdownMs() const {
         return 0;
     }
     return _countdownRemainingMs - elapsed;
+}
+
+uint32_t TimerController::countdownElapsedSinceExpiryMs() const {
+    if (!_countdownExpired) return 0;
+    return millis() - _countdownAlertStartedMs;
 }
 
 uint32_t TimerController::countdownPresetMs() const {
@@ -479,10 +567,21 @@ void TimerController::saveCountdownViewActive(bool active) {
     }
 }
 
+void TimerController::saveStopwatchViewActive(bool active) {
+    if (_persistedStopwatchViewActive == active) {
+        return;
+    }
+    _persistedStopwatchViewActive = active;
+    if (_saveStopwatchViewActive) {
+        _saveStopwatchViewActive(active);
+    }
+}
+
 void TimerController::setView(TimerView view, bool persist) {
     _view = view;
     if (persist) {
         saveCountdownViewActive(view == TimerView::Countdown);
+        saveStopwatchViewActive(view == TimerView::Stopwatch);
     }
 }
 

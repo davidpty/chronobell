@@ -106,6 +106,16 @@ void ClockApp::wireTimerPersistenceCallbacks(CurrentEpochFn currentEpoch,
                                              clearTargetEpoch, saveViewActive);
 }
 
+void ClockApp::wireStopwatchPersistenceCallbacks(SaveUInt64Fn saveElapsed,
+                                                 ClearFn clearElapsed,
+                                                 SaveTimeFn saveStartEpoch,
+                                                 ClearFn clearStartEpoch,
+                                                 SaveViewActiveFn saveViewActive) {
+    _timerController.setStopwatchPersistenceCallbacks(saveElapsed, clearElapsed,
+                                                      saveStartEpoch, clearStartEpoch,
+                                                      saveViewActive);
+}
+
 void ClockApp::installTouchHandlers(OnTouchFn onPad1Press,
                                     OnTouchFn onPad8Press,
                                     OnTouchFn onPad4Release) {
@@ -187,6 +197,11 @@ void ClockApp::loadTimerSettings() {
     _timerController.restoreCountdown(targetEpoch, countdownViewActive);
     LOGF("Countdown preset: %u min\n",
                   (unsigned)COUNTDOWN_PRESET_MINUTES[presetIndex]);
+
+    uint64_t swElapsed = _settingsStore.loadStopwatchElapsed();
+    time_t swStartEpoch = _settingsStore.loadStopwatchStartEpoch();
+    bool swViewActive = _settingsStore.loadStopwatchViewActive();
+    _timerController.restoreStopwatch(swElapsed, swStartEpoch, swViewActive);
 }
 
 void ClockApp::applyDisplayBrightness() {
@@ -685,6 +700,26 @@ bool ClockApp::clearCountdownTargetEpoch() {
 
 bool ClockApp::saveCountdownViewActive(bool active) {
     return _settingsStore.saveCountdownViewActive(active);
+}
+
+bool ClockApp::saveStopwatchElapsed(uint64_t elapsedMs) {
+    return _settingsStore.saveStopwatchElapsed(elapsedMs);
+}
+
+bool ClockApp::clearStopwatchElapsed() {
+    return _settingsStore.clearStopwatchElapsed();
+}
+
+bool ClockApp::saveStopwatchStartEpoch(time_t epoch) {
+    return _settingsStore.saveStopwatchStartEpoch(epoch);
+}
+
+bool ClockApp::clearStopwatchStartEpoch() {
+    return _settingsStore.clearStopwatchStartEpoch();
+}
+
+bool ClockApp::saveStopwatchViewActive(bool active) {
+    return _settingsStore.saveStopwatchViewActive(active);
 }
 
 void ClockApp::queueBellAlert(uint8_t groups) {

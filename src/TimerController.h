@@ -28,6 +28,9 @@ public:
     typedef bool (*SaveTargetEpochCallback)(time_t targetEpoch);
     typedef bool (*ClearTargetEpochCallback)();
     typedef bool (*SaveViewActiveCallback)(bool active);
+    typedef bool (*SaveUInt64Callback)(uint64_t value);
+    typedef bool (*ClearCallback)();
+    typedef bool (*SaveTimeCallback)(time_t value);
 
     void begin(const uint16_t* presetMinutes, uint8_t presetCount, uint8_t presetIndex);
     void setCallbacks(SavePresetCallback savePreset,
@@ -38,7 +41,13 @@ public:
                                  SaveTargetEpochCallback saveTargetEpoch,
                                  ClearTargetEpochCallback clearTargetEpoch,
                                  SaveViewActiveCallback saveViewActive);
+    void setStopwatchPersistenceCallbacks(SaveUInt64Callback saveElapsed,
+                                          ClearCallback clearElapsed,
+                                          SaveTimeCallback saveStartEpoch,
+                                          ClearCallback clearStartEpoch,
+                                          SaveViewActiveCallback saveViewActive);
     void restoreCountdown(time_t targetEpoch, bool countdownViewActive);
+    void restoreStopwatch(uint64_t elapsedMs, time_t startEpoch, bool stopwatchViewActive);
     void update();
     void noteActivity();
     void updateAlert();
@@ -62,8 +71,9 @@ public:
     void setGuestWifiAvailableCallback(GuestWifiAvailableFn fn);
     bool stopwatchRunning() const;
     bool countdownRunning() const;
-    uint32_t stopwatchMs() const;
+    uint64_t stopwatchMs() const;
     uint32_t countdownMs() const;
+    uint32_t countdownElapsedSinceExpiryMs() const;
 
 private:
     uint32_t countdownPresetMs() const;
@@ -74,6 +84,7 @@ private:
     void pauseCountdown();
     void clearPersistedTargetEpoch();
     void saveCountdownViewActive(bool active);
+    void saveStopwatchViewActive(bool active);
     void setView(TimerView view, bool persist = true);
     void setLastNonClockView(TimerView view);
 
@@ -84,8 +95,9 @@ private:
     TimerView _countdownAlertReturnView = TimerView::Clock;
 
     bool _stopwatchRunning = false;
-    uint32_t _stopwatchElapsedMs = 0;
+    uint64_t _stopwatchElapsedMs = 0;
     uint32_t _stopwatchStartedMs = 0;
+    time_t _stopwatchStartEpoch = 0;
 
     bool _countdownRunning = false;
     bool _countdownExpired = false;
@@ -111,6 +123,13 @@ private:
     ClearTargetEpochCallback _clearTargetEpoch = nullptr;
     SaveViewActiveCallback _saveViewActive = nullptr;
     bool _persistedCountdownViewActive = false;
+
+    SaveUInt64Callback _saveStopwatchElapsed = nullptr;
+    ClearCallback _clearStopwatchElapsed = nullptr;
+    SaveTimeCallback _saveStopwatchStartEpoch = nullptr;
+    ClearCallback _clearStopwatchStartEpoch = nullptr;
+    SaveViewActiveCallback _saveStopwatchViewActive = nullptr;
+    bool _persistedStopwatchViewActive = false;
 };
 
 #endif

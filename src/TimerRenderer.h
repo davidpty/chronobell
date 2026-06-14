@@ -27,7 +27,7 @@ public:
 
 private:
     void drawTimerDuration(uint32_t totalSeconds, bool blinkSeparator);
-    void drawStopwatchTime(uint32_t totalSec, uint8_t centisec, bool running);
+    void drawStopwatchTime(uint64_t totalSec, uint8_t centisec, bool running);
     void renderStopwatch();
     void renderCountdown();
     void renderCountdownAlert();

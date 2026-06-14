@@ -25,6 +25,9 @@ const char* SettingsStore::TIMER_PREFS_NAMESPACE = "timer";
 const char* SettingsStore::KEY_COUNTDOWN_PRESET = "cdpreset";
 const char* SettingsStore::KEY_COUNTDOWN_TARGET_EPOCH = "cdtarget";
 const char* SettingsStore::KEY_COUNTDOWN_VIEW_ACTIVE = "cdview";
+const char* SettingsStore::KEY_STOPWATCH_ELAPSED = "sw_elapsed";
+const char* SettingsStore::KEY_STOPWATCH_START_EPOCH = "sw_start_ep";
+const char* SettingsStore::KEY_STOPWATCH_VIEW_ACTIVE = "sw_view";
 
 AppSettings SettingsStore::load() {
     AppSettings settings;
@@ -380,6 +383,86 @@ bool SettingsStore::saveCountdownViewActive(bool active) {
     }
 
     prefs.putBool(KEY_COUNTDOWN_VIEW_ACTIVE, active);
+    prefs.end();
+    return true;
+}
+
+uint64_t SettingsStore::loadStopwatchElapsed() {
+    Preferences prefs;
+    if (!prefs.begin(TIMER_PREFS_NAMESPACE, true)) {
+        return 0;
+    }
+    uint64_t elapsed = prefs.getULong64(KEY_STOPWATCH_ELAPSED, 0);
+    prefs.end();
+    return elapsed;
+}
+
+bool SettingsStore::saveStopwatchElapsed(uint64_t elapsedMs) {
+    Preferences prefs;
+    if (!prefs.begin(TIMER_PREFS_NAMESPACE, false)) {
+        return false;
+    }
+    prefs.putULong64(KEY_STOPWATCH_ELAPSED, elapsedMs);
+    prefs.end();
+    return true;
+}
+
+bool SettingsStore::clearStopwatchElapsed() {
+    Preferences prefs;
+    if (!prefs.begin(TIMER_PREFS_NAMESPACE, false)) {
+        return false;
+    }
+    prefs.remove(KEY_STOPWATCH_ELAPSED);
+    prefs.end();
+    return true;
+}
+
+time_t SettingsStore::loadStopwatchStartEpoch() {
+    Preferences prefs;
+    if (!prefs.begin(TIMER_PREFS_NAMESPACE, true)) {
+        return 0;
+    }
+    time_t epoch = (time_t)prefs.getLong(KEY_STOPWATCH_START_EPOCH, 0);
+    prefs.end();
+    return epoch;
+}
+
+bool SettingsStore::saveStopwatchStartEpoch(time_t epoch) {
+    Preferences prefs;
+    if (!prefs.begin(TIMER_PREFS_NAMESPACE, false)) {
+        return false;
+    }
+    prefs.putLong(KEY_STOPWATCH_START_EPOCH, (int32_t)epoch);
+    prefs.end();
+    return true;
+}
+
+bool SettingsStore::clearStopwatchStartEpoch() {
+    Preferences prefs;
+    if (!prefs.begin(TIMER_PREFS_NAMESPACE, false)) {
+        return false;
+    }
+    prefs.remove(KEY_STOPWATCH_START_EPOCH);
+    prefs.end();
+    return true;
+}
+
+bool SettingsStore::loadStopwatchViewActive() {
+    Preferences prefs;
+    if (!prefs.begin(TIMER_PREFS_NAMESPACE, true)) {
+        return false;
+    }
+    bool active = prefs.getBool(KEY_STOPWATCH_VIEW_ACTIVE, false);
+    prefs.end();
+    return active;
+}
+
+bool SettingsStore::saveStopwatchViewActive(bool active) {
+    Preferences prefs;
+    if (!prefs.begin(TIMER_PREFS_NAMESPACE, false)) {
+        return false;
+    }
+    prefs.putBool(KEY_STOPWATCH_VIEW_ACTIVE, active);
     prefs.end();
     return true;
 }
