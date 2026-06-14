@@ -98,6 +98,14 @@ void ClockApp::wireTimerCallbacks(SavePresetFn savePreset,
     _timerController.setCallbacks(savePreset, queueAlert, bellBusy, stopBell);
 }
 
+void ClockApp::wireTimerPersistenceCallbacks(CurrentEpochFn currentEpoch,
+                                             SaveTargetEpochFn saveTargetEpoch,
+                                             ClearTargetEpochFn clearTargetEpoch,
+                                             SaveViewActiveFn saveViewActive) {
+    _timerController.setPersistenceCallbacks(currentEpoch, saveTargetEpoch,
+                                             clearTargetEpoch, saveViewActive);
+}
+
 void ClockApp::installTouchHandlers(OnTouchFn onPad1Press,
                                     OnTouchFn onPad8Press,
                                     OnTouchFn onPad4Release) {
@@ -174,6 +182,9 @@ void ClockApp::loadSettings() {
 void ClockApp::loadTimerSettings() {
     uint8_t presetIndex = _settingsStore.loadCountdownPreset(COUNTDOWN_PRESET_COUNT);
     _timerController.begin(COUNTDOWN_PRESET_MINUTES, COUNTDOWN_PRESET_COUNT, presetIndex);
+    time_t targetEpoch = _settingsStore.loadCountdownTargetEpoch();
+    bool countdownViewActive = _settingsStore.loadCountdownViewActive();
+    _timerController.restoreCountdown(targetEpoch, countdownViewActive);
     LOGF("Loaded countdown preset: %u min\n",
                   (unsigned)COUNTDOWN_PRESET_MINUTES[presetIndex]);
 }
@@ -655,6 +666,25 @@ void ClockApp::onTouchRightRepeat(uint8_t pad) {
 
 void ClockApp::saveCountdownPreset(uint8_t presetIndex) {
     _settingsStore.saveCountdownPreset(presetIndex);
+}
+
+bool ClockApp::currentEpoch(time_t& epoch) const {
+    if (!_rtcClock.available()) {
+        return false;
+    }
+    return _timeProvider.currentEpoch(epoch);
+}
+
+bool ClockApp::saveCountdownTargetEpoch(time_t targetEpoch) {
+    return _settingsStore.saveCountdownTargetEpoch(targetEpoch);
+}
+
+bool ClockApp::clearCountdownTargetEpoch() {
+    return _settingsStore.clearCountdownTargetEpoch();
+}
+
+bool ClockApp::saveCountdownViewActive(bool active) {
+    return _settingsStore.saveCountdownViewActive(active);
 }
 
 void ClockApp::queueBellAlert(uint8_t groups) {

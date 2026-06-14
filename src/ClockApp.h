@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 #include <MD_MAX72xx.h>
+#include <time.h>
 
 #include "AppSettings.h"
 #include "BellController.h"
@@ -26,6 +27,10 @@ using SavePresetFn    = void (*)(uint8_t presetIndex);
 using QueueAlertFn    = void (*)(uint8_t groups);
 using BellBusyFn      = bool (*)();
 using StopBellFn      = void (*)();
+using CurrentEpochFn  = bool (*)(time_t& epoch);
+using SaveTargetEpochFn = bool (*)(time_t targetEpoch);
+using ClearTargetEpochFn = bool (*)();
+using SaveViewActiveFn = bool (*)(bool active);
 
 class ClockApp {
 public:
@@ -37,6 +42,10 @@ public:
                             QueueAlertFn queueAlert,
                             BellBusyFn   bellBusy,
                             StopBellFn   stopBell);
+    void wireTimerPersistenceCallbacks(CurrentEpochFn currentEpoch,
+                                       SaveTargetEpochFn saveTargetEpoch,
+                                       ClearTargetEpochFn clearTargetEpoch,
+                                       SaveViewActiveFn saveViewActive);
     void installTouchHandlers(OnTouchFn onPad1Press,
                               OnTouchFn onPad8Press,
                               OnTouchFn onPad4Release);
@@ -76,6 +85,10 @@ public:
     void onTouchRight(uint8_t pad);
     void onTouchMiddleShort(uint8_t pad);
     void saveCountdownPreset(uint8_t presetIndex);
+    bool currentEpoch(time_t& epoch) const;
+    bool saveCountdownTargetEpoch(time_t targetEpoch);
+    bool clearCountdownTargetEpoch();
+    bool saveCountdownViewActive(bool active);
     void queueBellAlert(uint8_t groups);
     bool isBellBusy() const;
     void stopBell();

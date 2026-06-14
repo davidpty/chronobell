@@ -2,6 +2,7 @@
 #define TIMER_CONTROLLER_H
 
 #include <Arduino.h>
+#include <time.h>
 
 enum class TimerView : uint8_t {
     Clock = 0,
@@ -23,12 +24,21 @@ public:
     typedef void (*QueueAlertCallback)(uint8_t groups);
     typedef bool (*BellBusyCallback)();
     typedef void (*StopBellCallback)();
+    typedef bool (*CurrentEpochCallback)(time_t& epoch);
+    typedef bool (*SaveTargetEpochCallback)(time_t targetEpoch);
+    typedef bool (*ClearTargetEpochCallback)();
+    typedef bool (*SaveViewActiveCallback)(bool active);
 
     void begin(const uint16_t* presetMinutes, uint8_t presetCount, uint8_t presetIndex);
     void setCallbacks(SavePresetCallback savePreset,
                       QueueAlertCallback queueAlert,
                       BellBusyCallback bellBusy,
                       StopBellCallback stopBell);
+    void setPersistenceCallbacks(CurrentEpochCallback currentEpoch,
+                                 SaveTargetEpochCallback saveTargetEpoch,
+                                 ClearTargetEpochCallback clearTargetEpoch,
+                                 SaveViewActiveCallback saveViewActive);
+    void restoreCountdown(time_t targetEpoch, bool countdownViewActive);
     void update();
     void noteActivity();
     void updateAlert();
@@ -58,6 +68,14 @@ public:
 private:
     uint32_t countdownPresetMs() const;
     bool countdownAtFullPreset() const;
+    bool currentEpoch(time_t& epoch) const;
+    void expireCountdown(uint32_t now);
+    bool startCountdownFromRemaining();
+    void pauseCountdown();
+    void clearPersistedTargetEpoch();
+    void saveCountdownViewActive(bool active);
+    void setView(TimerView view, bool persist = true);
+    void setLastNonClockView(TimerView view);
 
     const uint16_t* _presetMinutes = nullptr;
     uint8_t _presetCount = 0;
@@ -73,6 +91,7 @@ private:
     bool _countdownExpired = false;
     uint32_t _countdownRemainingMs = 60UL * 1000UL;
     uint32_t _countdownStartedMs = 0;
+    time_t _countdownTargetEpoch = 0;
     uint32_t _countdownAlertStartedMs = 0;
     uint32_t _countdownLastAlertMs = 0;
     bool _alertBellStopped = false;
@@ -87,6 +106,11 @@ private:
     BellBusyCallback _bellBusy = nullptr;
     StopBellCallback _stopBell = nullptr;
     GuestWifiAvailableFn _guestWifiAvailable = nullptr;
+    CurrentEpochCallback _currentEpoch = nullptr;
+    SaveTargetEpochCallback _saveTargetEpoch = nullptr;
+    ClearTargetEpochCallback _clearTargetEpoch = nullptr;
+    SaveViewActiveCallback _saveViewActive = nullptr;
+    bool _persistedCountdownViewActive = false;
 };
 
 #endif

@@ -45,6 +45,14 @@ static void onTouchPad8Repeat(uint8_t pad)   { app.onTouchLeftRepeat(pad); }
 // TimerController callbacks: persist the chosen preset, ring the bell on a
 // countdown alert, allow ClockApp to query / stop the bell as needed.
 static void onSaveCountdownPreset(uint8_t i) { app.saveCountdownPreset(i); }
+static bool onCurrentEpoch(time_t& epoch)    { return app.currentEpoch(epoch); }
+static bool onSaveCountdownTargetEpoch(time_t epoch) {
+    return app.saveCountdownTargetEpoch(epoch);
+}
+static bool onClearCountdownTargetEpoch()    { return app.clearCountdownTargetEpoch(); }
+static bool onSaveCountdownViewActive(bool active) {
+    return app.saveCountdownViewActive(active);
+}
 static void onQueueBellAlert(uint8_t g)      { app.queueBellAlert(g); }
 static bool onBellBusy()                     { return app.isBellBusy(); }
 static void onStopBell()                     { app.stopBell(); }
@@ -62,6 +70,9 @@ void setup() {
     app.beginControllers();
     app.wireTimerCallbacks(onSaveCountdownPreset, onQueueBellAlert,
                            onBellBusy, onStopBell);
+    app.wireTimerPersistenceCallbacks(onCurrentEpoch, onSaveCountdownTargetEpoch,
+                                      onClearCountdownTargetEpoch,
+                                      onSaveCountdownViewActive);
     app.installTouchHandlers(onTouchPad1Press, onTouchPad8Press,
                              onTouchPad4Release);
     app.configureTouchRepeat(1, onTouchPad1Repeat,

@@ -1,6 +1,8 @@
 #ifndef SETTINGS_STORE_H
 #define SETTINGS_STORE_H
 
+#include <time.h>
+
 #include <Preferences.h>
 #include "AppSettings.h"
 
@@ -19,6 +21,11 @@ public:
     bool saveMenuIndex(uint8_t index);
     uint8_t loadCountdownPreset(uint8_t presetCount, uint8_t defaultPresetIndex = 0);
     bool saveCountdownPreset(uint8_t presetIndex);
+    time_t loadCountdownTargetEpoch();
+    bool saveCountdownTargetEpoch(time_t targetEpoch);
+    bool clearCountdownTargetEpoch();
+    bool loadCountdownViewActive();
+    bool saveCountdownViewActive(bool active);
     bool clearManualTime();
     bool saveNetworkBackup(const NetworkCredentials& network);
     bool loadNetworkBackup(NetworkCredentials& network);
@@ -53,6 +60,8 @@ private:
     static const char* KEY_MENU_INDEX;
     static const char* TIMER_PREFS_NAMESPACE;
     static const char* KEY_COUNTDOWN_PRESET;
+    static const char* KEY_COUNTDOWN_TARGET_EPOCH;
+    static const char* KEY_COUNTDOWN_VIEW_ACTIVE;
 };
 
 #endif // SETTINGS_STORE_H

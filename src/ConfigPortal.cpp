@@ -151,6 +151,7 @@ void ConfigPortal::handleRoot() {
     bool hotspotActive = _hotspotStatusCb ? _hotspotStatusCb() : false;
     String hotspotOffClass = hotspotActive ? String("") : String("active");
     String hotspotOnClass = hotspotActive ? String("active") : String("");
+    String initialHotspotOnText = hotspotOnText(hotspotActive);
     String initialBellMode = String((int)_settings.bellMode);
     String initialStyle = String((int)_settings.displayMode);
     String initialDateStyle = String((int)_settings.dateStyle);
@@ -397,7 +398,7 @@ void ConfigPortal::handleRoot() {
                 <div class="setting-label">Hotspot</div>
                 <div class="toggle-group">
                     <button class="toggle-btn __HOTSPOT_OFF_CLASS__" id="hotspotOff" onclick="setHotspot(0)">OFF</button>
-                    <button class="toggle-btn __HOTSPOT_ON_CLASS__" id="hotspotOn" onclick="setHotspot(1)">ON</button>
+                    <button class="toggle-btn __HOTSPOT_ON_CLASS__" id="hotspotOn" onclick="setHotspot(1)">__HOTSPOT_ON_TEXT_HTML__</button>
                 </div>
             </div>
 
@@ -421,6 +422,7 @@ void ConfigPortal::handleRoot() {
         let hotspotActive = __HOTSPOT_ACTIVE__;
         let hotspotRemaining = __HOTSPOT_REMAINING__;
         let hotspotTimeout = __HOTSPOT_TIMEOUT__;
+        let hotspotOnText = "__HOTSPOT_ON_TEXT__";
         let selectedSSID = '';
         let selectedSecured = false;
         let isScanning = false;
@@ -467,13 +469,15 @@ void ConfigPortal::handleRoot() {
             const onBtn = document.getElementById('hotspotOn');
             offBtn.classList.toggle('active', !hotspotActive);
             onBtn.classList.toggle('active', hotspotActive);
-            if (!hotspotActive) {
-                onBtn.textContent = 'ON';
-            } else if (hotspotTimeout === 0) {
-                onBtn.textContent = 'ON - no timeout';
-            } else {
-                onBtn.textContent = 'ON - ' + hotspotRemaining + ' min';
-            }
+            onBtn.textContent = hotspotOnText;
+        }
+
+        function updateHotspotFromStatus(data) {
+            hotspotActive = data.hotspotActive === true;
+            hotspotRemaining = Number(data.hotspotRemaining || 0);
+            hotspotTimeout = Number(data.hotspotTimeout || 0);
+            hotspotOnText = String(data.hotspotOnText || 'ON');
+            syncHotspotToggle();
         }
 
         function applyInitialState() {
@@ -594,12 +598,7 @@ void ConfigPortal::handleRoot() {
                     document.getElementById('brightnessVal').textContent = b;
                 }
 
-                if (data.hotspotActive !== undefined) {
-                    hotspotActive = !!data.hotspotActive;
-                    hotspotRemaining = data.hotspotRemaining || 0;
-                    hotspotTimeout = data.hotspotTimeout || 0;
-                    syncHotspotToggle();
-                }
+                updateHotspotFromStatus(data);
 
                 const now = new Date();
                 document.getElementById('manualDate').value = now.getFullYear() + '-' +
@@ -714,13 +713,19 @@ void ConfigPortal::handleRoot() {
                 const tz = document.getElementById('timezone');
                 url += '&tzname=' + encodeURIComponent(tz.options[tz.selectedIndex].text);
             }
-            fetch(url);
+            return fetch(url);
         }
 
         function setHotspot(value) {
             hotspotActive = value === 1;
             syncHotspotToggle();
-            applySetting('hotspot', value);
+            applySetting('hotspot', value)
+                .then(function() {
+                    loadSettings(false);
+                })
+                .catch(function() {
+                    loadSettings(false);
+                });
         }
 
         function updateBrightness(value) {
@@ -835,6 +840,8 @@ void ConfigPortal::handleRoot() {
     html.replace("__HOTSPOT_ACTIVE__", hotspotActive ? "true" : "false");
     html.replace("__HOTSPOT_REMAINING__", initialHotspotRemaining);
     html.replace("__HOTSPOT_TIMEOUT__", String(HOTSPOT_TIMEOUT_MINUTES));
+    html.replace("__HOTSPOT_ON_TEXT_HTML__", encodeHTML(initialHotspotOnText));
+    html.replace("__HOTSPOT_ON_TEXT__", encodeJSON(initialHotspotOnText));
     html.replace("__HOTSPOT_OFF_CLASS__", hotspotOffClass);
     html.replace("__HOTSPOT_ON_CLASS__", hotspotOnClass);
     html.replace("__INITIAL_STYLE__", initialStyle);
@@ -1078,6 +1085,7 @@ void ConfigPortal::handleApply() {
 
 void ConfigPortal::handleStatus() {
     _settings = _settingsStore.load();
+    bool hotspotActive = _hotspotStatusCb ? _hotspotStatusCb() : false;
 
     String json = "{\"connected\":";
     json += currentConnected() ? "true" : "false";
@@ -1104,11 +1112,14 @@ void ConfigPortal::handleStatus() {
     json += ",\"brightness\":";
     json += (int)_settingsStore.loadBrightness(4);
     json += ",\"hotspotActive\":";
-    json += (_hotspotStatusCb ? _hotspotStatusCb() : false) ? "true" : "false";
+    json += hotspotActive ? "true" : "false";
     json += ",\"hotspotRemaining\":";
     json += _hotspotRemainingCb ? _hotspotRemainingCb() : 0;
     json += ",\"hotspotTimeout\":";
     json += HOTSPOT_TIMEOUT_MINUTES;
+    json += ",\"hotspotOnText\":\"";
+    json += encodeJSON(hotspotOnText(hotspotActive));
+    json += "\"";
 
     json += ",\"manualTime\":";
     json += _settings.manualTime.enabled ? "true" : "false";
@@ -1165,6 +1176,25 @@ void ConfigPortal::handleNotFound() {
     } else {
         handleRoot();
     }
+}
+
+String ConfigPortal::hotspotOnText(bool hotspotActive) const {
+#if HOTSPOT_TIMEOUT_MINUTES == 0
+    return String("ON");
+#else
+    int16_t minutes = HOTSPOT_TIMEOUT_MINUTES;
+    if (hotspotActive && _hotspotRemainingCb) {
+        minutes = _hotspotRemainingCb();
+        if (minutes <= 0) {
+            minutes = 5;
+        }
+    }
+
+    String label = "ON - ";
+    label += minutes;
+    label += " min";
+    return label;
+#endif
 }
 
 String ConfigPortal::encodeHTML(const String& str) {

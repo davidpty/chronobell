@@ -87,6 +87,7 @@ private:
     void handleStatus();
     void handleCaptivePortal();
     void handleNotFound();
+    String hotspotOnText(bool hotspotActive) const;
     String encodeHTML(const String& str);
     String encodeJSON(const String& str);
     int getRSSIPercentage(int rssi);

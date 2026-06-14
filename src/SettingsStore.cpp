@@ -23,6 +23,8 @@ const char* SettingsStore::KEY_BRIGHTNESS = "bright";
 const char* SettingsStore::KEY_MENU_INDEX = "last_idx";
 const char* SettingsStore::TIMER_PREFS_NAMESPACE = "timer";
 const char* SettingsStore::KEY_COUNTDOWN_PRESET = "cdpreset";
+const char* SettingsStore::KEY_COUNTDOWN_TARGET_EPOCH = "cdtarget";
+const char* SettingsStore::KEY_COUNTDOWN_VIEW_ACTIVE = "cdview";
 
 AppSettings SettingsStore::load() {
     AppSettings settings;
@@ -319,6 +321,65 @@ bool SettingsStore::saveCountdownPreset(uint8_t presetIndex) {
     }
 
     prefs.putUChar(KEY_COUNTDOWN_PRESET, presetIndex);
+    prefs.end();
+    return true;
+}
+
+time_t SettingsStore::loadCountdownTargetEpoch() {
+    Preferences prefs;
+    if (!prefs.begin(TIMER_PREFS_NAMESPACE, true)) {
+        return 0;
+    }
+
+    unsigned long targetEpoch = prefs.getULong(KEY_COUNTDOWN_TARGET_EPOCH, 0);
+    prefs.end();
+    return (time_t)targetEpoch;
+}
+
+bool SettingsStore::saveCountdownTargetEpoch(time_t targetEpoch) {
+    Preferences prefs;
+    if (!prefs.begin(TIMER_PREFS_NAMESPACE, false)) {
+        return false;
+    }
+
+    if (targetEpoch > 0) {
+        prefs.putULong(KEY_COUNTDOWN_TARGET_EPOCH, (unsigned long)targetEpoch);
+    } else {
+        prefs.remove(KEY_COUNTDOWN_TARGET_EPOCH);
+    }
+    prefs.end();
+    return true;
+}
+
+bool SettingsStore::clearCountdownTargetEpoch() {
+    Preferences prefs;
+    if (!prefs.begin(TIMER_PREFS_NAMESPACE, false)) {
+        return false;
+    }
+
+    prefs.remove(KEY_COUNTDOWN_TARGET_EPOCH);
+    prefs.end();
+    return true;
+}
+
+bool SettingsStore::loadCountdownViewActive() {
+    Preferences prefs;
+    if (!prefs.begin(TIMER_PREFS_NAMESPACE, true)) {
+        return false;
+    }
+
+    bool active = prefs.getBool(KEY_COUNTDOWN_VIEW_ACTIVE, false);
+    prefs.end();
+    return active;
+}
+
+bool SettingsStore::saveCountdownViewActive(bool active) {
+    Preferences prefs;
+    if (!prefs.begin(TIMER_PREFS_NAMESPACE, false)) {
+        return false;
+    }
+
+    prefs.putBool(KEY_COUNTDOWN_VIEW_ACTIVE, active);
     prefs.end();
     return true;
 }
