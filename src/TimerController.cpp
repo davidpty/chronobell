@@ -272,9 +272,6 @@ void TimerController::onLeft() {
             if (_clearStopwatchStartEpoch) _clearStopwatchStartEpoch();
             LOGLN("Stopwatch paused");
         } else {
-            if (_countdownRunning) {
-                pauseCountdown();
-            }
             if (_saveStopwatchElapsed) _saveStopwatchElapsed(_stopwatchElapsedMs);
             _stopwatchStartedMs = millis();
             time_t epoch = 0;
@@ -295,19 +292,6 @@ void TimerController::onLeft() {
         if (_countdownRunning) {
             pauseCountdown();
         } else if (_countdownRemainingMs > 0) {
-            if (_stopwatchRunning) {
-                time_t epoch = 0;
-                if (_stopwatchStartEpoch > 0 && currentEpoch(epoch) && epoch >= _stopwatchStartEpoch) {
-                    _stopwatchElapsedMs += (uint64_t)(epoch - _stopwatchStartEpoch) * 1000ULL;
-                } else {
-                    _stopwatchElapsedMs += (uint64_t)(millis() - _stopwatchStartedMs);
-                }
-                _stopwatchRunning = false;
-                _stopwatchStartEpoch = 0;
-                if (_saveStopwatchElapsed) _saveStopwatchElapsed(_stopwatchElapsedMs);
-                if (_clearStopwatchStartEpoch) _clearStopwatchStartEpoch();
-                LOGLN("Stopwatch paused");
-            }
             startCountdownFromRemaining();
         }
     }
