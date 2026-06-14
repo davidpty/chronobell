@@ -10,9 +10,9 @@
 // Debug logging
 // ---------------------------------------------------------------------------
 
-#define DEBUG_SERIAL                                0                                   // 1 = enable Serial.print logging; 0 = compile out all LOG* calls
+#define DEBUG                                      0                                   // 1 = enable all logging (LOGLN, LOG, LOGF + hotspot DBG logs); 0 = compile out
 
-#if DEBUG_SERIAL
+#if DEBUG
   #define LOG(...)     Serial.print(__VA_ARGS__)
   #define LOGLN(...)   Serial.println(__VA_ARGS__)
   #define LOGF(...)    Serial.printf(__VA_ARGS__)

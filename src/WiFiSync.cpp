@@ -22,7 +22,7 @@ WiFiSync::WiFiSync(WiFiManagerLite& wifi,
 
 void WiFiSync::performBootSync() {
 #if ENABLE_WIFI_SYNC == 0
-    LOGLN("WiFi sync is disabled via configuration");
+    LOGLN("WiFi sync disabled");
     if (_rtcClock->available()) {
         LOGLN("Using RTC time");
     }

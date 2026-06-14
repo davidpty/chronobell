@@ -125,7 +125,7 @@ bool WiFiManagerLite::reconnectSTAWithFallback(int timeoutMs) {
     bool pendingAttempted = false;
 
     if (!havePending && !haveBackup) {
-        LOGLN("No Wi-Fi credentials available for reconnect");
+        LOGLN("No WiFi creds to reconnect");
         return false;
     }
 
@@ -151,7 +151,7 @@ bool WiFiManagerLite::reconnectSTAWithFallback(int timeoutMs) {
             return true;
         }
 
-        LOGLN("Pending Wi-Fi credentials failed; restoring previous network");
+        LOGLN("Pending WiFi fail, restore prev");
         _settingsStore.clearPendingNetwork();
     }
 
@@ -292,24 +292,24 @@ void WiFiManagerLite::restoreHotspotState() {
     time_t nowEpoch = 0;
     if (_timeProvider && _timeProvider->currentEpoch(nowEpoch) && expiryEpoch > 0) {
         if ((time_t)expiryEpoch > nowEpoch) {
-            LOGLN("Restoring persistent hotspot until saved expiry");
+            LOGLN("Restore hotspot til expiry");
             startHotspotInternal(false, expiryEpoch);
             return;
         }
 
-        LOGLN("Saved hotspot expiry already passed - clearing state");
+        LOGLN("Hotspot expiry passed - cleared");
         _settingsStore.saveHotspotState(false, 0);
         return;
     }
 
-    LOGLN("No valid time available to restore hotspot state - clearing saved state");
+        LOGLN("No time for hotspot restore - cleared");
     _settingsStore.saveHotspotState(false, 0);
 }
 
 void WiFiManagerLite::startHotspotInternal(bool persistState, unsigned long expiryEpoch) {
     if (_hotspotActive) return;
 
-    LOGLN("Starting hotspot AP alongside station...");
+        LOGLN("Starting hotspot AP...");
 
     WiFi.mode(WIFI_AP_STA);
     IPAddress apIP(192, 168, 4, 1);
@@ -532,13 +532,13 @@ void WiFiManagerLite::pollConnect() {
                     loadSettings();
                     pendingAttemptSucceeded = true;
                 } else {
-                    LOGLN("Pending Wi-Fi connected but tested credentials were unavailable; treating as failed");
+                    LOGLN("Pending WiFi: creds lost, treat as fail");
                     _settingsStore.clearPendingNetwork();
                     _settingsStore.clearNetworkBackup();
                     _pendingReconnectFailed = true;
                 }
             } else {
-                LOGLN("Fallback Wi-Fi restored after pending credentials failed");
+                LOGLN("Fallback WiFi restored");
                 _settingsStore.clearPendingNetwork();
                 _settingsStore.clearNetworkBackup();
                 _pendingReconnectFailed = true;
@@ -567,7 +567,7 @@ void WiFiManagerLite::pollConnect() {
             if (!_pendingReconnectFallback) {
                 NetworkCredentials backup;
                 if (_settingsStore.loadNetworkBackup(backup)) {
-                    LOGLN("Pending Wi-Fi failed; restoring previous network");
+                    LOGLN("Pending WiFi fail, restore prev");
                     _pendingReconnectFailed = true;
                     _pendingReconnectFallback = true;
                     LOG("Restoring backup Wi-Fi SSID: ");
@@ -613,20 +613,20 @@ void WiFiManagerLite::startArduinoOTA() {
         LOGLN("Arduino IDE OTA update started");
     });
     ArduinoOTA.onEnd([this]() {
-        LOGLN("\nArduino IDE OTA update complete");
+        LOGLN("OTA complete");
         _otaUpdate = false;
         if (_otaDisplayCb) _otaDisplayCb(false, 100, 100);
     });
     ArduinoOTA.onProgress([this](unsigned int progress, unsigned int total) {
         if (_otaDisplayCb) _otaDisplayCb(true, progress, total);
         if (total > 0) {
-            LOGF("Arduino IDE OTA progress: %u%%\r", (progress * 100) / total);
+            LOGF("OTA: %u%%\r", (progress * 100) / total);
         }
     });
     ArduinoOTA.onError([this](ota_error_t error) {
         _otaUpdate = false;
         if (_otaDisplayCb) _otaDisplayCb(false, 0, 0);
-        LOGF("Arduino IDE OTA error[%u]\n", error);
+        LOGF("OTA error[%u]\n", error);
     });
     ArduinoOTA.begin();
     _arduinoOtaEnabled = true;
@@ -732,7 +732,7 @@ void WiFiManagerLite::startConfigModePreferStation() {
         _portal.stop();
         _portalNormalMode = false;
     }
-    LOGLN("Starting Configuration Mode (saved WiFi preferred)...");
+        LOGLN("Starting config (saved WiFi preferred)...");
 
     String ssid, password;
     if (loadCredentials(ssid, password)) {
@@ -765,9 +765,9 @@ void WiFiManagerLite::startConfigModePreferStation() {
             return;
         }
 
-        LOGLN("Stored WiFi connection failed; falling back to AP config mode");
+        LOGLN("Stored WiFi fail -> AP mode");
     } else {
-        LOGLN("No stored WiFi credentials; falling back to AP config mode");
+        LOGLN("No WiFi creds -> AP mode");
     }
 
     startConfigMode();
@@ -807,7 +807,7 @@ void WiFiManagerLite::stopHotspot() {
         _portalNormalMode = true;
         startNetworkServices();
     }
-    LOGLN("Hotspot stopped - station WiFi continues normally");
+    LOGLN("Hotspot stopped, station OK");
 }
 
 bool WiFiManagerLite::isHotspotActive() {
@@ -840,6 +840,11 @@ int16_t WiFiManagerLite::hotspotRemainingMenuMinutes() const {
     if (bucketedMin > HOTSPOT_TIMEOUT_MINUTES) {
         bucketedMin = HOTSPOT_TIMEOUT_MINUTES;
     }
+#if DEBUG
+    LOGF("DBG remain: active=%d expiry=%lu now=%lu sec=%u ceilMin=%d bucketed=%d\n",
+          _hotspotActive, _hotspotExpiryEpoch, (unsigned long)nowEpoch,
+          (unsigned)remainingSec, remainingMin, bucketedMin);
+#endif
     return bucketedMin;
 #endif
 }
@@ -898,7 +903,7 @@ void WiFiManagerLite::suspendPendingNetworkReconnect() {
         return;
     }
 
-    LOGLN("Pausing pending Wi-Fi reconnect for scan");
+        LOGLN("Pausing WiFi reconnect for scan");
     WiFi.disconnect(!_hotspotActive);
     _pendingReconnectActive = false;
     _pendingReconnectFallback = false;

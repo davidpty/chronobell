@@ -59,7 +59,7 @@ bool GuestWifiController::fetch(const char* url) {
     }
 
     if (WiFi.status() != WL_CONNECTED) {
-        LOGLN("Guest WiFi: fetch skipped — WiFi not connected");
+        LOGLN("Guest WiFi: skipped (no WiFi)");
         return false;
     }
 

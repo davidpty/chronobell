@@ -99,7 +99,7 @@ DateStyle Display::currentDateStyle() const {
 
 void Display::loadBrightnessFromSettings() {
     _userBrightness = _settings.loadBrightness(4);
-    LOGF("Loaded brightness from NVS: %d\n", (int)_userBrightness);
+    LOGF("Brightness NVS: %d\n", (int)_userBrightness);
     setUserBrightness(_userBrightness);
 }
 
@@ -199,7 +199,7 @@ void Display::drawStylePreview(DisplayMode mode) {
 }
 
 void Display::runTest(uint8_t seconds) {
-    LOGF("Running display test for %d seconds...\n", (int)seconds);
+    LOGF("Display test %ds\n", (int)seconds);
     for (int col = 0; col < MAX7219_NUM_MODULES * 8; col++) {
         _leds.setColumn(col, 0xFF);
     }

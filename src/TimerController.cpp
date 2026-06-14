@@ -53,7 +53,7 @@ void TimerController::restoreCountdown(time_t targetEpoch, bool countdownViewAct
         _countdownRunning = false;
         _countdownTargetEpoch = 0;
         _countdownRemainingMs = countdownPresetMs();
-        LOGLN("Countdown restore skipped: RTC epoch unavailable");
+        LOGLN("Countdown restore: no RTC epoch");
         return;
     }
 

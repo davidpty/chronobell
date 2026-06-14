@@ -125,7 +125,7 @@ void ClockApp::installTouchHandlers(OnTouchFn onPad1Press,
 void ClockApp::initSerialAndPins() {
     pinMode(BOOT_BUTTON_PIN, INPUT_PULLUP);
     Serial.begin(SERIAL_BAUD);
-    LOGLN("\nESP32 MAX7219 Digital Clock Starting...");
+    LOGLN("\nClock starting...");
     _wifiManager.setNetworkServiceConfig(MDNS_HOSTNAME, ARDUINO_OTA_PASSWORD);
 }
 
@@ -151,9 +151,9 @@ void ClockApp::initI2cAndRtc() {
 void ClockApp::initCap1188() {
     LOGLN("Initializing CAP1188 touch sensor...");
     if (_touchController.begin()) {
-        LOGLN("CAP1188 touch sensor initialized successfully");
+        LOGLN("CAP1188 touch init OK");
     } else {
-        LOGLN("CAP1188 not available or not responding");
+        LOGLN("CAP1188 not found");
     }
 }
 
@@ -185,7 +185,7 @@ void ClockApp::loadTimerSettings() {
     time_t targetEpoch = _settingsStore.loadCountdownTargetEpoch();
     bool countdownViewActive = _settingsStore.loadCountdownViewActive();
     _timerController.restoreCountdown(targetEpoch, countdownViewActive);
-    LOGF("Loaded countdown preset: %u min\n",
+    LOGF("Countdown preset: %u min\n",
                   (unsigned)COUNTDOWN_PRESET_MINUTES[presetIndex]);
 }
 
@@ -243,7 +243,7 @@ void ClockApp::applyManualTime() {
     _timeProvider.setRtcFromEpoch((time_t)manualEpoch);
     _timeProvider.readRtc();
     ClockTime t = _rtcClock.getTime();
-    LOGF("RTC time after manual set: %02d:%02d:%02d\n",
+    LOGF("RTC after manual set: %02d:%02d:%02d\n",
                   t.hours, t.minutes, t.seconds);
 }
 
@@ -714,13 +714,13 @@ bool ClockApp::onSettingsSaved(bool wifiChanged, bool tzChanged, bool manualTime
         LOGLN("Applying manual time...");
         applyManualTime();
         if (_wifiManager.isHotspotActive()) {
-            LOGLN("Manual time changed - resetting hotspot timer");
+            LOGLN("Manual time changed - reset hotspot timer");
             _wifiManager.resetHotspotTimer();
         }
     }
 
     if (tzChanged) {
-        LOGLN("Applying timezone change live...");
+        LOGLN("Applying timezone change...");
         NTPClient& ntp = _wifiSync.getNtpClient();
         ntp.setTimeOffset(_appSettings.timezone.offsetMinutes * 60);
         if (_rtcClock.available()) {
@@ -744,14 +744,14 @@ bool ClockApp::onSettingsSaved(bool wifiChanged, bool tzChanged, bool manualTime
     }
 
     if (oldManualEnabled && !_appSettings.manualTime.enabled) {
-        LOGLN("Manual → atomic transition — forcing NTP sync...");
+        LOGLN("Manual -> atomic, force NTP");
         _wifiSync.requestSync();
     }
 
     applyDisplayBrightness();
 
     if (wifiChanged) {
-        LOGLN("Wi-Fi credentials changed — starting background test...");
+        LOGLN("WiFi changed, start bg test");
         if (!_wifiManager.startPendingNetworkReconnect(wifiSsid, wifiPassword, 15000)) {
             LOGLN("Unable to start pending Wi-Fi test");
             return false;

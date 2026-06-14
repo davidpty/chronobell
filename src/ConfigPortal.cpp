@@ -271,7 +271,7 @@ void ConfigPortal::handleRoot() {
                     <option value="2">SEC - HH:MM with seconds below</option>
                     <option value="3">DECI - HH:MM with SS.d below</option>
                     <option value="4">DATE - HH:MM with date below</option>
-                    <option value="5">WORD - Experimental mixed-size word clock</option>
+                    <option value="5">WORD - Mixed-size word clock display</option>
                     <option value="6">ROMA - Roman numeral clock</option>
                     <option value="7">BIN - Binary clock</option>
                 </select>
@@ -319,13 +319,13 @@ void ConfigPortal::handleRoot() {
             <div class="setting-row">
                 <div class="setting-label">Bell</div>
                 <select id="bellmode" onchange="applySetting('bellmode', this.value)">
-                    <option value="0" selected>NO BELL - Silent</option>
-                    <option value="1">SINGLE HOURLY - One bell every full hour</option>
-                    <option value="2">HOUR COUNT - Count full hours only</option>
-                    <option value="3">HOUR COUNT + HALF - Count full hours, one bell at half hour</option>
-                    <option value="4">PAIR - Hour count grouped in pairs</option>
-                    <option value="5">TRIPLE - Hour count grouped in triples</option>
-                    <option value="6">SHIP'S BELL - Traditional 4-hour watch cycle</option>
+                    <option value="0" selected>SILENT - No bell</option>
+                    <option value="1">HOURLY - One bell each hour</option>
+                    <option value="2">STRIKE - Hour count strikes</option>
+                    <option value="3">STRIKE+HALF - Hour + half-hour strikes</option>
+                    <option value="4">PAIRS - Strikes in pairs</option>
+                    <option value="5">TRIPLES - Strikes in triples</option>
+                    <option value="6">SHIP'S BELL - Traditional watch cycle</option>
                 </select>
             </div>
 
@@ -423,6 +423,7 @@ void ConfigPortal::handleRoot() {
         let hotspotRemaining = __HOTSPOT_REMAINING__;
         let hotspotTimeout = __HOTSPOT_TIMEOUT__;
         let hotspotOnText = "__HOTSPOT_ON_TEXT__";
+        let __debug = __DEBUG__;
         let selectedSSID = '';
         let selectedSecured = false;
         let isScanning = false;
@@ -470,6 +471,7 @@ void ConfigPortal::handleRoot() {
             offBtn.classList.toggle('active', !hotspotActive);
             onBtn.classList.toggle('active', hotspotActive);
             onBtn.textContent = hotspotOnText;
+            if (__debug) console.log('DBG sync: active=' + hotspotActive + ' off=["' + offBtn.className + '"] on=["' + onBtn.className + '"] text="' + hotspotOnText + '"');
         }
 
         function updateHotspotFromStatus(data) {
@@ -477,6 +479,7 @@ void ConfigPortal::handleRoot() {
             hotspotRemaining = Number(data.hotspotRemaining || 0);
             hotspotTimeout = Number(data.hotspotTimeout || 0);
             hotspotOnText = String(data.hotspotOnText || 'ON');
+            if (__debug) console.log('DBG fromStatus: data.hotspotActive=' + data.hotspotActive + ' data.hotspotOnText="' + data.hotspotOnText + '"');
             syncHotspotToggle();
         }
 
@@ -576,7 +579,6 @@ void ConfigPortal::handleRoot() {
                     ['datestyle', data.datestyle],
                     ['timefmt', data.timefmt],
                     ['nightmode', data.nightmode],
-                    ['brightness', data.brightness],
                     ['bellmode', data.bellmode],
                     ['timezone', data.timezone]
                 ];
@@ -718,6 +720,7 @@ void ConfigPortal::handleRoot() {
 
         function setHotspot(value) {
             hotspotActive = value === 1;
+            if (__debug) console.log('DBG setHotspot: value=' + value + ' hotspotActive=' + hotspotActive);
             syncHotspotToggle();
             applySetting('hotspot', value)
                 .then(function() {
@@ -842,6 +845,11 @@ void ConfigPortal::handleRoot() {
     html.replace("__HOTSPOT_TIMEOUT__", String(HOTSPOT_TIMEOUT_MINUTES));
     html.replace("__HOTSPOT_ON_TEXT_HTML__", encodeHTML(initialHotspotOnText));
     html.replace("__HOTSPOT_ON_TEXT__", encodeJSON(initialHotspotOnText));
+#if DEBUG
+    html.replace("__DEBUG__", "1");
+#else
+    html.replace("__DEBUG__", "0");
+#endif
     html.replace("__HOTSPOT_OFF_CLASS__", hotspotOffClass);
     html.replace("__HOTSPOT_ON_CLASS__", hotspotOnClass);
     html.replace("__INITIAL_STYLE__", initialStyle);
@@ -1118,7 +1126,15 @@ void ConfigPortal::handleStatus() {
     json += ",\"hotspotTimeout\":";
     json += HOTSPOT_TIMEOUT_MINUTES;
     json += ",\"hotspotOnText\":\"";
-    json += encodeJSON(hotspotOnText(hotspotActive));
+    {
+        String onText = hotspotOnText(hotspotActive);
+        json += encodeJSON(onText);
+#if DEBUG
+        int16_t remaining = _hotspotRemainingCb ? _hotspotRemainingCb() : 0;
+        LOGF("DBG status: active=%d remaining=%d text=\"%s\"\n",
+              hotspotActive, remaining, onText.c_str());
+#endif
+    }
     json += "\"";
 
     json += ",\"manualTime\":";
@@ -1193,6 +1209,10 @@ String ConfigPortal::hotspotOnText(bool hotspotActive) const {
     String label = "ON - ";
     label += minutes;
     label += " min";
+#if DEBUG
+    LOGF("DBG onText: active=%d cb=%s min=%d result=\"%s\"\n",
+          hotspotActive, _hotspotRemainingCb ? "yes" : "no", minutes, label.c_str());
+#endif
     return label;
 #endif
 }
@@ -1282,7 +1302,7 @@ void ConfigPortal::handleUpdateUpload() {
         }
 
         if (_otaDisplayCb) _otaDisplayCb(true, 0, (unsigned int)_otaExpectedSize);
-        LOGF("Starting firmware update: %s (%u bytes expected)\n", upload.filename.c_str(), (unsigned int)_otaExpectedSize);
+        LOGF("Firmware update: %s (%u B)\n", upload.filename.c_str(), (unsigned int)_otaExpectedSize);
 
         if (!Update.begin(UPDATE_SIZE_UNKNOWN)) {
             LOGLN("Update begin failed");
@@ -1306,7 +1326,7 @@ void ConfigPortal::handleUpdateUpload() {
             _otaDisplayCb(true, (unsigned int)total, (unsigned int)total);
         }
         if (Update.end(true)) {
-            LOGF("Update successful! Size: %u bytes\n", upload.totalSize);
+            LOGF("Update OK: %u B\n", upload.totalSize);
         } else {
             LOGF("Update failed: %s\n", Update.errorString());
             _otaUpdate = false;
