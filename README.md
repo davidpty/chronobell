@@ -1,18 +1,18 @@
 # ChronoBell
 
-An ESP32-powered LED matrix clock with capacitive touch, a ship's bell, 9 display styles, and a web-based setup portal. You can change most settings from the clock itself - no reflashing needed.
+ChronoBell is an ESP32-powered LED matrix clock with touch controls, a ship's bell, a stopwatch, a countdown timer, and a web setup page. You can change most settings on the clock itself, so you usually do not need to reflash firmware.
 
 ![ChronoBell](chronobell.png) ![Config Portal](chronoportal.png)
 
 ## What makes it different
 
-**A bell that rings like a ship's clock** - Traditional 1-8 strike pattern from nautical tradition, plus six other modes: off, single ding, hour count, half-hour, pair, and triple. You can preview each one live in the menu before you pick it.
+**A bell that rings like a ship's clock** - Traditional 1-8 strike pattern from nautical tradition, plus six other modes: off, single ding, hour count, half-hour, pair, and triple. You can hear each one in the menu before you choose it.
 
-**9 display styles + 5 date views** - Big digits, seconds, deciseconds, date overlay, word clock, roman numerals, binary, drift, or a random one each day. drift is the uncanny one: it uses the big digital layout, but time can hold, rush, jump, move backward, and chime from the displayed time instead of the real one. Date extras include moon phase, ISO year/week, Western zodiac, and Chinese zodiac. Tap to peek at any view.
+**9 display styles + 5 date views** - Big digits, seconds, deciseconds, date overlay, word clock, roman numerals, binary, drift, or a random one each day. Drift is the unusual one: it uses the big digital layout, but the time can pause, rush ahead, jump, move backward, and ring from the time on screen instead of the real time. Date views include day and month, year, moon phase, Western zodiac, and Chinese zodiac. Tap to peek at any view.
 
 **Guest WiFi on screen** - Fetches a guest network password at boot and shows it on the clock. No phone needed. Good for lobbies, cafes, offices.
 
-**Set time manually or let it self-correct** - NTP syncs over WiFi when connected, backed by a battery-powered RTC chip that keeps time offline too. Or switch to manual mode and step through hour, minute, second, month, day, and year from the menu.
+**Set time manually or let it self-correct** - It can set itself from WiFi and keep time on a battery-backed clock chip when offline. Or switch to manual mode and step through hour, minute, second, month, day, and year from the menu.
 
 **Two ways to configure** - Tap the menu to change any setting on the device. Or press the BOOT button or flip HOTSPOT to ON in the menu to open the setup portal in your browser for WiFi, timezone, brightness - even firmware updates.
 
@@ -23,7 +23,7 @@ An ESP32-powered LED matrix clock with capacitive touch, a ship's bell, 9 displa
 ## What you can do with it
 
 - **Bell** - Off, single ding, hour count, half-hour, pair, triple, or ship's bell. Hear a preview as you scroll.
-- **Timer** - Stopwatch and countdown with 11 built-in presets (1 to 90 minutes). When time's up: 9 bell strikes and a blinking `00:00` that auto-dismisses after 15 minutes.
+- **Timer** - Use it as a stopwatch or a countdown timer. Countdown presets range from 1 to 90 minutes, and when time runs out the clock flashes `00:00`, rings a 3-2-1 alert, and clears itself after 15 minutes.
 - **Night mode** - Dim the display, turn it off, mute the bell, or any combo - all on a schedule. Touch the clock to wake it for a minute.
 - **Manual time** - Switch from atomic (NTP + RTC) to manual and step through HH→MM→SS→Month→Day→Year. Persists across reboots.
 - **Config portal** - Scan WiFi networks, pick a timezone, tune display and bell settings, upload firmware - all from a browser.
@@ -67,6 +67,21 @@ Drift keeps the same large digital number font as BIG, but it does not promise e
 The digits stay readable and unchanged. Only the separator dots are visually stretched: they are always farther apart than BIG mode, and they stretch more when drift is far from real time.
 
 In drift mode, the bell follows the displayed drift time. If drift shows `15:00` while real time is `14:42`, the 15:00 bell behavior happens when drift displays `15:00`. Held bell minutes do not repeatedly chime.
+
+---
+
+## Timer
+
+The timer screen has two jobs:
+
+| Mode | What it does |
+|------|--------------|
+| Stopwatch | Counts up from zero until you stop it |
+| Countdown | Counts down from a chosen preset, then alerts you when it reaches zero |
+
+Stopwatch and countdown both keep their state across reboots. The center button moves between the clock, date, guest WiFi, stopwatch, and countdown screens. On the countdown screen, the right button changes the preset and the left button starts or pauses the timer.
+
+When a countdown finishes, ChronoBell shows a blinking `00:00`, plays a short alert pattern, and stays on the countdown screen until you acknowledge it.
 
 ---
 
