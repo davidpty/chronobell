@@ -9,6 +9,7 @@ class DriftClock {
 public:
     void update(const ClockTime& realTime, unsigned long nowMs);
     void reset(const ClockTime& realTime, unsigned long nowMs);
+    void activate(const ClockTime& realTime, unsigned long nowMs);
 
     ClockTime displayTime(const ClockTime& realTime, unsigned long nowMs) const;
     int offsetMinutes(const ClockTime& realTime) const;
@@ -20,6 +21,7 @@ private:
         Rush
     };
 
+    void initialize(const ClockTime& realTime, unsigned long nowMs, bool randomizeStart);
     void scheduleHold(unsigned long nowMs, int landedMinute = -1);
     void startRush(const ClockTime& realTime, unsigned long nowMs);
     void decideNextEvent(const ClockTime& realTime, unsigned long nowMs);
@@ -31,6 +33,7 @@ private:
     static int signedMinuteDelta(int fromMinute, int toMinute);
     static bool isAnchorMinute(int displayedMinute);
     static int anchorHoldMultiplier(int displayedMinute);
+    static int randomStartOffsetMinutes();
     static int randomRange(int minValue, int maxValue);
     static int clampInt(int value, int minValue, int maxValue);
 

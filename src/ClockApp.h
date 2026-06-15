@@ -142,6 +142,7 @@ private:
     DisplayMode _savedDisplayMode  = DisplayMode::LargeDigitsOnly;
     DisplayMode _overrideDisplayMode = DisplayMode::LargeDigitsOnly;
     DisplayMode _displayOverrideSourceMode = DisplayMode::LargeDigitsOnly;
+    DisplayMode _lastDisplayModeSeen = DisplayMode::LargeDigitsOnly;
     DisplayMode _randomDisplayMode = DisplayMode::LargeDigitsOnly;
     ClockDate   _randomDisplayDate;
     BellMode    _bellMode          = BellMode::Off;

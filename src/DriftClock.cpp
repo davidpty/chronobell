@@ -52,14 +52,24 @@ void DriftClock::update(const ClockTime& realTime, unsigned long nowMs) {
 }
 
 void DriftClock::reset(const ClockTime& realTime, unsigned long nowMs) {
+    initialize(realTime, nowMs, false);
+}
+
+void DriftClock::activate(const ClockTime& realTime, unsigned long nowMs) {
+    initialize(realTime, nowMs, true);
+}
+
+void DriftClock::initialize(const ClockTime& realTime, unsigned long nowMs, bool randomizeStart) {
+    int realMinute = minuteOfDay(realTime);
+    int startOffset = randomizeStart ? randomStartOffsetMinutes() : 0;
     _initialized = true;
     _phase = Phase::Hold;
-    _displayedMinute = minuteOfDay(realTime);
-    _lastRealMinute = _displayedMinute;
+    _displayedMinute = wrapMinuteOfDay(realMinute + startOffset);
+    _lastRealMinute = realMinute;
     _rushStepsRemaining = 0;
     _nextRushStepMs = 0;
     _lastDisplayChangeMs = nowMs;
-    scheduleHold(nowMs);
+    scheduleHold(nowMs, randomizeStart ? _displayedMinute : -1);
 }
 
 ClockTime DriftClock::displayTime(const ClockTime& realTime, unsigned long nowMs) const {
@@ -254,6 +264,12 @@ int DriftClock::anchorHoldMultiplier(int displayedMinute) {
     }
     int minute = wrapMinuteOfDay(displayedMinute) % 60;
     return minute == 0 ? DRIFT_FULL_HOUR_ANCHOR_MULTIPLIER : DRIFT_ANCHOR_HOLD_MULTIPLIER;
+}
+
+int DriftClock::randomStartOffsetMinutes() {
+    int maxOffset = clampInt(DRIFT_MAX_OFFSET_MINUTES, 1, 12 * 60);
+    int offset = randomRange(1, maxOffset);
+    return (esp_random() & 1U) ? offset : -offset;
 }
 
 int DriftClock::randomRange(int minValue, int maxValue) {

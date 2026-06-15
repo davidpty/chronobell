@@ -285,6 +285,19 @@ void ClockApp::render() {
     syncDisplayModeSelection();
     syncDateStyleSelection();
     applyEffectiveDisplayBrightness();
+
+    if (_displayMode == DisplayMode::Drift) {
+        if (_lastDisplayModeSeen != DisplayMode::Drift) {
+            ClockTime time;
+            if (_timeProvider.currentTime(time)) {
+                _driftClock.activate(time, millis());
+                _lastDisplayModeSeen = DisplayMode::Drift;
+            }
+        }
+    } else {
+        _lastDisplayModeSeen = _displayMode;
+    }
+
     _display.showTime();
 }
 
