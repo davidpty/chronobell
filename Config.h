@@ -59,7 +59,7 @@
 // ---------------------------------------------------------------------------
 
 #define TIMER_ALERT_DURATION_MINUTES                5                                   // Auto-silience after N min (0 = ring until manual tap)
-#define TIMER_ALERT_SHOW_TIMEOUT_MINUTES            30                                  // Auto-dismiss after N min (0 = stay until manual tap)
+#define TIMER_ALERT_SHOW_TIMEOUT_MINUTES            25                                  // Auto-dismiss after additional N min (0 = stay until manual tap)
 #define TIMER_ALERT_REPEAT_SECONDS                  5                                   // Gap between repeat alerts
 
 // ---------------------------------------------------------------------------
