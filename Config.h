@@ -87,34 +87,7 @@
 #define DRIFT_MAX_ERROR_MINUTES                     2                                   // Maximum allowed displayed-vs-real error in minutes
 #define DRIFT_MAX_JUMP_MINUTES                      2                                   // Maximum forward jump size when correction happens
 #define DRIFT_JUMP_PROBABILITY_PERCENT              35                                  // Chance of making a jump when correction is needed
-#define DRIFT_SHOW_APPROX_MARKER                    0                                   // 1 = show a small approximation marker when DRIFT is not exact
-
-// Presets:
-// Mild drift:
-// #define DRIFT_MIN_VISIBLE_HOLD_SECONDS          35
-// #define DRIFT_MAX_VISIBLE_HOLD_SECONDS          110
-// #define DRIFT_MAX_ERROR_MINUTES                 2
-// #define DRIFT_MAX_JUMP_MINUTES                  2
-// #define DRIFT_JUMP_PROBABILITY_PERCENT          35
-// #define DRIFT_SHOW_APPROX_MARKER                0
-//
-// Noticeably strange:
-// #define DRIFT_MIN_VISIBLE_HOLD_SECONDS          20
-// #define DRIFT_MAX_VISIBLE_HOLD_SECONDS          150
-// #define DRIFT_MAX_ERROR_MINUTES                 3
-// #define DRIFT_MAX_JUMP_MINUTES                  3
-// #define DRIFT_JUMP_PROBABILITY_PERCENT          50
-// #define DRIFT_SHOW_APPROX_MARKER                1
-//
-// Creepy / art mode:
-// #define DRIFT_MIN_VISIBLE_HOLD_SECONDS          8
-// #define DRIFT_MAX_VISIBLE_HOLD_SECONDS          240
-// #define DRIFT_MAX_ERROR_MINUTES                 6
-// #define DRIFT_MAX_JUMP_MINUTES                  6
-// #define DRIFT_JUMP_PROBABILITY_PERCENT          75
-// #define DRIFT_SHOW_APPROX_MARKER                1
-
-#define HOTSPOT_TIMEOUT_MINUTES                     60                                  // Auto-stop hotspot after N min (0 = stay until manual exit)
+#define DRIFT_SHOW_APPROX_MARKER                    1                                   // 1 = show a small approximation marker when DRIFT is not exact
 
 // ---------------------------------------------------------------------------
 // WiFi reconnection backoff (used by WiFiManagerLite)
@@ -146,6 +119,8 @@
 #define AP_SSID                                     "ChronoBell"                        // Config-mode access point (when the device opens its own WiFi network).
 #define AP_PASSWORD                                 ""                                  // Empty string = open (no password) network
 #define AP_CHANNEL                                  1                                   // 1..13
+
+#define HOTSPOT_TIMEOUT_MINUTES                     60                                  // Auto-stop hotspot after N min (0 = stay until manual exit)
 
 // ---------------------------------------------------------------------------
 // Guest WiFi password display
