@@ -1,13 +1,84 @@
 #include "GuestWifiController.h"
 
 #include <WiFi.h>
-#include <HTTPClient.h>
+#include <WiFiClient.h>
 #include <cstring>
 
 #include "Config.h"
 #include "Display.h"
 
 namespace {
+struct ParsedHttpUrl {
+    String host;
+    String path;
+    uint16_t port = 80;
+};
+
+bool parseHttpUrl(const char* url, ParsedHttpUrl& parsed) {
+    static const char PREFIX[] = "http://";
+    if (!url || strncmp(url, PREFIX, sizeof(PREFIX) - 1) != 0) {
+        return false;
+    }
+
+    String rest(url + sizeof(PREFIX) - 1);
+    int slash = rest.indexOf('/');
+    String authority = slash >= 0 ? rest.substring(0, slash) : rest;
+    parsed.path = slash >= 0 ? rest.substring(slash) : "/";
+    if (authority.length() == 0 || parsed.path.length() == 0) {
+        return false;
+    }
+
+    int colon = authority.lastIndexOf(':');
+    if (colon >= 0) {
+        parsed.host = authority.substring(0, colon);
+        int port = authority.substring(colon + 1).toInt();
+        if (parsed.host.length() == 0 || port <= 0 || port > 65535) {
+            return false;
+        }
+        parsed.port = (uint16_t)port;
+    } else {
+        parsed.host = authority;
+        parsed.port = 80;
+    }
+
+    return parsed.host.length() > 0;
+}
+
+bool readHttpBody(WiFiClient& client, String& body) {
+    String status = client.readStringUntil('\n');
+    status.trim();
+    int firstSpace = status.indexOf(' ');
+    int code = firstSpace >= 0 ? status.substring(firstSpace + 1).toInt() : 0;
+    if (!status.startsWith("HTTP/1.") || code != 200) {
+        LOG("Guest WiFi: ");
+        LOGLN(status);
+        return false;
+    }
+
+    while (client.connected() || client.available()) {
+        String header = client.readStringUntil('\n');
+        header.trim();
+        if (header.length() == 0) {
+            break;
+        }
+    }
+
+    body = "";
+    const size_t maxBodyLen = (GUEST_WIFI_TEXT_MAX_LEN * 2) + 4;
+    unsigned long idleStart = millis();
+    while ((client.connected() || client.available()) && body.length() < maxBodyLen) {
+        while (client.available() && body.length() < maxBodyLen) {
+            body += (char)client.read();
+            idleStart = millis();
+        }
+        if (millis() - idleStart > (unsigned long)GUEST_WIFI_FETCH_TIMEOUT_SECONDS * 1000UL) {
+            break;
+        }
+        delay(1);
+    }
+    return body.length() > 0;
+}
+
 bool textFitsDisplay(const char* text) {
     if (text[0] == '\0') return true;
 
@@ -67,27 +138,32 @@ bool GuestWifiController::fetch(const char* url) {
     LOG(url);
     LOGLN(" ...");
 
-    HTTPClient http;
-    http.setTimeout(GUEST_WIFI_FETCH_TIMEOUT_SECONDS * 1000UL);
-    http.begin(url);
-
-    int code = http.GET();
-    if (code <= 0) {
-        LOG("Guest WiFi: HTTP failed, code=");
-        LOGLN(code);
-        http.end();
+    ParsedHttpUrl parsed;
+    if (!parseHttpUrl(url, parsed)) {
+        LOGLN("Guest WiFi: only plain http:// URLs are supported");
         return false;
     }
 
-    if (code != 200) {
-        LOG("Guest WiFi: HTTP ");
-        LOGLN(code);
-        http.end();
+    WiFiClient client;
+    client.setTimeout(GUEST_WIFI_FETCH_TIMEOUT_SECONDS * 1000UL);
+    if (!client.connect(parsed.host.c_str(), parsed.port)) {
+        LOGLN("Guest WiFi: HTTP connect failed");
         return false;
     }
 
-    String body = http.getString();
-    http.end();
+    client.print("GET ");
+    client.print(parsed.path);
+    client.print(" HTTP/1.0\r\nHost: ");
+    client.print(parsed.host);
+    client.print("\r\nConnection: close\r\nUser-Agent: ChronoBell\r\n\r\n");
+
+    String body;
+    bool ok = readHttpBody(client, body);
+    client.stop();
+    if (!ok) {
+        LOGLN("Guest WiFi: HTTP fetch failed");
+        return false;
+    }
 
     if (body.length() == 0) {
         LOGLN("Guest WiFi: empty body");

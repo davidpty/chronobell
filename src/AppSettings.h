@@ -11,7 +11,8 @@ enum class DisplayMode : uint8_t {
     TimeWithDate = 4,
     Word = 5,
     Roma = 6,
-    Bin = 7
+    Bin = 7,
+    Drift = 8
 };
 
 enum class DateStyle : uint8_t {
@@ -90,6 +91,8 @@ inline const char* displayModeLabel(DisplayMode mode) {
             return "ROMA";
         case DisplayMode::Bin:
             return "BIN";
+        case DisplayMode::Drift:
+            return "DRIFT";
         default:
             return "?";
     }
@@ -99,14 +102,14 @@ inline DisplayMode clampDisplayMode(int mode) {
     if (mode < (int)DisplayMode::Rnd) {
         return DisplayMode::Rnd;
     }
-    if (mode > (int)DisplayMode::Bin) {
-        return DisplayMode::Bin;
+    if (mode > (int)DisplayMode::Drift) {
+        return DisplayMode::Drift;
     }
     return static_cast<DisplayMode>(mode);
 }
 
 inline bool isConcreteDisplayMode(DisplayMode mode) {
-    return mode >= DisplayMode::LargeDigitsOnly && mode <= DisplayMode::Bin;
+    return mode >= DisplayMode::LargeDigitsOnly && mode <= DisplayMode::Drift;
 }
 
 inline bool isRandomDisplayMode(DisplayMode mode) {

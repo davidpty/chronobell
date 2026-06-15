@@ -172,6 +172,11 @@ private:
     void onTouchMenuPrev(uint8_t pad);
     void onTouchMenuNext(uint8_t pad);
     void onTouchMenuOk(uint8_t pad);
+    static void handleOtaDisplay(void* context, bool active, unsigned int progress, unsigned int total);
+    static bool handleSettingsSaved(void* context, bool wifiChanged, bool tzChanged, bool manualTimeChanged,
+                                    const String& wifiSsid, const String& wifiPassword);
+    static void handleReconnectResult(void* context, bool success);
+    static void handleWebPreview(void* context, const String& field);
 };
 
 #endif // CLOCK_APP_H

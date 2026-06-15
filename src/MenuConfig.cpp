@@ -61,7 +61,7 @@ enum MenuIndex : uint8_t {
 };
 
 MenuItem MENU_ITEMS[] = {
-  {"STYLE",   (int16_t)DisplayMode::Rnd,  (int16_t)DisplayMode::Bin,
+  {"STYLE",   (int16_t)DisplayMode::Rnd,  (int16_t)DisplayMode::Drift,
               getDisplayModeMenu, previewDisplayModeMenu, commitDisplayModeMenu, nullptr},
   {"DATE",    (int16_t)DateStyle::Date,    (int16_t)DateStyle::Czod,
               getDateStyleMenu, previewDateStyleMenu, commitDateStyleMenu, nullptr},
@@ -92,7 +92,7 @@ const char* bellValueName(int16_t value) {
 
 const char* styleValueName(int16_t value) {
     static const char* const NAMES[] = {
-        "RND", "BIG", "SEC", "DECI", "DATE", "WORD", "ROMA", "BIN", nullptr
+        "RND", "BIG", "SEC", "DECI", "DATE", "WORD", "ROMA", "BIN", "DRIFT", nullptr
     };
     for (uint8_t i = 0; NAMES[i]; i++) {
         if ((int16_t)i == value) return NAMES[i];

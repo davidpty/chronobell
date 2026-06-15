@@ -1,7 +1,6 @@
 #ifndef WIFI_MANAGER_LITE_H
 #define WIFI_MANAGER_LITE_H
 
-#include <functional>
 #include "Config.h"
 #include <WiFi.h>
 #include "ConfigPortal.h"
@@ -41,13 +40,23 @@ public:
     bool hasCredentials();
 
     bool isUpdating();
-    void setOtaDisplayCallback(std::function<void(bool, unsigned int, unsigned int)> cb);
-    void setSaveCallback(std::function<bool(bool, bool, bool, const String&, const String&)> cb);
-    void setPreviewCallback(std::function<void(const String&)> cb);
-    void setHotspotCallbacks(std::function<bool()> status,
-                             std::function<int16_t()> remaining,
-                             std::function<void(bool)> toggle);
-    void setReconnectResultCallback(std::function<void(bool)> cb);
+    typedef void (*OtaDisplayCallback)(void* context, bool active, unsigned int progress, unsigned int total);
+    typedef bool (*SaveCallback)(void* context, bool wifiChanged, bool tzChanged, bool manualTimeChanged,
+                                 const String& ssid, const String& password);
+    typedef void (*PreviewCallback)(void* context, const String& field);
+    typedef bool (*HotspotStatusCallback)(void* context);
+    typedef int16_t (*HotspotRemainingCallback)(void* context);
+    typedef void (*HotspotToggleCallback)(void* context, bool on);
+    typedef void (*ReconnectResultCallback)(void* context, bool success);
+
+    void setOtaDisplayCallback(OtaDisplayCallback cb, void* context);
+    void setSaveCallback(SaveCallback cb, void* context);
+    void setPreviewCallback(PreviewCallback cb, void* context);
+    void setHotspotCallbacks(HotspotStatusCallback status,
+                             HotspotRemainingCallback remaining,
+                             HotspotToggleCallback toggle,
+                             void* context);
+    void setReconnectResultCallback(ReconnectResultCallback cb, void* context);
 
 private:
     enum class ConnState { Idle, Connecting, Connected };
@@ -83,10 +92,14 @@ private:
     NetworkCredentials _pendingReconnectCredentials;
     bool _pendingReconnectCredentialsValid;
 
-    std::function<void(bool, unsigned int, unsigned int)> _otaDisplayCb;
-    std::function<bool(bool, bool, bool, const String&, const String&)> _saveCb;
-    std::function<void(const String&)> _previewCb;
-    std::function<void(bool)> _reconnectResultCb;
+    OtaDisplayCallback _otaDisplayCb = nullptr;
+    void* _otaDisplayContext = nullptr;
+    SaveCallback _saveCb = nullptr;
+    void* _saveContext = nullptr;
+    PreviewCallback _previewCb = nullptr;
+    void* _previewContext = nullptr;
+    ReconnectResultCallback _reconnectResultCb = nullptr;
+    void* _reconnectResultContext = nullptr;
 
     ConnState _connState = ConnState::Idle;
     unsigned long _connStartMs = 0;
@@ -97,6 +110,10 @@ private:
     static String statusIPAddress(void* context);
     static bool statusReconnectActive(void* context);
     static bool statusReconnectFailed(void* context);
+    static bool portalHotspotStatus(void* context);
+    static int16_t portalHotspotRemaining(void* context);
+    static void portalHotspotToggle(void* context, bool on);
+    static void portalScanPreflight(void* context);
     bool loadCredentials(String& ssid, String& password);
     void clearCredentials();
     void startConnect(const String& ssid, const String& password, int timeoutMs);

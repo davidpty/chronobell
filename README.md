@@ -1,6 +1,6 @@
 # ChronoBell
 
-An ESP32-powered LED matrix clock with capacitive touch, a ship's bell, 8 display styles, and a web-based setup portal. You can change most settings from the clock itself - no reflashing needed.
+An ESP32-powered LED matrix clock with capacitive touch, a ship's bell, 9 display styles, and a web-based setup portal. You can change most settings from the clock itself - no reflashing needed.
 
 ![ChronoBell](chronobell.png) ![Config Portal](chronoportal.png)
 
@@ -8,7 +8,7 @@ An ESP32-powered LED matrix clock with capacitive touch, a ship's bell, 8 displa
 
 **A bell that rings like a ship's clock** - Traditional 1-8 strike pattern from nautical tradition, plus five other modes (single ding, hour count, half-hour, pair). You can preview each one live in the menu before you pick it.
 
-**8 display styles + 5 date views** - Big digits, seconds, deciseconds, date overlay, word clock, Roman numerals, binary, or a random one each day. Date extras include moon phase, ISO year/week, Western zodiac, and Chinese zodiac. Tap to peek at any view.
+**9 display styles + 5 date views** - Big digits, seconds, deciseconds, date overlay, word clock, Roman numerals, binary, drift, or a random one each day. Date extras include moon phase, ISO year/week, Western zodiac, and Chinese zodiac. Tap to peek at any view.
 
 **Guest WiFi on screen** - Fetches a guest network password at boot and shows it on the clock. No phone needed. Good for lobbies, cafes, offices.
 
@@ -77,7 +77,7 @@ When night mode turns the display off, any touch wakes it for a minute.
 
 | Item | Choices | What it sets |
 |------|---------|-------------|
-| STYLE | RND / BIG / SEC / DECI / DATE / WORD / ROMA / BIN | How the clock looks (RND picks a random one each day) |
+| STYLE | RND / BIG / SEC / DECI / DATE / WORD / ROMA / BIN / DRIFT | How the clock looks (RND picks a random one each day) |
 | DATE | DATE / YEAR / MOON / ZOD / CZOD | Extra info shown in the date view |
 | FORMAT | 24H / 12H | 24-hour or AM/PM |
 | NIGHT | OFF / LOW / LOWM / DARK / DRKM / MUTE | Dim, mute, or turn off the display and bell on a schedule |

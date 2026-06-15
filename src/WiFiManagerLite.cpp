@@ -41,14 +41,8 @@ WiFiManagerLite::WiFiManagerLite(SettingsStore& settingsStore)
     , _pendingReconnectCredentialsValid(false)
 {
     _portal.setStatusProvider(this, statusConnected, statusInConfigMode, statusIPAddress, statusReconnectActive, statusReconnectFailed);
-    _portal.setHotspotCallbacks(
-        [this]() -> bool { return _hotspotActive; },
-        [this]() -> int16_t { return hotspotRemainingMenuMinutes(); },
-        [this](bool on) { if (on) resetHotspotTimer(); else stopHotspot(); }
-    );
-    _portal.setScanPreflightCallback([this]() {
-        suspendPendingNetworkReconnect();
-    });
+    _portal.setHotspotCallbacks(portalHotspotStatus, portalHotspotRemaining, portalHotspotToggle, this);
+    _portal.setScanPreflightCallback(portalScanPreflight, this);
 }
 
 void WiFiManagerLite::setNetworkServiceConfig(const char* mdnsHostname, const char* otaPassword) {
@@ -434,6 +428,27 @@ bool WiFiManagerLite::statusReconnectActive(void* context) {
            manager->_connState == ConnState::Connecting;
 }
 
+bool WiFiManagerLite::portalHotspotStatus(void* context) {
+    return static_cast<WiFiManagerLite*>(context)->_hotspotActive;
+}
+
+int16_t WiFiManagerLite::portalHotspotRemaining(void* context) {
+    return static_cast<WiFiManagerLite*>(context)->hotspotRemainingMenuMinutes();
+}
+
+void WiFiManagerLite::portalHotspotToggle(void* context, bool on) {
+    WiFiManagerLite* manager = static_cast<WiFiManagerLite*>(context);
+    if (on) {
+        manager->resetHotspotTimer();
+    } else {
+        manager->stopHotspot();
+    }
+}
+
+void WiFiManagerLite::portalScanPreflight(void* context) {
+    static_cast<WiFiManagerLite*>(context)->suspendPendingNetworkReconnect();
+}
+
 bool WiFiManagerLite::hasCredentials() {
     String ssid, password;
     return loadCredentials(ssid, password);
@@ -548,7 +563,7 @@ void WiFiManagerLite::pollConnect() {
             _pendingReconnectFallback = false;
             _pendingReconnectCredentialsValid = false;
             if (_reconnectResultCb) {
-                _reconnectResultCb(pendingAttemptSucceeded);
+                _reconnectResultCb(_reconnectResultContext, pendingAttemptSucceeded);
             }
         }
         return;
@@ -584,7 +599,7 @@ void WiFiManagerLite::pollConnect() {
                 _pendingReconnectCredentialsValid = false;
                 _pendingReconnectFailed = true;
                 if (_reconnectResultCb) {
-                    _reconnectResultCb(false);
+                    _reconnectResultCb(_reconnectResultContext, false);
                 }
             } else {
                 _settingsStore.clearPendingNetwork();
@@ -594,7 +609,7 @@ void WiFiManagerLite::pollConnect() {
                 _pendingReconnectCredentialsValid = false;
                 _pendingReconnectFailed = true;
                 if (_reconnectResultCb) {
-                    _reconnectResultCb(false);
+                    _reconnectResultCb(_reconnectResultContext, false);
                 }
             }
         }
@@ -609,23 +624,23 @@ void WiFiManagerLite::startArduinoOTA() {
     ArduinoOTA.setPassword(_otaPassword.c_str());
     ArduinoOTA.onStart([this]() {
         _otaUpdate = true;
-        if (_otaDisplayCb) _otaDisplayCb(true, 0, 0);
+        if (_otaDisplayCb) _otaDisplayCb(_otaDisplayContext, true, 0, 0);
         LOGLN("Arduino IDE OTA update started");
     });
     ArduinoOTA.onEnd([this]() {
         LOGLN("OTA complete");
         _otaUpdate = false;
-        if (_otaDisplayCb) _otaDisplayCb(false, 100, 100);
+        if (_otaDisplayCb) _otaDisplayCb(_otaDisplayContext, false, 100, 100);
     });
     ArduinoOTA.onProgress([this](unsigned int progress, unsigned int total) {
-        if (_otaDisplayCb) _otaDisplayCb(true, progress, total);
+        if (_otaDisplayCb) _otaDisplayCb(_otaDisplayContext, true, progress, total);
         if (total > 0) {
             LOGF("OTA: %u%%\r", (progress * 100) / total);
         }
     });
     ArduinoOTA.onError([this](ota_error_t error) {
         _otaUpdate = false;
-        if (_otaDisplayCb) _otaDisplayCb(false, 0, 0);
+        if (_otaDisplayCb) _otaDisplayCb(_otaDisplayContext, false, 0, 0);
         LOGF("OTA error[%u]\n", error);
     });
     ArduinoOTA.begin();
@@ -914,31 +929,34 @@ void WiFiManagerLite::suspendPendingNetworkReconnect() {
     _isConnected = false;
 }
 
-void WiFiManagerLite::setOtaDisplayCallback(std::function<void(bool, unsigned int, unsigned int)> cb) {
+void WiFiManagerLite::setOtaDisplayCallback(OtaDisplayCallback cb, void* context) {
     _otaDisplayCb = cb;
-    _portal.setOtaDisplayCallback(cb);
+    _otaDisplayContext = context;
+    _portal.setOtaDisplayCallback(cb, context);
 }
 
-void WiFiManagerLite::setSaveCallback(std::function<bool(bool, bool, bool, const String&, const String&)> cb) {
+void WiFiManagerLite::setSaveCallback(SaveCallback cb, void* context) {
     _saveCb = cb;
-    _portal.setSaveCallback([this](bool w, bool t, bool m, const String& ssid, const String& password) -> bool {
-        return _saveCb ? _saveCb(w, t, m, ssid, password) : true;
-    });
+    _saveContext = context;
+    _portal.setSaveCallback(cb, context);
 }
 
-void WiFiManagerLite::setPreviewCallback(std::function<void(const String&)> cb) {
+void WiFiManagerLite::setPreviewCallback(PreviewCallback cb, void* context) {
     _previewCb = cb;
-    _portal.setPreviewCallback(cb);
+    _previewContext = context;
+    _portal.setPreviewCallback(cb, context);
 }
 
-void WiFiManagerLite::setHotspotCallbacks(std::function<bool()> status,
-                                          std::function<int16_t()> remaining,
-                                          std::function<void(bool)> toggle) {
-    _portal.setHotspotCallbacks(status, remaining, toggle);
+void WiFiManagerLite::setHotspotCallbacks(HotspotStatusCallback status,
+                                          HotspotRemainingCallback remaining,
+                                          HotspotToggleCallback toggle,
+                                          void* context) {
+    _portal.setHotspotCallbacks(status, remaining, toggle, context);
 }
 
-void WiFiManagerLite::setReconnectResultCallback(std::function<void(bool)> cb) {
+void WiFiManagerLite::setReconnectResultCallback(ReconnectResultCallback cb, void* context) {
     _reconnectResultCb = cb;
+    _reconnectResultContext = context;
 }
 
 bool WiFiManagerLite::isUpdating() {

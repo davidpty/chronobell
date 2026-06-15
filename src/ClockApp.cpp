@@ -29,6 +29,7 @@ static const DisplayMode RANDOM_STYLE_POOL[] = {
     DisplayMode::Word,
     DisplayMode::Roma,
     DisplayMode::Bin,
+    DisplayMode::Drift,
 };
 
 static const uint8_t RANDOM_STYLE_POOL_COUNT =
@@ -67,26 +68,12 @@ void ClockApp::beginControllers() {
     _display.setDateStyle(&_activeDateStyle);
     _display.setGuestWifiController(&_guestWifi);
 
-    _wifiManager.setOtaDisplayCallback(
-        [this](bool a, unsigned int p, unsigned int t) {
-            _display.showOtaUpdate(a, p, t);
-        });
+    _wifiManager.setOtaDisplayCallback(handleOtaDisplay, this);
     _wifiManager.setTimeProvider(&_timeProvider);
 
-    _wifiManager.setSaveCallback([this](bool w, bool t, bool m, const String& ssid, const String& password) -> bool {
-        return onSettingsSaved(w, t, m, ssid, password);
-    });
-    _wifiManager.setReconnectResultCallback([this](bool success) {
-        LOGLN(success ? "Wi-Fi reconnect test finished" : "Wi-Fi reconnect test failed");
-        reloadSettings();
-        if (success) {
-            _wifiSync.requestSync();
-        }
-    });
-
-    _wifiManager.setPreviewCallback([this](const String& field) {
-        onWebPreview(field);
-    });
+    _wifiManager.setSaveCallback(handleSettingsSaved, this);
+    _wifiManager.setReconnectResultCallback(handleReconnectResult, this);
+    _wifiManager.setPreviewCallback(handleWebPreview, this);
 
     // GuestWifi callback is wired in the .ino file via a trampoline
 }
@@ -133,6 +120,33 @@ void ClockApp::installTouchHandlers(OnTouchFn onPad1Press,
     TouchPadConfig pad8;
     pad8.onPress = onPad8Press;
     _touchController.setHandler(8, pad8);
+}
+
+void ClockApp::handleOtaDisplay(void* context, bool active, unsigned int progress, unsigned int total) {
+    static_cast<ClockApp*>(context)->_display.showOtaUpdate(active, progress, total);
+}
+
+bool ClockApp::handleSettingsSaved(void* context,
+                                   bool wifiChanged,
+                                   bool tzChanged,
+                                   bool manualTimeChanged,
+                                   const String& wifiSsid,
+                                   const String& wifiPassword) {
+    return static_cast<ClockApp*>(context)->onSettingsSaved(wifiChanged, tzChanged, manualTimeChanged,
+                                                            wifiSsid, wifiPassword);
+}
+
+void ClockApp::handleReconnectResult(void* context, bool success) {
+    ClockApp* app = static_cast<ClockApp*>(context);
+    LOGLN(success ? "Wi-Fi reconnect test finished" : "Wi-Fi reconnect test failed");
+    app->reloadSettings();
+    if (success) {
+        app->_wifiSync.requestSync();
+    }
+}
+
+void ClockApp::handleWebPreview(void* context, const String& field) {
+    static_cast<ClockApp*>(context)->onWebPreview(field);
 }
 
 void ClockApp::initSerialAndPins() {
@@ -351,7 +365,13 @@ void ClockApp::pollLongPress() {
     if (heldMs < MENU_LONG_PRESS_MS) return;
 
     _t4LongPressHandled = true;
+
     if (_menuController.isActive()) {
+        LOGLN("T4 1.5s: cancel & exit menu");
+        if (_menuController.isEdit()) {
+            _menuController.cancelEdit();
+        }
+        _menuController.exit();
         return;
     }
 

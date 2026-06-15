@@ -31,12 +31,18 @@ ConfigPortal::ConfigPortal(SettingsStore& settingsStore)
     , _dnsActive(false)
     , _otaUpdate(false)
     , _otaExpectedSize(0)
+    , _otaDisplayCb(nullptr)
+    , _otaDisplayContext(nullptr)
     , _statusContext(nullptr)
     , _connectedCallback(nullptr)
     , _inConfigModeCallback(nullptr)
     , _ipAddressCallback(nullptr)
     , _reconnectActiveCallback(nullptr)
     , _reconnectFailedCallback(nullptr)
+    , _saveCb(nullptr)
+    , _saveContext(nullptr)
+    , _previewCb(nullptr)
+    , _previewContext(nullptr)
 {
 }
 
@@ -148,7 +154,7 @@ void ConfigPortal::handleRoot() {
     _settings = _settingsStore.load();
     String displaySsid = _settings.network.ssid;
     String displayPassword = _settings.network.password;
-    bool hotspotActive = _hotspotStatusCb ? _hotspotStatusCb() : false;
+    bool hotspotActive = _hotspotStatusCb ? _hotspotStatusCb(_hotspotContext) : false;
     String hotspotOffClass = hotspotActive ? String("") : String("active");
     String hotspotOnClass = hotspotActive ? String("active") : String("");
     String initialHotspotOnText = hotspotOnText(hotspotActive);
@@ -160,7 +166,7 @@ void ConfigPortal::handleRoot() {
     String initialBrightness = String(_settingsStore.loadBrightness(4));
     String initialTimezone = portalTimezoneValue(_settings.timezone.offsetMinutes);
     String initialManualMode = _settings.manualTime.enabled ? "manual" : "auto";
-    String initialHotspotRemaining = String(_hotspotRemainingCb ? _hotspotRemainingCb() : 0);
+    String initialHotspotRemaining = String(_hotspotRemainingCb ? _hotspotRemainingCb(_hotspotContext) : 0);
 
     String html = R"rawliteral(
 <!DOCTYPE html>
@@ -274,6 +280,7 @@ void ConfigPortal::handleRoot() {
                     <option value="5">WORD - Mixed-size word clock display</option>
                     <option value="6">ROMA - Roman numeral clock</option>
                     <option value="7">BIN - Binary clock</option>
+                    <option value="8">DRIFT - Irregular BIG-style clock</option>
                 </select>
             </div>
 
@@ -866,7 +873,7 @@ void ConfigPortal::handleRoot() {
 
 void ConfigPortal::handleScan() {
     if (_scanPreflightCb) {
-        _scanPreflightCb();
+        _scanPreflightCb(_scanPreflightContext);
     }
 
     delay(100);
@@ -994,7 +1001,7 @@ void ConfigPortal::handleSave() {
 
     bool success = true;
     if (_saveCb) {
-        success = _saveCb(wifiChanged, false, false, ssid, password);
+        success = _saveCb(_saveContext, wifiChanged, false, false, ssid, password);
     }
 
     if (!success) {
@@ -1039,7 +1046,7 @@ void ConfigPortal::handleApply() {
         int8_t b = constrain(value.toInt(), 0, 15);
         _settingsStore.saveBrightness(b);
     } else if (field == "hotspot") {
-        if (_hotspotToggleCb) _hotspotToggleCb(value.toInt() != 0);
+        if (_hotspotToggleCb) _hotspotToggleCb(_hotspotContext, value.toInt() != 0);
     } else if (field == "timezone") {
         settings.timezone.offsetMinutes = timezoneMinutesFromPortalValue(value);
         settings.timezone.name = _webServer.arg("tzname");
@@ -1081,11 +1088,11 @@ void ConfigPortal::handleApply() {
     _settings = settings;
 
     if (_saveCb) {
-        (void)_saveCb(false, tzChanged, manualTimeChanged, "", "");
+        (void)_saveCb(_saveContext, false, tzChanged, manualTimeChanged, "", "");
     }
 
     if (_previewCb && (field == "style" || field == "datestyle" || field == "timefmt" || field == "timezone" || field == "timeMode" || field == "manualtime" || field == "bellmode" || field == "brightness")) {
-        _previewCb(field);
+        _previewCb(_previewContext, field);
     }
 
     _webServer.send(200, "application/json", "{\"success\":true}");
@@ -1093,7 +1100,7 @@ void ConfigPortal::handleApply() {
 
 void ConfigPortal::handleStatus() {
     _settings = _settingsStore.load();
-    bool hotspotActive = _hotspotStatusCb ? _hotspotStatusCb() : false;
+    bool hotspotActive = _hotspotStatusCb ? _hotspotStatusCb(_hotspotContext) : false;
 
     String json = "{\"connected\":";
     json += currentConnected() ? "true" : "false";
@@ -1122,7 +1129,7 @@ void ConfigPortal::handleStatus() {
     json += ",\"hotspotActive\":";
     json += hotspotActive ? "true" : "false";
     json += ",\"hotspotRemaining\":";
-    json += _hotspotRemainingCb ? _hotspotRemainingCb() : 0;
+    json += _hotspotRemainingCb ? _hotspotRemainingCb(_hotspotContext) : 0;
     json += ",\"hotspotTimeout\":";
     json += HOTSPOT_TIMEOUT_MINUTES;
     json += ",\"hotspotOnText\":\"";
@@ -1130,7 +1137,7 @@ void ConfigPortal::handleStatus() {
         String onText = hotspotOnText(hotspotActive);
         json += encodeJSON(onText);
 #if DEBUG
-        int16_t remaining = _hotspotRemainingCb ? _hotspotRemainingCb() : 0;
+        int16_t remaining = _hotspotRemainingCb ? _hotspotRemainingCb(_hotspotContext) : 0;
         LOGF("DBG status: active=%d remaining=%d text=\"%s\"\n",
               hotspotActive, remaining, onText.c_str());
 #endif
@@ -1200,7 +1207,7 @@ String ConfigPortal::hotspotOnText(bool hotspotActive) const {
 #else
     int16_t minutes = HOTSPOT_TIMEOUT_MINUTES;
     if (hotspotActive && _hotspotRemainingCb) {
-        minutes = _hotspotRemainingCb();
+        minutes = _hotspotRemainingCb(_hotspotContext);
         if (minutes <= 0) {
             minutes = 5;
         }
@@ -1257,32 +1264,38 @@ int ConfigPortal::getRSSIPercentage(int rssi) {
 
 void ConfigPortal::startOTAUpdate() {
     _otaUpdate = true;
-    if (_otaDisplayCb) _otaDisplayCb(true, 0, 0);
+    if (_otaDisplayCb) _otaDisplayCb(_otaDisplayContext, true, 0, 0);
     LOGLN("OTA update started");
 }
 
-void ConfigPortal::setOtaDisplayCallback(std::function<void(bool, unsigned int, unsigned int)> cb) {
+void ConfigPortal::setOtaDisplayCallback(OtaDisplayCallback cb, void* context) {
     _otaDisplayCb = cb;
+    _otaDisplayContext = context;
 }
 
-void ConfigPortal::setSaveCallback(std::function<bool(bool, bool, bool, const String&, const String&)> cb) {
+void ConfigPortal::setSaveCallback(SaveCallback cb, void* context) {
     _saveCb = cb;
+    _saveContext = context;
 }
 
-void ConfigPortal::setPreviewCallback(std::function<void(const String&)> cb) {
+void ConfigPortal::setPreviewCallback(PreviewCallback cb, void* context) {
     _previewCb = cb;
+    _previewContext = context;
 }
 
-void ConfigPortal::setHotspotCallbacks(std::function<bool()> status,
-                                       std::function<int16_t()> remaining,
-                                       std::function<void(bool)> toggle) {
+void ConfigPortal::setHotspotCallbacks(HotspotStatusCallback status,
+                                       HotspotRemainingCallback remaining,
+                                       HotspotToggleCallback toggle,
+                                       void* context) {
     _hotspotStatusCb = status;
     _hotspotRemainingCb = remaining;
     _hotspotToggleCb = toggle;
+    _hotspotContext = context;
 }
 
-void ConfigPortal::setScanPreflightCallback(std::function<void()> cb) {
+void ConfigPortal::setScanPreflightCallback(ScanPreflightCallback cb, void* context) {
     _scanPreflightCb = cb;
+    _scanPreflightContext = context;
 }
 
 bool ConfigPortal::isUpdating() {
@@ -1301,7 +1314,7 @@ void ConfigPortal::handleUpdateUpload() {
             _otaExpectedSize = (size_t)_webServer.arg("size").toInt();
         }
 
-        if (_otaDisplayCb) _otaDisplayCb(true, 0, (unsigned int)_otaExpectedSize);
+        if (_otaDisplayCb) _otaDisplayCb(_otaDisplayContext, true, 0, (unsigned int)_otaExpectedSize);
         LOGF("Firmware update: %s (%u B)\n", upload.filename.c_str(), (unsigned int)_otaExpectedSize);
 
         if (!Update.begin(UPDATE_SIZE_UNKNOWN)) {
@@ -1317,27 +1330,27 @@ void ConfigPortal::handleUpdateUpload() {
             size_t written = Update.progress();
             size_t total = _otaExpectedSize > 0 ? _otaExpectedSize : upload.totalSize;
             if (total > 0 && written > total) written = total;
-            _otaDisplayCb(true, (unsigned int)written, (unsigned int)total);
+            _otaDisplayCb(_otaDisplayContext, true, (unsigned int)written, (unsigned int)total);
         }
     } else if (upload.status == UPLOAD_FILE_END) {
         // Update finished
         if (_otaDisplayCb) {
             size_t total = _otaExpectedSize > 0 ? _otaExpectedSize : upload.totalSize;
-            _otaDisplayCb(true, (unsigned int)total, (unsigned int)total);
+            _otaDisplayCb(_otaDisplayContext, true, (unsigned int)total, (unsigned int)total);
         }
         if (Update.end(true)) {
             LOGF("Update OK: %u B\n", upload.totalSize);
         } else {
             LOGF("Update failed: %s\n", Update.errorString());
             _otaUpdate = false;
-            if (_otaDisplayCb) _otaDisplayCb(false, 0, 0);
+            if (_otaDisplayCb) _otaDisplayCb(_otaDisplayContext, false, 0, 0);
         }
         _otaExpectedSize = 0;
     } else if (upload.status == UPLOAD_FILE_ABORTED) {
         Update.abort();
         _otaUpdate = false;
         _otaExpectedSize = 0;
-        if (_otaDisplayCb) _otaDisplayCb(false, 0, 0);
+        if (_otaDisplayCb) _otaDisplayCb(_otaDisplayContext, false, 0, 0);
         LOGLN("Update aborted");
     }
 }

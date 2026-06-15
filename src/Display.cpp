@@ -160,6 +160,7 @@ void Display::showTime() {
     int seconds = time.seconds;
 
     DisplayMode mode = _displayMode ? *_displayMode : DisplayMode::LargeDigitsOnly;
+    _clockRenderer->setDriftStyleActive(mode == DisplayMode::Drift);
     switch (mode) {
         case DisplayMode::TimeWithSeconds:
             _clockRenderer->drawTime(hours, minutes, seconds);
@@ -178,6 +179,9 @@ void Display::showTime() {
         case DisplayMode::Bin:
             _clockRenderer->drawBinaryTime(hours, minutes, seconds);
             break;
+        case DisplayMode::Drift:
+            _clockRenderer->drawDriftTime(hours, minutes, seconds);
+            break;
         case DisplayMode::Rnd:
             _clockRenderer->drawPreview(mode, time);
             break;
@@ -195,6 +199,7 @@ void Display::showTime() {
 
 void Display::drawStylePreview(DisplayMode mode) {
     ClockTime time = _timeProvider.displayTime();
+    _clockRenderer->setDriftStyleActive(mode == DisplayMode::Drift);
     _clockRenderer->drawPreview(mode, time);
 }
 

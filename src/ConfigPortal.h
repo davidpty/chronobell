@@ -1,7 +1,6 @@
 #ifndef CONFIG_PORTAL_H
 #define CONFIG_PORTAL_H
 
-#include <functional>
 #include "Config.h"
 #include <Arduino.h>
 #include <DNSServer.h>
@@ -20,6 +19,14 @@ public:
 
     typedef bool (*BoolStatusCallback)(void* context);
     typedef String (*StringStatusCallback)(void* context);
+    typedef void (*OtaDisplayCallback)(void* context, bool active, unsigned int progress, unsigned int total);
+    typedef bool (*SaveCallback)(void* context, bool wifiChanged, bool tzChanged, bool manualTimeChanged,
+                                 const String& ssid, const String& password);
+    typedef void (*PreviewCallback)(void* context, const String& field);
+    typedef bool (*HotspotStatusCallback)(void* context);
+    typedef int16_t (*HotspotRemainingCallback)(void* context);
+    typedef void (*HotspotToggleCallback)(void* context, bool on);
+    typedef void (*ScanPreflightCallback)(void* context);
 
     ConfigPortal(SettingsStore& settingsStore);
 
@@ -38,13 +45,14 @@ public:
 
     void startOTAUpdate();
     bool isUpdating();
-    void setOtaDisplayCallback(std::function<void(bool, unsigned int, unsigned int)> cb);
-    void setSaveCallback(std::function<bool(bool, bool, bool, const String&, const String&)> cb);
-    void setPreviewCallback(std::function<void(const String&)> cb);
-    void setHotspotCallbacks(std::function<bool()> status,
-                             std::function<int16_t()> remaining,
-                             std::function<void(bool)> toggle);
-    void setScanPreflightCallback(std::function<void()> cb);
+    void setOtaDisplayCallback(OtaDisplayCallback cb, void* context);
+    void setSaveCallback(SaveCallback cb, void* context);
+    void setPreviewCallback(PreviewCallback cb, void* context);
+    void setHotspotCallbacks(HotspotStatusCallback status,
+                             HotspotRemainingCallback remaining,
+                             HotspotToggleCallback toggle,
+                             void* context);
+    void setScanPreflightCallback(ScanPreflightCallback cb, void* context);
 
 #if ENABLE_OTA
     void handleUpdateUpload();
@@ -59,19 +67,24 @@ private:
     bool _dnsActive;
     bool _otaUpdate;
     size_t _otaExpectedSize;
-    std::function<void(bool, unsigned int, unsigned int)> _otaDisplayCb;
+    OtaDisplayCallback _otaDisplayCb;
+    void* _otaDisplayContext;
     void* _statusContext;
     BoolStatusCallback _connectedCallback;
     BoolStatusCallback _inConfigModeCallback;
     StringStatusCallback _ipAddressCallback;
     BoolStatusCallback _reconnectActiveCallback;
     BoolStatusCallback _reconnectFailedCallback;
-    std::function<bool(bool, bool, bool, const String&, const String&)> _saveCb;
-    std::function<void(const String&)> _previewCb;
-    std::function<bool()> _hotspotStatusCb = nullptr;
-    std::function<int16_t()> _hotspotRemainingCb = nullptr;
-    std::function<void(bool)> _hotspotToggleCb = nullptr;
-    std::function<void()> _scanPreflightCb = nullptr;
+    SaveCallback _saveCb;
+    void* _saveContext;
+    PreviewCallback _previewCb;
+    void* _previewContext;
+    HotspotStatusCallback _hotspotStatusCb = nullptr;
+    HotspotRemainingCallback _hotspotRemainingCb = nullptr;
+    HotspotToggleCallback _hotspotToggleCb = nullptr;
+    void* _hotspotContext = nullptr;
+    ScanPreflightCallback _scanPreflightCb = nullptr;
+    void* _scanPreflightContext = nullptr;
 
     bool currentConnected();
     bool currentInConfigMode();
