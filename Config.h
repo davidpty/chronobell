@@ -102,7 +102,7 @@
 
 #define DRIFT_SEPARATOR_BASE_SPREAD_PIXELS          2                                   // Extra separator spacing in DRIFT compared to BIG
 #define DRIFT_SEPARATOR_WIDE_AFTER_MINUTES          10                                  // Offset where separator spacing becomes more exaggerated
-#define DRIFT_SEPARATOR_WIDE_EXTRA_PIXELS           4                                   // Additional separator spread when far from real time
+#define DRIFT_SEPARATOR_WIDE_EXTRA_PIXELS           2                                   // Additional separator spread when far from real time
 
 // ---------------------------------------------------------------------------
 // WiFi reconnection backoff (used by WiFiManagerLite)

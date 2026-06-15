@@ -1,6 +1,6 @@
 # ChronoBell
 
-ChronoBell is an ESP32-powered LED matrix clock with touch controls, a ship's bell, a stopwatch, a countdown timer, and a web setup page. You can change most settings on the clock itself, so you usually do not need to reflash firmware.
+ChronoBell is a clock that feels alive, with a glowing face, changing displays like drift, binary, and word styles, and a traditional ship's bell that can ring in different patterns, turning the passing of time into something playful, distinctive, and almost theatrical.
 
 ![ChronoBell](chronobell.png) ![Config Portal](chronoportal.png)
 
