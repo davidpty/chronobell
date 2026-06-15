@@ -148,7 +148,7 @@ When night mode turns the display off, any touch wakes it for a minute.
 
 | Item | Choices | What it sets |
 |------|---------|-------------|
-| STYLE | RND / BIG / SEC / DECI / DATE / WORD / ROMA / BIN / drift | Clock style; drift is the uncanny artistic mode |
+| STYLE | RND / BIG / SEC / DECI / DATE / WORD / ROMA / BIN / DRIFT | Clock style; drift is the uncanny artistic mode |
 | DATE | DATE / YEAR / MOON / ZOD / CZOD | Extra info shown in the date view |
 | FORMAT | 24H / 12H | 24-hour or AM/PM |
 | NIGHT | OFF / LOW / LOWM / DARK / DRKM / MUTE | Dim, mute, or turn off the display and bell on a schedule |
