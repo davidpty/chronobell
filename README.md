@@ -6,9 +6,9 @@ An ESP32-powered LED matrix clock with capacitive touch, a ship's bell, 9 displa
 
 ## What makes it different
 
-**A bell that rings like a ship's clock** - Traditional 1-8 strike pattern from nautical tradition, plus five other modes (single ding, hour count, half-hour, pair). You can preview each one live in the menu before you pick it.
+**A bell that rings like a ship's clock** - Traditional 1-8 strike pattern from nautical tradition, plus six other modes: off, single ding, hour count, half-hour, pair, and triple. You can preview each one live in the menu before you pick it.
 
-**9 display styles + 5 date views** - Big digits, seconds, deciseconds, date overlay, word clock, Roman numerals, binary, drift, or a random one each day. Date extras include moon phase, ISO year/week, Western zodiac, and Chinese zodiac. Tap to peek at any view.
+**9 display styles + 5 date views** - Big digits, seconds, deciseconds, date overlay, word clock, Roman numerals, binary, DRIFT, or a random one each day. DRIFT is the uncanny one: it uses the big digital layout, but time can hold, rush, jump, move backward, and chime from the displayed time instead of the real one. Date extras include moon phase, ISO year/week, Western zodiac, and Chinese zodiac. Tap to peek at any view.
 
 **Guest WiFi on screen** - Fetches a guest network password at boot and shows it on the clock. No phone needed. Good for lobbies, cafes, offices.
 
@@ -29,6 +29,50 @@ An ESP32-powered LED matrix clock with capacitive touch, a ship's bell, 9 displa
 - **Config portal** - Scan WiFi networks, pick a timezone, tune display and bell settings, upload firmware - all from a browser.
 - **Timekeeping** - NTP syncs every 60 minutes when WiFi is available. The RTC keeps time when it's not. Manual mode bypasses both.
 - **OTA updates** - Push firmware over the air at `chronobell.local`.
+
+---
+
+## Clock Styles
+
+ChronoBell has nine clock display modes. The menu label is short because the screen is only 32x16 pixels:
+
+| Style | Menu | What it shows |
+|-------|------|---------------|
+| Random | RND | Picks one concrete clock style each day |
+| Big | BIG | Large HH:MM digits, optimized for readability |
+| Seconds | SEC | Big time with a seconds readout |
+| Deciseconds | DECI | Big time with a fast fractional-second readout |
+| Date overlay | DATE | Time plus the active date view |
+| Word clock | WORD | A compact phrase-style clock |
+| Roman | ROMA | Roman-numeral-inspired time display |
+| Binary | BIN | Binary hour/minute/second display |
+| Drift | DRIFT | Big digits with unstable, elastic, intentionally questionable time |
+
+### DRIFT mode
+
+DRIFT keeps the same large digital number font as BIG, but it does not promise exact precision. It tracks its own displayed time, which may be ahead of or behind real time by up to 30 minutes. A minute can linger for several real minutes, then the clock may rush through several displayed minutes, jump, or even move backward.
+
+The digits stay readable and unchanged. Only the separator dots are visually stretched: they are always farther apart than BIG mode, and they stretch more when DRIFT is far from real time.
+
+In DRIFT mode, the bell follows the displayed DRIFT time. If DRIFT shows `15:00` while real time is `14:42`, the 15:00 bell behavior happens when DRIFT displays `15:00`. Held bell minutes do not repeatedly chime.
+
+---
+
+## Bell Modes
+
+The bell can be off, simple, clock-like, or nautical. Scroll through BELL in the menu to hear a live preview before saving.
+
+| Mode | Menu | What it does |
+|------|------|--------------|
+| Off | OFF | No scheduled bell |
+| Single ding | DING | One strike on the hour |
+| Hour count | HOUR | Strikes the 12-hour count on the hour |
+| Half-hour | HALF | Hour count on the hour, one strike on the half-hour |
+| Pair | PAIR | Hour count grouped in pairs |
+| Triple | TRIP | Hour count grouped in threes |
+| Ship's bell | SHIP | Traditional ship's clock pattern from 1 to 8 strikes across four-hour watches |
+
+Timer alerts are separate from scheduled bell modes: when a countdown expires, ChronoBell plays its alert pattern even if the display is not in a clock style.
 
 ---
 
@@ -77,12 +121,12 @@ When night mode turns the display off, any touch wakes it for a minute.
 
 | Item | Choices | What it sets |
 |------|---------|-------------|
-| STYLE | RND / BIG / SEC / DECI / DATE / WORD / ROMA / BIN / DRIFT | How the clock looks (RND picks a random one each day) |
+| STYLE | RND / BIG / SEC / DECI / DATE / WORD / ROMA / BIN / DRIFT | Clock style; DRIFT is the uncanny artistic mode |
 | DATE | DATE / YEAR / MOON / ZOD / CZOD | Extra info shown in the date view |
 | FORMAT | 24H / 12H | 24-hour or AM/PM |
 | NIGHT | OFF / LOW / LOWM / DARK / DRKM / MUTE | Dim, mute, or turn off the display and bell on a schedule |
 | BRIGHT | 0-15 | How bright the LEDs shine |
-| BELL | OFF / DING / HOUR / HALF / PAIR / TRIP / SHIP | Bell mode (scroll to hear a preview) |
+| BELL | OFF / DING / HOUR / HALF / PAIR / TRIP / SHIP | Scheduled bell/chime mode (scroll to hear a preview) |
 | SETTIME | AUTO / MANUAL | Time source - automatic (NTP + RTC) or manual entry |
 | HOTSPOT | OFF / ON | Turn the web config portal on or off |
 

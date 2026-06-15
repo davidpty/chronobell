@@ -2,6 +2,7 @@
 
 #include "AppSettings.h"
 #include "ClockRenderer.h"
+#include "DriftClock.h"
 #include "MenuBindings.h"
 #include "MenuRenderer.h"
 #include "RtcClock.h"
@@ -79,6 +80,10 @@ void Display::setMenuBindings(void* bindings) {
 void Display::setRuntimeMode(DisplayMode* displayMode, BellMode* bellMode) {
     _displayMode = displayMode;
     _bellMode = bellMode;
+}
+
+void Display::setDriftClock(DriftClock* driftClock) {
+    _driftClock = driftClock;
 }
 
 void Display::setTimeFormat(TimeFormat* timeFormat) {
@@ -180,7 +185,15 @@ void Display::showTime() {
             _clockRenderer->drawBinaryTime(hours, minutes, seconds);
             break;
         case DisplayMode::Drift:
-            _clockRenderer->drawDriftTime(hours, minutes, seconds);
+            if (_driftClock) {
+                unsigned long nowMs = millis();
+                _driftClock->update(time, nowMs);
+                ClockTime driftTime = _driftClock->displayTime(time, nowMs);
+                int offsetMinutes = _driftClock->offsetMinutes(time);
+                _clockRenderer->drawDriftTime(driftTime.hours, driftTime.minutes, driftTime.seconds, offsetMinutes);
+            } else {
+                _clockRenderer->drawDriftTime(hours, minutes, seconds, 0);
+            }
             break;
         case DisplayMode::Rnd:
             _clockRenderer->drawPreview(mode, time);

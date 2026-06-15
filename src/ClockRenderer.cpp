@@ -51,7 +51,6 @@ static constexpr int MOON_ANCHOR_END_MONTH = 12;
 static constexpr int MOON_ANCHOR_END_DAY = 31;
 static constexpr double MOON_SYNODIC_MONTH = 29.530588853;
 static constexpr double MOON_NEW_MOON_REF_JD = 2451550.09765;
-static constexpr int MINUTES_PER_DAY = 24 * 60;
 
 static int clampInt(int value, int minValue, int maxValue) {
     if (value < minValue) return minValue;
@@ -129,14 +128,6 @@ void drawWordLine(Display& display, const WordSegment* segments, uint8_t count, 
 
 bool lineFits(const WordSegment* segments, uint8_t count) {
     return lineWidth(segments, count) <= COLS_PER_ROW;
-}
-
-static int driftRandomRange(int minValue, int maxValue) {
-    if (maxValue <= minValue) {
-        return minValue;
-    }
-    uint32_t span = (uint32_t)(maxValue - minValue + 1);
-    return minValue + (int)(esp_random() % span);
 }
 
 void drawCenteredTextWithSpacingFallback(Display& display,
@@ -504,7 +495,7 @@ void ClockRenderer::drawPreview(DisplayMode mode, ClockTime time) {
             drawBinaryTime(time.hours, time.minutes, time.seconds);
             break;
         case DisplayMode::Drift:
-            drawDriftTime(hours, time.minutes, time.seconds);
+            drawDriftTime(hours, time.minutes, time.seconds, 0);
             break;
         case DisplayMode::Rnd:
             _display->drawCenteredBigText("RND", 0);
@@ -519,139 +510,11 @@ void ClockRenderer::drawPreview(DisplayMode mode, ClockTime time) {
     }
 }
 
-// DRIFT keeps its own transient display state here. The real clock source is
-// never modified; this state only decides which minute gets drawn next.
 void ClockRenderer::setDriftStyleActive(bool active) {
-    if (_driftStyleActive == active) {
-        return;
-    }
     _driftStyleActive = active;
-    resetDriftState();
 }
 
-void ClockRenderer::resetDriftState() {
-    _driftInitialized = false;
-    _driftDisplayedMinute = 0;
-    _driftHoldStartedMs = 0;
-    _driftHoldDurationMs = 0;
-}
-
-int ClockRenderer::minuteOfDay(int hours, int minutes) const {
-    if (_timeFormat && *_timeFormat == TimeFormat::AmPm) {
-        int h = hours % 12;
-        if (h < 0) {
-            h += 12;
-        }
-        return h * 60 + minutes;
-    }
-    return (hours * 60) + minutes;
-}
-
-int ClockRenderer::wrapMinuteOfDay(int minute) const {
-    int cycleMinutes = (_timeFormat && *_timeFormat == TimeFormat::AmPm)
-        ? 12 * 60
-        : MINUTES_PER_DAY;
-    while (minute < 0) {
-        minute += cycleMinutes;
-    }
-    while (minute >= cycleMinutes) {
-        minute -= cycleMinutes;
-    }
-    return minute;
-}
-
-int ClockRenderer::signedMinuteDelta(int fromMinute, int toMinute) const {
-    int cycleMinutes = (_timeFormat && *_timeFormat == TimeFormat::AmPm)
-        ? 12 * 60
-        : MINUTES_PER_DAY;
-    int diff = fromMinute - toMinute;
-    while (diff <= -cycleMinutes / 2) {
-        diff += cycleMinutes;
-    }
-    while (diff > cycleMinutes / 2) {
-        diff -= cycleMinutes;
-    }
-    return diff;
-}
-
-int ClockRenderer::driftHoldMsForLag(int lagMinutes) {
-    int minHold = DRIFT_MIN_VISIBLE_HOLD_SECONDS * 1000;
-    int maxHold = DRIFT_MAX_VISIBLE_HOLD_SECONDS * 1000;
-    if (maxHold < minHold) {
-        maxHold = minHold;
-    }
-
-    if (lagMinutes < 0) {
-        int behindMinutes = -lagMinutes;
-        int maxBehindHold = (DRIFT_MAX_ERROR_MINUTES - behindMinutes) * 60 * 1000;
-        if (maxBehindHold < 0) {
-            maxBehindHold = 0;
-        }
-        if (maxBehindHold < maxHold) {
-            maxHold = maxBehindHold;
-        }
-    }
-
-    if (maxHold < minHold) {
-        return maxHold;
-    }
-    return driftRandomRange(minHold, maxHold);
-}
-
-int ClockRenderer::driftRandomRange(int minValue, int maxValue) {
-    return ::driftRandomRange(minValue, maxValue);
-}
-
-int ClockRenderer::driftStepMinutes(int lagMinutes) {
-    int maxJump = clampInt(DRIFT_MAX_JUMP_MINUTES, 1, 59);
-    if (lagMinutes < 0 && DRIFT_JUMP_PROBABILITY_PERCENT > 0) {
-        uint32_t roll = esp_random() % 100U;
-        if ((int)roll < DRIFT_JUMP_PROBABILITY_PERCENT && maxJump >= 2) {
-            return driftRandomRange(2, maxJump);
-        }
-    }
-    return 1;
-}
-
-void ClockRenderer::updateDriftState(int exactHours, int exactMinutes, unsigned long nowMs) {
-    int exactMinute = minuteOfDay(exactHours, exactMinutes);
-    if (!_driftInitialized) {
-        _driftInitialized = true;
-        _driftDisplayedMinute = exactMinute;
-        _driftHoldStartedMs = nowMs;
-        _driftHoldDurationMs = driftHoldMsForLag(0);
-        return;
-    }
-
-    if (_driftHoldDurationMs == 0) {
-        _driftHoldDurationMs = driftHoldMsForLag(0);
-    }
-
-    unsigned long elapsedMs = nowMs - _driftHoldStartedMs;
-    if (elapsedMs < _driftHoldDurationMs) {
-        return;
-    }
-
-    int lagMinutes = signedMinuteDelta(_driftDisplayedMinute, exactMinute);
-    if (lagMinutes > 0) {
-        _driftHoldStartedMs = nowMs;
-        _driftHoldDurationMs = (unsigned long)driftHoldMsForLag(lagMinutes);
-        return;
-    }
-
-    if (lagMinutes < 0) {
-        int step = driftStepMinutes(lagMinutes);
-        _driftDisplayedMinute = wrapMinuteOfDay(_driftDisplayedMinute + step);
-    } else {
-        _driftDisplayedMinute = wrapMinuteOfDay(_driftDisplayedMinute + 1);
-    }
-
-    _driftHoldStartedMs = nowMs;
-    int newLagMinutes = signedMinuteDelta(_driftDisplayedMinute, exactMinute);
-    _driftHoldDurationMs = (unsigned long)driftHoldMsForLag(newLagMinutes);
-}
-
-void ClockRenderer::drawBigTimeInternal(int hours, int minutes, int seconds, bool driftMode, bool showApproxMarker) {
+void ClockRenderer::drawBigTimeInternal(int hours, int minutes, int seconds, bool driftMode, int offsetMinutes) {
     hours = effectiveHours(hours);
     int digitWidth = 6;
     int spacing = 1;
@@ -673,7 +536,7 @@ void ClockRenderer::drawBigTimeInternal(int hours, int minutes, int seconds, boo
 
     int sepX = x;
     if (driftMode) {
-        drawDriftSeparator(sepX, startY, seconds);
+        drawDriftSeparator(sepX, startY, seconds, offsetMinutes);
     } else {
         drawBigSeparator(sepX, startY, seconds);
     }
@@ -682,17 +545,10 @@ void ClockRenderer::drawBigTimeInternal(int hours, int minutes, int seconds, boo
     drawBigTimeDigit(minutes / 10, x, startY);
     x += digitWidth + spacing;
     drawBigTimeDigit(minutes % 10, x, startY);
-
-    if (driftMode && showApproxMarker) {
-        drawDriftApproxMarker(sepX, startY);
-    }
 }
 
-void ClockRenderer::drawDriftTime(int hours, int minutes, int seconds) {
-    int exactMinute = minuteOfDay(hours, minutes);
-    updateDriftState(hours, minutes, millis());
-    drawBigTimeInternal(_driftDisplayedMinute / 60, _driftDisplayedMinute % 60, seconds, true,
-                        DRIFT_SHOW_APPROX_MARKER && signedMinuteDelta(_driftDisplayedMinute, exactMinute) != 0);
+void ClockRenderer::drawDriftTime(int hours, int minutes, int seconds, int offsetMinutes) {
+    drawBigTimeInternal(hours, minutes, seconds, true, offsetMinutes);
 }
 
 void ClockRenderer::drawTime(int hours, int minutes, int seconds) {
@@ -722,21 +578,22 @@ void ClockRenderer::drawTime(int hours, int minutes, int seconds) {
 }
 
 void ClockRenderer::drawBigTime(int hours, int minutes, int seconds) {
-    drawBigTimeInternal(hours, minutes, seconds, false, false);
+    drawBigTimeInternal(hours, minutes, seconds, false, 0);
 }
 
-void ClockRenderer::drawDriftSeparator(int x, int y, int seconds) {
+void ClockRenderer::drawDriftSeparator(int x, int y, int seconds, int offsetMinutes) {
     (void)seconds;
-    _display->setPixel(x, y + 5, true);
-    _display->setPixel(x, y + 10, true);
-}
-
-void ClockRenderer::drawDriftApproxMarker(int x, int y) {
-    _display->setPixel(x - 2, y + 1, true);
-    _display->setPixel(x - 1, y, true);
-    _display->setPixel(x,     y + 1, true);
-    _display->setPixel(x + 1, y, true);
-    _display->setPixel(x + 2, y + 1, true);
+    int absOffset = offsetMinutes < 0 ? -offsetMinutes : offsetMinutes;
+    int spread = DRIFT_SEPARATOR_BASE_SPREAD_PIXELS;
+    if (absOffset >= DRIFT_SEPARATOR_WIDE_AFTER_MINUTES) {
+        spread += DRIFT_SEPARATOR_WIDE_EXTRA_PIXELS;
+    }
+    int topY = y + 6 - spread;
+    int bottomY = y + 9 + spread;
+    if (topY < y) topY = y;
+    if (bottomY >= y + TIME_FONT_BIG_HEIGHT) bottomY = y + TIME_FONT_BIG_HEIGHT - 1;
+    _display->setPixel(x, topY, true);
+    _display->setPixel(x, bottomY, true);
 }
 
 void ClockRenderer::drawWordTimeLegacy(int hours, int minutes) {

@@ -64,6 +64,7 @@ void ClockApp::beginControllers() {
     _menuController.setSettingsStore(&_settingsStore);
     _display.setMenuBindings(&_menuBindings);
     _display.setRuntimeMode(&_displayMode, &_bellMode);
+    _display.setDriftClock(&_driftClock);
     _display.setTimeFormat(&_timeFormat);
     _display.setDateStyle(&_activeDateStyle);
     _display.setGuestWifiController(&_guestWifi);
@@ -387,6 +388,11 @@ void ClockApp::updateBellSchedule() {
     int h = 0, m = 0, s = 0;
     bool timeValid = getCurrentClockTime(h, m, s);
     ClockTime time{h, m, s};
+    if (timeValid && _displayMode == DisplayMode::Drift) {
+        unsigned long nowMs = millis();
+        _driftClock.update(time, nowMs);
+        time = _driftClock.displayTime(time, nowMs);
+    }
     bool muteAutomatic = _nightModeController.shouldMuteAutomaticBell(time);
     _bellController.update(time, timeValid, _bellMode,
                            _timerController.isCountdownExpired(),

@@ -7,6 +7,7 @@
 
 #include "AppSettings.h"
 #include "BellController.h"
+#include "DriftClock.h"
 #include "MenuBindings.h"
 #include "MenuController.h"
 #include "MenuConfig.h"
@@ -133,6 +134,7 @@ private:
     WiFiManagerLite  _wifiManager;
     WiFiSync         _wifiSync;
     GuestWifiController _guestWifi;
+    DriftClock       _driftClock;
     Display          _display;
     NightModeController _nightModeController;
 

@@ -10,6 +10,7 @@
 #include "fonts.h"
 
 class ClockRenderer;
+class DriftClock;
 class MenuRenderer;
 class SettingsStore;
 class TimeProvider;
@@ -48,6 +49,7 @@ public:
     // Display can read the live display mode without a global.
     void setMenuBindings(void* bindings);
     void setRuntimeMode(DisplayMode* displayMode, BellMode* bellMode);
+    void setDriftClock(DriftClock* driftClock);
     void setTimeFormat(TimeFormat* timeFormat);
     void setDateStyle(DateStyle* dateStyle);
     void* getMenuBindings() const { return _menuBindings; }
@@ -120,6 +122,7 @@ private:
     void* _menuBindings = nullptr;
     DisplayMode* _displayMode = nullptr;
     BellMode* _bellMode = nullptr;
+    DriftClock* _driftClock = nullptr;
     TimeFormat* _timeFormat = nullptr;
     DateStyle* _dateStyle = nullptr;
 

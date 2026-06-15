@@ -82,12 +82,27 @@
 // DRIFT display tuning
 // ---------------------------------------------------------------------------
 
-#define DRIFT_MIN_VISIBLE_HOLD_SECONDS              35                                  // Minimum time one displayed minute may stay visible
-#define DRIFT_MAX_VISIBLE_HOLD_SECONDS              110                                 // Maximum time one displayed minute may stay visible
-#define DRIFT_MAX_ERROR_MINUTES                     2                                   // Maximum allowed displayed-vs-real error in minutes
-#define DRIFT_MAX_JUMP_MINUTES                      2                                   // Maximum forward jump size when correction happens
-#define DRIFT_JUMP_PROBABILITY_PERCENT              35                                  // Chance of making a jump when correction is needed
-#define DRIFT_SHOW_APPROX_MARKER                    1                                   // 1 = show a small approximation marker when DRIFT is not exact
+#define DRIFT_MAX_OFFSET_MINUTES                    30                                  // Maximum allowed displayed-vs-real offset in either direction
+
+#define DRIFT_HOLD_MIN_SECONDS                      45                                  // Shortest normal time one displayed minute may remain visible
+#define DRIFT_HOLD_MAX_SECONDS                      240                                 // Longest normal time one displayed minute may remain visible
+#define DRIFT_LONG_HOLD_CHANCE_PERCENT              25                                  // Chance that a hold becomes unusually long
+#define DRIFT_LONG_HOLD_MULTIPLIER                  4                                   // Multiplier for unusually long holds
+#define DRIFT_ANCHOR_HOLD_MULTIPLIER                2                                   // Multiplier when DRIFT lands on important displayed minutes
+#define DRIFT_FULL_HOUR_ANCHOR_MULTIPLIER           3                                   // Multiplier when DRIFT lands on displayed minute 00
+
+#define DRIFT_FAST_STEP_SECONDS                     8                                   // Delay between quick displayed-minute changes during a rush
+#define DRIFT_FAST_STEP_COUNT_MAX                   6                                   // Maximum number of fast displayed-minute changes in one rush
+
+#define DRIFT_JUMP_CHANCE_PERCENT                   18                                  // Chance that a movement jumps by multiple displayed minutes
+#define DRIFT_JUMP_MAX_MINUTES                      5                                   // Maximum size of one displayed-minute jump
+#define DRIFT_BELL_GRAVITY_CHANCE_PERCENT           35                                  // Chance that a normal jump is pulled toward displayed 00 or 30
+
+#define DRIFT_REALTIME_PULL_PERCENT                 60                                  // Chance that movement pulls displayed time closer to real time
+
+#define DRIFT_SEPARATOR_BASE_SPREAD_PIXELS          1                                   // Extra separator spacing in DRIFT compared to BIG
+#define DRIFT_SEPARATOR_WIDE_AFTER_MINUTES          10                                  // Offset where separator spacing becomes more exaggerated
+#define DRIFT_SEPARATOR_WIDE_EXTRA_PIXELS           2                                   // Additional separator spread when far from real time
 
 // ---------------------------------------------------------------------------
 // WiFi reconnection backoff (used by WiFiManagerLite)

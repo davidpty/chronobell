@@ -22,7 +22,7 @@ public:
     // Top-level time-rendering entry points used by Display::showTime().
     void drawTime(int hours, int minutes, int seconds);
     void drawBigTime(int hours, int minutes, int seconds);
-    void drawDriftTime(int hours, int minutes, int seconds);
+    void drawDriftTime(int hours, int minutes, int seconds, int offsetMinutes);
     void drawWordTime(int hours, int minutes);
     void drawRomanTime(int hours, int minutes);
     void drawBinaryTime(int hours, int minutes, int seconds);
@@ -45,8 +45,7 @@ private:
     void drawBigTimeDigit(uint8_t digit, int x, int y);
     void drawSeparator(int x, int y, int seconds);
     void drawBigSeparator(int x, int y, int seconds);
-    void drawDriftSeparator(int x, int y, int seconds);
-    void drawDriftApproxMarker(int x, int y);
+    void drawDriftSeparator(int x, int y, int seconds, int offsetMinutes);
     void drawSecDigit(uint8_t digit, int x, int y);
     int textWidth(const char* s, int cellW, int letterSpacing, int wordGap) const;
     void drawText(const char* s, int x, int y, bool small, int letterSpacing, int wordGap);
@@ -77,24 +76,12 @@ private:
     static const char* getWesternZodiacElement(const char* sign);
     static const char* getChineseZodiacAnimal(int year);
     static const char* getChineseZodiacElement(int year);
-    void resetDriftState();
-    void updateDriftState(int exactHours, int exactMinutes, unsigned long nowMs);
-    int minuteOfDay(int hours, int minutes) const;
-    int signedMinuteDelta(int fromMinute, int toMinute) const;
-    int wrapMinuteOfDay(int minute) const;
-    static int driftRandomRange(int minValue, int maxValue);
-    static int driftHoldMsForLag(int lagMinutes);
-    static int driftStepMinutes(int lagMinutes);
-    void drawBigTimeInternal(int hours, int minutes, int seconds, bool driftMode, bool showApproxMarker);
+    void drawBigTimeInternal(int hours, int minutes, int seconds, bool driftMode, int offsetMinutes);
 
     Display* _display = nullptr;
     TimeProvider* _timeProvider = nullptr;
     TimeFormat* _timeFormat = nullptr;
     bool _driftStyleActive = false;
-    bool _driftInitialized = false;
-    int _driftDisplayedMinute = 0;
-    unsigned long _driftHoldStartedMs = 0;
-    unsigned long _driftHoldDurationMs = 0;
 };
 
 #endif // CLOCK_RENDERER_H
