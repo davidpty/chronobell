@@ -8,7 +8,7 @@ An ESP32-powered LED matrix clock with capacitive touch, a ship's bell, 9 displa
 
 **A bell that rings like a ship's clock** - Traditional 1-8 strike pattern from nautical tradition, plus six other modes: off, single ding, hour count, half-hour, pair, and triple. You can preview each one live in the menu before you pick it.
 
-**9 display styles + 5 date views** - Big digits, seconds, deciseconds, date overlay, word clock, Roman numerals, binary, DRIFT, or a random one each day. DRIFT is the uncanny one: it uses the big digital layout, but time can hold, rush, jump, move backward, and chime from the displayed time instead of the real one. Date extras include moon phase, ISO year/week, Western zodiac, and Chinese zodiac. Tap to peek at any view.
+**9 display styles + 5 date views** - Big digits, seconds, deciseconds, date overlay, word clock, roman numerals, binary, drift, or a random one each day. drift is the uncanny one: it uses the big digital layout, but time can hold, rush, jump, move backward, and chime from the displayed time instead of the real one. Date extras include moon phase, ISO year/week, Western zodiac, and Chinese zodiac. Tap to peek at any view.
 
 **Guest WiFi on screen** - Fetches a guest network password at boot and shows it on the clock. No phone needed. Good for lobbies, cafes, offices.
 
@@ -38,23 +38,35 @@ ChronoBell has nine clock display modes. The menu label is short because the scr
 
 | Style | Menu | What it shows |
 |-------|------|---------------|
-| Random | RND | Picks one concrete clock style each day |
+| Random | RND | Picks one concrete style each day from BIG, SEC, DECI, DATE, WORD, ROMA, BIN, or DRIFT |
 | Big | BIG | Large HH:MM digits, optimized for readability |
-| Seconds | SEC | Big time with a seconds readout |
-| Deciseconds | DECI | Big time with a fast fractional-second readout |
-| Date overlay | DATE | Time plus the active date view |
-| Word clock | WORD | A compact phrase-style clock |
-| Roman | ROMA | Roman-numeral-inspired time display |
-| Binary | BIN | Binary hour/minute/second display |
-| Drift | DRIFT | Big digits with unstable, elastic, intentionally questionable time |
+| Seconds | SEC | BIG layout with a seconds readout underneath |
+| Deciseconds | DECI | BIG layout with seconds plus a live tenths digit underneath |
+| Date overlay | DATE | Time on top with the selected date view underneath |
+| Word clock | WORD | A compact phrase-style clock such as "TWENTY TO THREE" |
+| Roman | ROMA | Roman-numeral-style hours and minutes |
+| Binary | BIN | Binary hour, minute, and second rows |
+| Drift | DRIFT | BIG-style digits with intentionally unstable displayed time |
 
-### DRIFT mode
+### Date Views
 
-DRIFT keeps the same large digital number font as BIG, but it does not promise exact precision. It tracks its own displayed time, which may be ahead of or behind real time by up to 30 minutes. A minute can linger for several real minutes, then the clock may rush through several displayed minutes, jump, or even move backward.
+The DATE clock style and the standalone date screen use the same five date views:
 
-The digits stay readable and unchanged. Only the separator dots are visually stretched: they are always farther apart than BIG mode, and they stretch more when DRIFT is far from real time.
+| Style | Menu | What it shows |
+|-------|------|---------------|
+| Date | DATE | Weekday and month/day |
+| Year | YEAR | Calendar year and day of year |
+| Moon | MOON | Lunar phase state plus the next full/new moon countdown |
+| Western zodiac | ZOD | Western zodiac sign plus element |
+| Chinese zodiac | CZOD | Chinese zodiac animal plus element |
 
-In DRIFT mode, the bell follows the displayed DRIFT time. If DRIFT shows `15:00` while real time is `14:42`, the 15:00 bell behavior happens when DRIFT displays `15:00`. Held bell minutes do not repeatedly chime.
+### Drift mode
+
+Drift keeps the same large digital number font as BIG, but it does not promise exact precision. It tracks its own displayed time, which may be ahead of or behind real time by up to 30 minutes. A minute can linger for several real minutes, then the clock may rush through several displayed minutes, jump, or even move backward.
+
+The digits stay readable and unchanged. Only the separator dots are visually stretched: they are always farther apart than BIG mode, and they stretch more when drift is far from real time.
+
+In drift mode, the bell follows the displayed drift time. If drift shows `15:00` while real time is `14:42`, the 15:00 bell behavior happens when drift displays `15:00`. Held bell minutes do not repeatedly chime.
 
 ---
 
@@ -65,12 +77,12 @@ The bell can be off, simple, clock-like, or nautical. Scroll through BELL in the
 | Mode | Menu | What it does |
 |------|------|--------------|
 | Off | OFF | No scheduled bell |
-| Single ding | DING | One strike on the hour |
-| Hour count | HOUR | Strikes the 12-hour count on the hour |
-| Half-hour | HALF | Hour count on the hour, one strike on the half-hour |
-| Pair | PAIR | Hour count grouped in pairs |
-| Triple | TRIP | Hour count grouped in threes |
-| Ship's bell | SHIP | Traditional ship's clock pattern from 1 to 8 strikes across four-hour watches |
+| Single ding | DING | One strike on the hour only |
+| Hour count | HOUR | Rings the 12-hour count on the hour, from 1 to 12 strikes |
+| Half-hour | HALF | Rings the hour count on the hour, plus one strike at :30 |
+| Pair | PAIR | Rings the hour count in groups of two with a short pause between pairs |
+| Triple | TRIP | Rings the hour count in groups of three with a short pause between groups |
+| Ship's bell | SHIP | Traditional ship's clock pattern: 1 to 8 strikes across the four-hour watches, with the half-hour counted in the sequence |
 
 Timer alerts are separate from scheduled bell modes: when a countdown expires, ChronoBell plays its alert pattern even if the display is not in a clock style.
 
@@ -121,7 +133,7 @@ When night mode turns the display off, any touch wakes it for a minute.
 
 | Item | Choices | What it sets |
 |------|---------|-------------|
-| STYLE | RND / BIG / SEC / DECI / DATE / WORD / ROMA / BIN / DRIFT | Clock style; DRIFT is the uncanny artistic mode |
+| STYLE | RND / BIG / SEC / DECI / DATE / WORD / ROMA / BIN / drift | Clock style; drift is the uncanny artistic mode |
 | DATE | DATE / YEAR / MOON / ZOD / CZOD | Extra info shown in the date view |
 | FORMAT | 24H / 12H | 24-hour or AM/PM |
 | NIGHT | OFF / LOW / LOWM / DARK / DRKM / MUTE | Dim, mute, or turn off the display and bell on a schedule |
