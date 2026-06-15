@@ -534,6 +534,7 @@ void TimerController::expireCountdown(uint32_t now) {
     _countdownAlertReturnView = (_view == TimerView::Countdown)
         ? TimerView::Countdown
         : TimerView::Clock;
+    _view = TimerView::Countdown;
     _countdownAlertStartedMs = now;
     _countdownLastAlertMs = 0;
     _countdownAlertBellWasBusy = false;

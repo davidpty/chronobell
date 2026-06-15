@@ -612,6 +612,10 @@ void ClockApp::onTouchLeft(uint8_t pad) {
         return;
     }
     _nightModeController.noteUserActivity();
+    if (_timerController.isCountdownExpired()) {
+        _timerController.onLeft();
+        return;
+    }
     if (_timerController.isDateView()) {
         cycleTemporaryDateStyle(-1);
         return;
