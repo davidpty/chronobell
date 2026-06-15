@@ -327,7 +327,7 @@ void ConfigPortal::handleRoot() {
                 <div class="setting-label">Bell</div>
                 <select id="bellmode" onchange="applySetting('bellmode', this.value)">
                     <option value="0" selected>SILENT - No bell</option>
-                    <option value="1">HOURLY - One bell each hour</option>
+                    <option value="1">HOUR - One bell each hour</option>
                     <option value="2">STRIKE - Hour count strikes</option>
                     <option value="3">STRIKE+HALF - Hour + half-hour strikes</option>
                     <option value="4">PAIRS - Strikes in pairs</option>

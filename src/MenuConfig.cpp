@@ -82,7 +82,7 @@ const uint8_t MENU_ITEM_COUNT = sizeof(MENU_ITEMS) / sizeof(MENU_ITEMS[0]);
 
 const char* bellValueName(int16_t value) {
     static const char* const NAMES[] = {
-        "OFF", "HOURLY", "STRIKE", "HALF", "PAIRS", "TRIPLES", "SHIP", nullptr
+        "OFF", "HOUR", "STRIKE", "HALF", "PAIRS", "TRIPLES", "SHIP", nullptr
     };
     for (uint8_t i = 0; NAMES[i]; i++) {
         if ((int16_t)i == value) return NAMES[i];
