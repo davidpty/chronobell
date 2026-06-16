@@ -103,10 +103,17 @@
 //       in one burst. The clock that keeps falling asleep.
 #define DRIFT_PERSONALITY                           2
 
-// 0 = separator colon fixed at 3px (no visual tell — looks normal always).
-// 1 = colon spread widens with offset: 3px near correct, 4px building, 5px far.
-//     Gives an insider a subtle glanceable cue of how far the clock has drifted.
+// 0 = separator colon always at NEAR gap (subtle tell that drift is active).
+// 1 = gap widens with offset: NEAR → MID → FAR.
+//     Gives an insider a glanceable cue of how far the clock has drifted.
 #define DRIFT_SEPARATOR_INDICATOR                   1
+
+// Separator gap values (empty pixels between the two colon dots).
+// BIG mode uses 2. Drift defaults: 3 near, 4 building, 5 far.
+// Set all three to the same value for a fixed gap regardless of offset.
+#define DRIFT_SEP_GAP_NEAR                          3
+#define DRIFT_SEP_GAP_MID                           4
+#define DRIFT_SEP_GAP_FAR                           5
 
 // Rush interval in seconds — how fast the displayed minute ticks during a
 // rush event. Lower values are more noticeable (3–4s = visible if you happen

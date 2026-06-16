@@ -231,7 +231,10 @@ Open `Config.h` to adjust these:
 | `DRIFT_PERSONALITY` | `0` (Creepy) | 0=Creepy, 1=Erratic, 2=Lazy — changes how the clock drifts |
 | `DRIFT_MAX_OFFSET_MINUTES` | `30` | How far displayed time may wander from real time |
 | `DRIFT_START_WITH_OFFSET` | `0` | 1 = random start offset, 0 = start at correct time |
-| `DRIFT_SEPARATOR_INDICATOR` | `1` | 0 = fixed colon, 1 = colon spread widens with offset |
+| `DRIFT_SEPARATOR_INDICATOR` | `1` | 0 = fixed gap, 1 = gap widens with offset |
+| `DRIFT_SEP_GAP_NEAR` | `3` | Gap (empty pixels) when offset < 10% of MAX |
+| `DRIFT_SEP_GAP_MID` | `4` | Gap when offset ≥ 10% of MAX |
+| `DRIFT_SEP_GAP_FAR` | `5` | Gap when offset ≥ 33% of MAX |
 | `DRIFT_RUSH_STEP_SECONDS` | `4` | Rush tick speed — lower = more visible, higher = subtler |
 
 ---
