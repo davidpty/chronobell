@@ -62,11 +62,28 @@ The DATE clock style and the standalone date screen use the same five date views
 
 ### Drift mode
 
-Drift keeps the same large digital number font as BIG, but it does not promise exact precision. It tracks its own displayed time, which may be ahead of or behind real time by up to 30 minutes. A minute can linger for several real minutes, then the clock may rush through several displayed minutes, jump, or even move backward.
+Drift keeps the same large digital number font as BIG, but it does not promise exact
+precision. It tracks its own displayed time, which may be ahead of or behind real time
+by up to N minutes (configurable in `Config.h`). A minute can linger for several real
+minutes, then the clock may rush through several displayed minutes, jump, or even move
+backward — but it always stays subtle enough that a casual glance won't catch it.
 
-The digits stay readable and unchanged. Only the separator dots are visually stretched: they are always farther apart than BIG mode, and they stretch more when drift is far from real time.
+Three **personalities** are selectable in `Config.h`:
 
-In drift mode, the bell follows the displayed drift time. If drift shows `15:00` while real time is `14:42`, the 15:00 bell behavior happens when drift displays `15:00`. Held bell minutes do not repeatedly chime.
+| Personality | How it feels |
+|-------------|-------------|
+| **Creepy** (default) | Strong pull toward correct time — looks accurate most of the time. Occasionally escapes and hangs at max offset before slowly returning. The rare moments of being far off create an uncanny contrast. |
+| **Erratic** | Near-random pull, very short holds, lots of jumps. Never settles — always at some offset, never the same twice. Subtly restless without ever looking obviously wrong. |
+| **Lazy** | Frozen for 5–15 minutes at a time, then catches up in one quick burst. The rest of the time, very strong pull keeps it near correct. Feels like the clock keeps falling asleep. |
+
+The colon separator doubles as a subtle visual cue: when the spread indicator is
+enabled (`Config.h`), the dots get wider as the offset grows — 3px when near correct,
+4px when building, 5px when far. This gives an insider a glanceable read on how far
+the clock has drifted without displaying any numbers.
+
+In drift mode, the bell follows the displayed drift time. If drift shows `15:00` while
+real time is `14:42`, the 15:00 bell behavior happens when drift displays `15:00`.
+Held bell minutes do not repeatedly chime.
 
 ---
 
@@ -211,6 +228,11 @@ Open `Config.h` to adjust these:
 | `GUEST_WIFI_URL` | *(see file)* | Guest WiFi password URL; set to `""` to disable |
 | `TIME_SYNC_INTERVAL_MINUTES` | `60` | How often NTP re-syncs |
 | `HOTSPOT_TIMEOUT_MINUTES` | `0` | Auto-stop hotspot after N minutes (`0` = stays on) |
+| `DRIFT_PERSONALITY` | `0` (Creepy) | 0=Creepy, 1=Erratic, 2=Lazy — changes how the clock drifts |
+| `DRIFT_MAX_OFFSET_MINUTES` | `30` | How far displayed time may wander from real time |
+| `DRIFT_START_WITH_OFFSET` | `0` | 1 = random start offset, 0 = start at correct time |
+| `DRIFT_SEPARATOR_INDICATOR` | `1` | 0 = fixed colon, 1 = colon spread widens with offset |
+| `DRIFT_RUSH_STEP_SECONDS` | `4` | Rush tick speed — lower = more visible, higher = subtler |
 
 ---
 

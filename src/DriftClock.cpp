@@ -7,6 +7,35 @@
 namespace {
 static constexpr int MINUTES_PER_DAY = 24 * 60;
 static constexpr unsigned long FRESH_DISPLAYED_MINUTE_MS = 1500UL;
+static constexpr int PULL_NEAR_LIMIT = 4;
+static constexpr int PULL_FAR_LIMIT = 10;
+
+struct DriftPreset {
+    int holdMinSec;
+    int holdMaxSec;
+    int longHoldChance;
+    int longHoldMultiplier;
+    int anchorMultiplier;
+    int fullHourMultiplier;
+    int fastStepCountMax;
+    int jumpChance;
+    int jumpMaxMinutes;
+    int gravityChance;
+    int pullNear;
+    int pullMid;
+    int pullFar;
+};
+
+static const DriftPreset gPresets[] = {
+    // Creepy  — 65/50/35 pull, moderate jumps/holds
+    { 30, 240, 25, 4, 2, 3, 6, 18, 5, 35, 65, 50, 35 },
+    // Erratic — 50/40/25 pull, high jump/gravity
+    { 10, 120, 35, 3, 2, 3, 10, 35, 10, 50, 50, 40, 25 },
+    // Lazy    — 75/60/50 pull, long holds, rare big jumps
+    { 300, 900, 60, 5, 2, 3, 12, 5, 15, 25, 75, 60, 50 },
+};
+
+static const DriftPreset& gP = gPresets[DRIFT_PERSONALITY];
 }
 
 void DriftClock::update(const ClockTime& realTime, unsigned long nowMs) {
@@ -39,7 +68,7 @@ void DriftClock::update(const ClockTime& realTime, unsigned long nowMs) {
             _phase = Phase::Hold;
             scheduleHold(nowMs);
         } else {
-            _nextRushStepMs = nowMs + (unsigned long)DRIFT_FAST_STEP_SECONDS * 1000UL;
+            _nextRushStepMs = nowMs + (unsigned long)DRIFT_RUSH_STEP_SECONDS * 1000UL;
         }
         return;
     }
@@ -56,7 +85,7 @@ void DriftClock::reset(const ClockTime& realTime, unsigned long nowMs) {
 }
 
 void DriftClock::activate(const ClockTime& realTime, unsigned long nowMs) {
-    initialize(realTime, nowMs, DRIFT_START_WITH_RANDOM_OFFSET);
+    initialize(realTime, nowMs, DRIFT_START_WITH_OFFSET);
 }
 
 void DriftClock::initialize(const ClockTime& realTime, unsigned long nowMs, bool randomizeStart) {
@@ -95,13 +124,13 @@ bool DriftClock::displayedMinuteFresh(unsigned long nowMs) const {
 }
 
 void DriftClock::scheduleHold(unsigned long nowMs, int landedMinute) {
-    int minHold = clampInt(DRIFT_HOLD_MIN_SECONDS, 1, 3600);
-    int maxHold = clampInt(DRIFT_HOLD_MAX_SECONDS, minHold, 3600);
+    int minHold = clampInt(gP.holdMinSec, 1, 3600);
+    int maxHold = clampInt(gP.holdMaxSec, minHold, 3600);
     unsigned long holdMs = (unsigned long)randomRange(minHold, maxHold) * 1000UL;
 
-    int longHoldChance = clampInt(DRIFT_LONG_HOLD_CHANCE_PERCENT, 0, 100);
+    int longHoldChance = clampInt(gP.longHoldChance, 0, 100);
     if (longHoldChance > 0 && (int)(esp_random() % 100U) < longHoldChance) {
-        int multiplier = clampInt(DRIFT_LONG_HOLD_MULTIPLIER, 1, 24);
+        int multiplier = clampInt(gP.longHoldMultiplier, 1, 24);
         holdMs *= (unsigned long)multiplier;
     }
 
@@ -115,7 +144,7 @@ void DriftClock::scheduleHold(unsigned long nowMs, int landedMinute) {
 }
 
 void DriftClock::startRush(const ClockTime& realTime, unsigned long nowMs) {
-    int maxSteps = clampInt(DRIFT_FAST_STEP_COUNT_MAX, 1, 30);
+    int maxSteps = clampInt(gP.fastStepCountMax, 1, 30);
     _phase = Phase::Rush;
     _rushStepsRemaining = (uint8_t)randomRange(1, maxSteps);
     moveDisplayedMinute(realTime, false, nowMs);
@@ -127,7 +156,7 @@ void DriftClock::startRush(const ClockTime& realTime, unsigned long nowMs) {
         _phase = Phase::Hold;
         scheduleHold(nowMs, _displayedMinute);
     } else {
-        _nextRushStepMs = nowMs + (unsigned long)DRIFT_FAST_STEP_SECONDS * 1000UL;
+        _nextRushStepMs = nowMs + (unsigned long)DRIFT_RUSH_STEP_SECONDS * 1000UL;
     }
 }
 
@@ -157,8 +186,16 @@ void DriftClock::moveDisplayedMinute(const ClockTime& realTime, bool allowJump, 
     int offset = signedMinuteDelta(_displayedMinute, realMinute);
     int maxOffset = clampInt(DRIFT_MAX_OFFSET_MINUTES, 1, 12 * 60);
 
-    int pullChance = clampInt(DRIFT_REALTIME_PULL_PERCENT, 0, 100);
-    bool pullTowardReal = (int)(esp_random() % 100U) < pullChance;
+    int absOff = offset < 0 ? -offset : offset;
+    int pullPct;
+    if (absOff < PULL_NEAR_LIMIT) {
+        pullPct = clampInt(gP.pullNear, 0, 100);
+    } else if (absOff < PULL_FAR_LIMIT) {
+        pullPct = clampInt(gP.pullMid, 0, 100);
+    } else {
+        pullPct = clampInt(gP.pullFar, 0, 100);
+    }
+    bool pullTowardReal = (int)(esp_random() % 100U) < pullPct;
     if (offset >= maxOffset) {
         pullTowardReal = true;
     } else if (offset <= -maxOffset) {
@@ -179,9 +216,9 @@ void DriftClock::moveDisplayedMinute(const ClockTime& realTime, bool allowJump, 
     }
 
     int step = 1;
-    int jumpChance = clampInt(DRIFT_JUMP_CHANCE_PERCENT, 0, 100);
-    int maxJump = clampInt(DRIFT_JUMP_MAX_MINUTES, 1, maxOffset);
-    int gravityChance = clampInt(DRIFT_BELL_GRAVITY_CHANCE_PERCENT, 0, 100);
+    int jumpChance = clampInt(gP.jumpChance, 0, 100);
+    int maxJump = clampInt(gP.jumpMaxMinutes, 1, maxOffset);
+    int gravityChance = clampInt(gP.gravityChance, 0, 100);
     bool gravityApplied = false;
     if (allowJump && maxJump > 1 && gravityChance > 0 &&
         (int)(esp_random() % 100U) < gravityChance) {
@@ -263,7 +300,7 @@ int DriftClock::anchorHoldMultiplier(int displayedMinute) {
         return 1;
     }
     int minute = wrapMinuteOfDay(displayedMinute) % 60;
-    return minute == 0 ? DRIFT_FULL_HOUR_ANCHOR_MULTIPLIER : DRIFT_ANCHOR_HOLD_MULTIPLIER;
+    return minute == 0 ? gP.fullHourMultiplier : gP.anchorMultiplier;
 }
 
 int DriftClock::randomStartOffsetMinutes() {

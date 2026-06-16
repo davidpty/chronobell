@@ -82,28 +82,37 @@
 // DRIFT display tuning
 // ---------------------------------------------------------------------------
 
-#define DRIFT_MAX_OFFSET_MINUTES                    30                                  // Maximum allowed displayed-vs-real offset in either direction
-#define DRIFT_START_WITH_RANDOM_OFFSET              0                                   // Set to 0 to start Drift at correct time (no initial offset)
+// Maximum offset (in minutes) the displayed time is allowed to drift away from
+// real time in either direction. The separator spread scales automatically with
+// this value, so changing it keeps the visual indicator meaningful.
+#define DRIFT_MAX_OFFSET_MINUTES                    30
 
-#define DRIFT_SEPARATOR_BASE_SPREAD_PIXELS          2                                   // Extra separator spacing in DRIFT compared to BIG
-#define DRIFT_SEPARATOR_WIDE_AFTER_MINUTES          10                                  // Offset where separator spacing becomes more exaggerated
-#define DRIFT_SEPARATOR_WIDE_EXTRA_PIXELS           1                                   // Additional separator spread when far from real time
+// 1 = enter Drift mode with a random initial offset.
+// 0 = start at the correct time and let it drift naturally from there.
+#define DRIFT_START_WITH_OFFSET                     0
 
-#define DRIFT_HOLD_MIN_SECONDS                      30                                  // Shortest normal time one displayed minute may remain visible
-#define DRIFT_HOLD_MAX_SECONDS                      240                                 // Longest normal time one displayed minute may remain visible
-#define DRIFT_LONG_HOLD_CHANCE_PERCENT              25                                  // Chance that a hold becomes unusually long
-#define DRIFT_LONG_HOLD_MULTIPLIER                  4                                   // Multiplier for unusually long holds
-#define DRIFT_ANCHOR_HOLD_MULTIPLIER                2                                   // Multiplier when DRIFT lands on important displayed minutes
-#define DRIFT_FULL_HOUR_ANCHOR_MULTIPLIER           3                                   // Multiplier when DRIFT lands on displayed minute 00
+// Clock personality when in Drift mode (rush step is set separately above):
+//   0 = Creepy — very stable near correct time (65% pull), holds are moderate,
+//       rarely escapes to max offset. When it does, it hangs at the boundary
+//       before slowly returning. Most of the time the clock looks correct.
+//   1 = Erratic — near-random pull (50/40/25), short holds, high jump chance.
+//       Never settles — always at some offset, never the same two glances in a
+//       row. Feels subtly restless without ever looking obviously wrong.
+//   2 = Lazy — very strong pull (75%) keeps it near zero, but holds are 5–15
+//       minutes long. Spends most of its time frozen, then suddenly catches up
+//       in one burst. The clock that keeps falling asleep.
+#define DRIFT_PERSONALITY                           2
 
-#define DRIFT_FAST_STEP_SECONDS                     8                                   // Delay between quick displayed-minute changes during a rush
-#define DRIFT_FAST_STEP_COUNT_MAX                   6                                   // Maximum number of fast displayed-minute changes in one rush
+// 0 = separator colon fixed at 3px (no visual tell — looks normal always).
+// 1 = colon spread widens with offset: 3px near correct, 4px building, 5px far.
+//     Gives an insider a subtle glanceable cue of how far the clock has drifted.
+#define DRIFT_SEPARATOR_INDICATOR                   1
 
-#define DRIFT_JUMP_CHANCE_PERCENT                   18                                  // Chance that a movement jumps by multiple displayed minutes
-#define DRIFT_JUMP_MAX_MINUTES                      5                                   // Maximum size of one displayed-minute jump
-#define DRIFT_BELL_GRAVITY_CHANCE_PERCENT           35                                  // Chance that a normal jump is pulled toward displayed 00 or 30
-
-#define DRIFT_REALTIME_PULL_PERCENT                 60                                  // Chance that movement pulls displayed time closer to real time
+// Rush interval in seconds — how fast the displayed minute ticks during a
+// rush event. Lower values are more noticeable (3–4s = visible if you happen
+// to be looking), higher values are subtler (15–30s = invisible without a
+// reference). The personality presets are tuned for the default value below.
+#define DRIFT_RUSH_STEP_SECONDS                     15
 
 // ---------------------------------------------------------------------------
 // WiFi reconnection backoff (used by WiFiManagerLite)
