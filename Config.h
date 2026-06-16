@@ -111,7 +111,7 @@
 // Separator gap values (empty pixels between the two colon dots).
 // BIG mode uses 2. Drift defaults: 3 near, 4 building, 5 far.
 // Set all three to the same value for a fixed gap regardless of offset.
-#define DRIFT_SEP_GAP_NEAR                          3
+#define DRIFT_SEP_GAP_NEAR                          4
 #define DRIFT_SEP_GAP_MID                           4
 #define DRIFT_SEP_GAP_FAR                           5
 
