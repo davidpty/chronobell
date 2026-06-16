@@ -584,16 +584,17 @@ void ClockRenderer::drawBigTime(int hours, int minutes, int seconds) {
 void ClockRenderer::drawDriftSeparator(int x, int y, int seconds, int offsetMinutes) {
     (void)seconds;
     int absOffset = offsetMinutes < 0 ? -offsetMinutes : offsetMinutes;
-    int gap = DRIFT_SEP_GAP_NEAR;
+    int empty = DRIFT_SEP_GAP_NEAR;
 #if DRIFT_SEPARATOR_INDICATOR
     if (absOffset >= DRIFT_MAX_OFFSET_MINUTES / 3) {
-        gap = DRIFT_SEP_GAP_FAR;
+        empty = DRIFT_SEP_GAP_FAR;
     } else if (absOffset >= DRIFT_MAX_OFFSET_MINUTES / 10) {
-        gap = DRIFT_SEP_GAP_MID;
+        empty = DRIFT_SEP_GAP_MID;
     }
 #endif
-    int topY = y + 7 - (gap / 2);
-    int bottomY = topY + gap;
+    int ctc = empty + 1;
+    int topY = y + 7 - (ctc / 2);
+    int bottomY = topY + ctc;
     if (topY < y) topY = y;
     if (bottomY >= y + TIME_FONT_BIG_HEIGHT) bottomY = y + TIME_FONT_BIG_HEIGHT - 1;
     _display->setPixel(x, topY, true);

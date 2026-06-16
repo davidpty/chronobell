@@ -108,10 +108,13 @@
 //     Gives an insider a glanceable cue of how far the clock has drifted.
 #define DRIFT_SEPARATOR_INDICATOR                   1
 
-// Separator gap values (empty pixels between the two colon dots).
-// BIG mode uses 2. Drift defaults: 3 near, 4 building, 5 far.
+// Separator gap values — number of empty rows between the two colon dots.
+// BIG mode uses 2 empty rows between dots. Drift defaults:
+//   NEAR = 3 (one more than BIG — subtle tell that drift is active)
+//   MID  = 4 (widens when offset reaches the mid zone)
+//   FAR  = 5 (widest when offset is in the far zone)
 // Set all three to the same value for a fixed gap regardless of offset.
-#define DRIFT_SEP_GAP_NEAR                          4
+#define DRIFT_SEP_GAP_NEAR                          3
 #define DRIFT_SEP_GAP_MID                           4
 #define DRIFT_SEP_GAP_FAR                           5
 
