@@ -83,6 +83,7 @@
 // ---------------------------------------------------------------------------
 
 #define DRIFT_MAX_OFFSET_MINUTES                    30                                  // Maximum allowed displayed-vs-real offset in either direction
+#define DRIFT_START_WITH_RANDOM_OFFSET              0                                   // Set to 0 to start Drift at correct time (no initial offset)
 
 #define DRIFT_SEPARATOR_BASE_SPREAD_PIXELS          2                                   // Extra separator spacing in DRIFT compared to BIG
 #define DRIFT_SEPARATOR_WIDE_AFTER_MINUTES          10                                  // Offset where separator spacing becomes more exaggerated

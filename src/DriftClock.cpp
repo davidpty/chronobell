@@ -56,7 +56,7 @@ void DriftClock::reset(const ClockTime& realTime, unsigned long nowMs) {
 }
 
 void DriftClock::activate(const ClockTime& realTime, unsigned long nowMs) {
-    initialize(realTime, nowMs, true);
+    initialize(realTime, nowMs, DRIFT_START_WITH_RANDOM_OFFSET);
 }
 
 void DriftClock::initialize(const ClockTime& realTime, unsigned long nowMs, bool randomizeStart) {
