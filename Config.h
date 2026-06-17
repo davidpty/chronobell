@@ -82,7 +82,7 @@
 // DRIFT display tuning
 // ---------------------------------------------------------------------------
 
-#define DRIFT_MAX_OFFSET_MINUTES                    120                                  // Maximum displayed-time offset from real time, in minutes
+#define DRIFT_MAX_OFFSET_MINUTES                    12                                  // Maximum displayed-time offset from real time, in minutes
 #define DRIFT_DIRECTION                             0                                   // 0 = slow first / behind, 1 = fast first / ahead
 #define DRIFT_PHASE_MINUTES                         60                                  // Real minutes to drift out to the maximum offset, and to return
 #define DRIFT_JITTER_PERCENT                        8                                   // Smooth tempo wave around the base Drift rate, as +/- percent
