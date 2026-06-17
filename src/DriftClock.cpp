@@ -7,35 +7,30 @@
 namespace {
 static constexpr int MINUTES_PER_DAY = 24 * 60;
 static constexpr unsigned long FRESH_DISPLAYED_MINUTE_MS = 1500UL;
-static constexpr int PULL_NEAR_LIMIT = 4;
-static constexpr int PULL_FAR_LIMIT = 10;
 
 struct DriftPreset {
     int holdMinSec;
     int holdMaxSec;
-    int longHoldChance;
-    int longHoldMultiplier;
-    int anchorMultiplier;
-    int fullHourMultiplier;
-    int fastStepCountMax;
-    int jumpChance;
-    int jumpMaxMinutes;
-    int gravityChance;
-    int pullNear;
-    int pullMid;
-    int pullFar;
+    uint8_t nudgeChance;
+    uint8_t doubleStepChance;
+    uint8_t catchUpChance;
+    uint8_t anchorChance;
 };
 
 static const DriftPreset gPresets[] = {
-    // Creepy  — 65/50/35 pull, moderate jumps/holds
-    { 30, 240, 25, 4, 2, 3, 6, 18, 5, 35, 65, 50, 35 },
-    // Erratic — 50/40/25 pull, high jump/gravity
-    { 10, 120, 35, 3, 2, 3, 10, 35, 10, 50, 50, 40, 25 },
-    // Lazy    — 75/60/50 pull, long holds, rare big jumps
-    { 300, 900, 60, 5, 2, 3, 12, 5, 15, 25, 75, 60, 50 },
+    // Wary
+    { 45, 150, 26, 4, 26, 2 },
+    // Restless
+    { 15, 75, 45, 10, 30, 4 },
+    // Haunted
+    { 45, 180, 18, 6, 24, 28 },
+    // Tired
+    { 120, 240, 10, 2, 70, 1 },
 };
 
-static const DriftPreset& gP = gPresets[DRIFT_PERSONALITY];
+static bool elapsed(unsigned long nowMs, unsigned long deadlineMs) {
+    return (int32_t)(nowMs - deadlineMs) >= 0;
+}
 }
 
 void DriftClock::update(const ClockTime& realTime, unsigned long nowMs) {
@@ -52,28 +47,20 @@ void DriftClock::update(const ClockTime& realTime, unsigned long nowMs) {
     }
     _lastRealMinute = realMinute;
 
-    clampToRealTime(realTime, nowMs);
+    enforceStillnessCap(realTime, nowMs);
 
-    if (_phase == Phase::Rush) {
-        if ((int32_t)(nowMs - _nextRushStepMs) < 0) {
-            return;
-        }
-
-        moveDisplayedMinute(realTime, false, nowMs);
-        if (_rushStepsRemaining > 0) {
-            _rushStepsRemaining--;
-        }
-
-        if (_rushStepsRemaining == 0) {
-            _phase = Phase::Hold;
-            scheduleHold(nowMs);
-        } else {
-            _nextRushStepMs = nowMs + (unsigned long)DRIFT_RUSH_STEP_SECONDS * 1000UL;
-        }
+    if (offsetMinutes(realTime) <= -maxOffsetMinutes()) {
+        startCatchUp(realTime, nowMs);
+        processCatchUp(realTime, nowMs);
         return;
     }
 
-    if ((int32_t)(nowMs - _holdUntilMs) < 0) {
+    if (_phase == Phase::CatchUp) {
+        processCatchUp(realTime, nowMs);
+        return;
+    }
+
+    if (!elapsed(nowMs, _eventDeadlineMs)) {
         return;
     }
 
@@ -91,24 +78,26 @@ void DriftClock::activate(const ClockTime& realTime, unsigned long nowMs) {
 void DriftClock::initialize(const ClockTime& realTime, unsigned long nowMs, bool randomizeStart) {
     int realMinute = minuteOfDay(realTime);
     int startOffset = randomizeStart ? randomStartOffsetMinutes() : 0;
+
     _initialized = true;
     _phase = Phase::Hold;
     _displayedMinute = wrapMinuteOfDay(realMinute + startOffset);
     _lastRealMinute = realMinute;
-    _rushStepsRemaining = 0;
-    _nextRushStepMs = 0;
+    _targetOffset = startOffset;
+    _catchUpStepsRemaining = 0;
+    _nextCatchUpStepMs = 0;
     _lastDisplayChangeMs = nowMs;
-    scheduleHold(nowMs, randomizeStart ? _displayedMinute : -1);
+    scheduleEvent(realTime, nowMs);
 }
 
 ClockTime DriftClock::displayTime(const ClockTime& realTime, unsigned long nowMs) const {
-    (void)realTime;
+    (void)nowMs;
     ClockTime time;
     int displayedMinute = _initialized ? _displayedMinute : minuteOfDay(realTime);
     displayedMinute = wrapMinuteOfDay(displayedMinute);
     time.hours = displayedMinute / 60;
     time.minutes = displayedMinute % 60;
-    time.seconds = displayedMinuteFresh(nowMs) ? 0 : 2;
+    time.seconds = 0;
     return time;
 }
 
@@ -123,141 +112,153 @@ bool DriftClock::displayedMinuteFresh(unsigned long nowMs) const {
     return _initialized && (nowMs - _lastDisplayChangeMs) <= FRESH_DISPLAYED_MINUTE_MS;
 }
 
-void DriftClock::scheduleHold(unsigned long nowMs, int landedMinute) {
-    int minHold = clampInt(gP.holdMinSec, 1, 3600);
-    int maxHold = clampInt(gP.holdMaxSec, minHold, 3600);
-    unsigned long holdMs = (unsigned long)randomRange(minHold, maxHold) * 1000UL;
-
-    int longHoldChance = clampInt(gP.longHoldChance, 0, 100);
-    if (longHoldChance > 0 && (int)(esp_random() % 100U) < longHoldChance) {
-        int multiplier = clampInt(gP.longHoldMultiplier, 1, 24);
-        holdMs *= (unsigned long)multiplier;
+unsigned long DriftClock::separatorBlinkHalfPeriodMs(unsigned long nowMs) const {
+    (void)nowMs;
+    unsigned long displayedMinuteDurationMs = 60UL * 1000UL;
+    if (_initialized && _phase == Phase::CatchUp) {
+        displayedMinuteDurationMs = (unsigned long)clampInt(DRIFT_CATCHUP_STEP_SECONDS, 1, 60) * 1000UL;
+    } else if (_initialized && elapsed(_eventDeadlineMs, _lastDisplayChangeMs)) {
+        displayedMinuteDurationMs = _eventDeadlineMs - _lastDisplayChangeMs;
     }
 
-    int anchorMultiplier = anchorHoldMultiplier(landedMinute);
-    if (anchorMultiplier > 1) {
-        int multiplier = clampInt(anchorMultiplier, 1, 24);
-        holdMs *= (unsigned long)multiplier;
+    unsigned long halfPeriodMs = displayedMinuteDurationMs / 60UL;
+    if (halfPeriodMs == 0) {
+        halfPeriodMs = 1000UL;
     }
-
-    _holdUntilMs = nowMs + holdMs;
+    if (DRIFT_SEPARATOR_BLINK_MIN_MS > 0 && halfPeriodMs < DRIFT_SEPARATOR_BLINK_MIN_MS) {
+        halfPeriodMs = DRIFT_SEPARATOR_BLINK_MIN_MS;
+    }
+    return halfPeriodMs;
 }
 
-void DriftClock::startRush(const ClockTime& realTime, unsigned long nowMs) {
-    int maxSteps = clampInt(gP.fastStepCountMax, 1, 30);
-    _phase = Phase::Rush;
-    _rushStepsRemaining = (uint8_t)randomRange(1, maxSteps);
-    moveDisplayedMinute(realTime, false, nowMs);
-    if (_rushStepsRemaining > 0) {
-        _rushStepsRemaining--;
+void DriftClock::scheduleEvent(const ClockTime& realTime, unsigned long nowMs) {
+    const DriftPreset& preset = gPresets[personality()];
+    int offset = offsetMinutes(realTime);
+    _targetOffset = offset;
+
+    if (offset > 0) {
+        int waitSec = randomRange(preset.holdMinSec, preset.holdMaxSec);
+        scheduleHold(nowMs, (unsigned long)waitSec * 1000UL, Phase::WaitCorrection);
+        return;
     }
 
-    if (_rushStepsRemaining == 0) {
-        _phase = Phase::Hold;
-        scheduleHold(nowMs, _displayedMinute);
-    } else {
-        _nextRushStepMs = nowMs + (unsigned long)DRIFT_RUSH_STEP_SECONDS * 1000UL;
+    int holdSec = randomRange(preset.holdMinSec, preset.holdMaxSec);
+    scheduleHold(nowMs, (unsigned long)holdSec * 1000UL, Phase::Hold);
+}
+
+void DriftClock::scheduleHold(unsigned long nowMs, unsigned long holdMs, Phase phase) {
+    unsigned long maxDeadline = _lastDisplayChangeMs + (unsigned long)maxStillMinutes() * 60UL * 1000UL;
+    unsigned long requestedDeadline = nowMs + holdMs;
+    _phase = phase;
+    _eventDeadlineMs = elapsed(requestedDeadline, maxDeadline) ? maxDeadline : requestedDeadline;
+}
+
+void DriftClock::startCatchUp(const ClockTime& realTime, unsigned long nowMs) {
+    int offset = offsetMinutes(realTime);
+    if (offset >= 0) {
+        scheduleEvent(realTime, nowMs);
+        return;
     }
+
+    int behind = -offset;
+    _phase = Phase::CatchUp;
+    _targetOffset = 0;
+    _catchUpStepsRemaining = (uint8_t)clampInt(behind, 1, maxOffsetMinutes());
+    _nextCatchUpStepMs = nowMs;
 }
 
 void DriftClock::decideNextEvent(const ClockTime& realTime, unsigned long nowMs) {
     int offset = offsetMinutes(realTime);
-    int absOffset = offset < 0 ? -offset : offset;
+    int maxOffset = maxOffsetMinutes();
 
-    bool startFast = absOffset >= 4 && (esp_random() % 100U) < 55U;
-    bool unsettlingRush = absOffset < DRIFT_MAX_OFFSET_MINUTES && (esp_random() % 100U) < 20U;
-    if (startFast || unsettlingRush) {
-        startRush(realTime, nowMs);
-        return;
-    }
-
-    bool extendHold = absOffset < DRIFT_MAX_OFFSET_MINUTES && (esp_random() % 100U) < 30U;
-    if (extendHold) {
-        scheduleHold(nowMs);
-        return;
-    }
-
-    moveDisplayedMinute(realTime, true, nowMs);
-    scheduleHold(nowMs, _displayedMinute);
-}
-
-void DriftClock::moveDisplayedMinute(const ClockTime& realTime, bool allowJump, unsigned long nowMs) {
-    int realMinute = minuteOfDay(realTime);
-    int offset = signedMinuteDelta(_displayedMinute, realMinute);
-    int maxOffset = clampInt(DRIFT_MAX_OFFSET_MINUTES, 1, 12 * 60);
-
-    int absOff = offset < 0 ? -offset : offset;
-    int pullPct;
-    if (absOff < PULL_NEAR_LIMIT) {
-        pullPct = clampInt(gP.pullNear, 0, 100);
-    } else if (absOff < PULL_FAR_LIMIT) {
-        pullPct = clampInt(gP.pullMid, 0, 100);
-    } else {
-        pullPct = clampInt(gP.pullFar, 0, 100);
-    }
-    bool pullTowardReal = (int)(esp_random() % 100U) < pullPct;
-    if (offset >= maxOffset) {
-        pullTowardReal = true;
-    } else if (offset <= -maxOffset) {
-        pullTowardReal = true;
-    }
-
-    int direction = 0;
-    if (pullTowardReal && offset > 0) {
-        direction = -1;
-    } else if (pullTowardReal && offset < 0) {
-        direction = 1;
-    } else if (offset > 0) {
-        direction = 1;
-    } else if (offset < 0) {
-        direction = -1;
-    } else {
-        direction = (esp_random() & 1U) ? 1 : -1;
-    }
-
-    int step = 1;
-    int jumpChance = clampInt(gP.jumpChance, 0, 100);
-    int maxJump = clampInt(gP.jumpMaxMinutes, 1, maxOffset);
-    int gravityChance = clampInt(gP.gravityChance, 0, 100);
-    bool gravityApplied = false;
-    if (allowJump && maxJump > 1 && gravityChance > 0 &&
-        (int)(esp_random() % 100U) < gravityChance) {
-        bool preferForward = (esp_random() & 1U) != 0;
-        for (int distance = 1; distance <= maxJump && !gravityApplied; distance++) {
-            for (uint8_t option = 0; option < 2 && !gravityApplied; option++) {
-                int signedStep = ((option == 0) == preferForward) ? distance : -distance;
-                int candidate = wrapMinuteOfDay(_displayedMinute + signedStep);
-                int candidateMinute = candidate % 60;
-                int candidateOffset = signedMinuteDelta(candidate, realMinute);
-                if ((candidateMinute == 0 || candidateMinute == 30) &&
-                    candidateOffset >= -maxOffset && candidateOffset <= maxOffset) {
-                    direction = signedStep > 0 ? 1 : -1;
-                    step = distance;
-                    gravityApplied = true;
-                }
-            }
+    if (offset < 0) {
+        const DriftPreset& preset = gPresets[personality()];
+        int catchUpChance = preset.catchUpChance;
+        if (personality() == 3 || -offset >= maxOffset / 2 || (int)(esp_random() % 100U) < catchUpChance) {
+            startCatchUp(realTime, nowMs);
+            return;
         }
     }
-    if (!gravityApplied && allowJump && maxJump > 1 && (int)(esp_random() % 100U) < jumpChance) {
-        step = randomRange(2, maxJump);
+
+    if (personality() == 2 && offset < maxOffset) {
+        int anchorStep = distanceToNextAnchor(_displayedMinute, 8);
+        if (anchorStep > 0 && canAdvance(realTime, anchorStep) &&
+            (int)(esp_random() % 100U) < gPresets[personality()].anchorChance) {
+            advanceDisplayed(realTime, nowMs, anchorStep);
+            scheduleHold(nowMs, cappedHoldMs(nowMs, _lastDisplayChangeMs, 35, 95), Phase::AnchorHold);
+            return;
+        }
     }
 
-    int previous = _displayedMinute;
-    _displayedMinute = wrapMinuteOfDay(_displayedMinute + direction * step);
-    clampToRealTime(realTime, nowMs);
-    if (_displayedMinute != previous) {
-        _lastDisplayChangeMs = nowMs;
+    const DriftPreset& preset = gPresets[personality()];
+    int roll = (int)(esp_random() % 100U);
+    if (roll < preset.doubleStepChance && canAdvance(realTime, 2)) {
+        _phase = Phase::DoubleStep;
+        advanceDisplayed(realTime, nowMs, 2);
+        scheduleEvent(realTime, nowMs);
+        return;
+    }
+    if (roll < preset.doubleStepChance + preset.nudgeChance && canAdvance(realTime, 1)) {
+        _phase = Phase::Nudge;
+        advanceDisplayed(realTime, nowMs, 1);
+        scheduleEvent(realTime, nowMs);
+        return;
+    }
+
+    scheduleEvent(realTime, nowMs);
+}
+
+void DriftClock::processCatchUp(const ClockTime& realTime, unsigned long nowMs) {
+    int offset = offsetMinutes(realTime);
+    if (offset >= 0 || _catchUpStepsRemaining == 0) {
+        _catchUpStepsRemaining = 0;
+        scheduleEvent(realTime, nowMs);
+        return;
+    }
+
+    if (!elapsed(nowMs, _nextCatchUpStepMs)) {
+        return;
+    }
+
+    if (advanceDisplayed(realTime, nowMs, 1)) {
+        _catchUpStepsRemaining--;
+    } else {
+        _catchUpStepsRemaining = 0;
+    }
+
+    if (_catchUpStepsRemaining == 0 || offsetMinutes(realTime) >= 0) {
+        scheduleEvent(realTime, nowMs);
+    } else {
+        _nextCatchUpStepMs = nowMs + (unsigned long)clampInt(DRIFT_CATCHUP_STEP_SECONDS, 1, 60) * 1000UL;
     }
 }
 
-void DriftClock::clampToRealTime(const ClockTime& realTime, unsigned long nowMs) {
-    int realMinute = minuteOfDay(realTime);
-    int maxOffset = clampInt(DRIFT_MAX_OFFSET_MINUTES, 1, 12 * 60);
-    int offset = signedMinuteDelta(_displayedMinute, realMinute);
-    int clampedOffset = clampInt(offset, -maxOffset, maxOffset);
-    if (clampedOffset != offset) {
-        _displayedMinute = wrapMinuteOfDay(realMinute + clampedOffset);
-        _lastDisplayChangeMs = nowMs;
+bool DriftClock::advanceDisplayed(const ClockTime& realTime, unsigned long nowMs, int steps) {
+    steps = clampInt(steps, 1, maxOffsetMinutes());
+    if (!canAdvance(realTime, steps)) {
+        return false;
+    }
+
+    _displayedMinute = wrapMinuteOfDay(_displayedMinute + steps);
+    _lastDisplayChangeMs = nowMs;
+    _targetOffset = offsetMinutes(realTime);
+    return true;
+}
+
+bool DriftClock::canAdvance(const ClockTime& realTime, int steps) const {
+    int candidate = wrapMinuteOfDay(_displayedMinute + clampInt(steps, 1, maxOffsetMinutes()));
+    int candidateOffset = signedMinuteDelta(candidate, minuteOfDay(realTime));
+    return candidateOffset <= maxOffsetMinutes();
+}
+
+void DriftClock::enforceStillnessCap(const ClockTime& realTime, unsigned long nowMs) {
+    unsigned long maxStillMs = (unsigned long)maxStillMinutes() * 60UL * 1000UL;
+    if (!elapsed(nowMs, _lastDisplayChangeMs + maxStillMs)) {
+        return;
+    }
+
+    if (advanceDisplayed(realTime, nowMs, 1)) {
+        scheduleEvent(realTime, nowMs);
     }
 }
 
@@ -292,21 +293,44 @@ int DriftClock::signedMinuteDelta(int fromMinute, int toMinute) {
 
 bool DriftClock::isAnchorMinute(int displayedMinute) {
     int minute = wrapMinuteOfDay(displayedMinute) % 60;
-    return minute == 0 || minute == 15 || minute == 30 || minute == 45;
+    return minute == 0 || minute == 11 || minute == 22 ||
+           minute == 30 || minute == 44 || minute == 59;
 }
 
-int DriftClock::anchorHoldMultiplier(int displayedMinute) {
-    if (displayedMinute < 0 || !isAnchorMinute(displayedMinute)) {
-        return 1;
+int DriftClock::distanceToNextAnchor(int displayedMinute, int maxDistance) {
+    for (int distance = 1; distance <= maxDistance; distance++) {
+        if (isAnchorMinute(displayedMinute + distance)) {
+            return distance;
+        }
     }
-    int minute = wrapMinuteOfDay(displayedMinute) % 60;
-    return minute == 0 ? gP.fullHourMultiplier : gP.anchorMultiplier;
+    return 0;
 }
 
 int DriftClock::randomStartOffsetMinutes() {
-    int maxOffset = clampInt(DRIFT_MAX_OFFSET_MINUTES, 1, 12 * 60);
-    int offset = randomRange(1, maxOffset);
-    return (esp_random() & 1U) ? offset : -offset;
+    int maxOffset = maxOffsetMinutes();
+    return randomRange(0, maxOffset);
+}
+
+unsigned long DriftClock::cappedHoldMs(unsigned long nowMs, unsigned long lastChangeMs, int minSec, int maxSec) {
+    unsigned long holdMs = (unsigned long)randomRange(minSec, maxSec) * 1000UL;
+    unsigned long maxDeadline = lastChangeMs + (unsigned long)maxStillMinutes() * 60UL * 1000UL;
+    unsigned long requestedDeadline = nowMs + holdMs;
+    if (elapsed(requestedDeadline, maxDeadline)) {
+        return elapsed(maxDeadline, nowMs) ? 0 : maxDeadline - nowMs;
+    }
+    return holdMs;
+}
+
+int DriftClock::maxOffsetMinutes() {
+    return clampInt(DRIFT_MAX_OFFSET_MINUTES, 1, 12 * 60);
+}
+
+int DriftClock::maxStillMinutes() {
+    return clampInt(DRIFT_MAX_STILL_MINUTES, 1, 60);
+}
+
+uint8_t DriftClock::personality() {
+    return (DRIFT_PERSONALITY >= 0 && DRIFT_PERSONALITY <= 3) ? DRIFT_PERSONALITY : 0;
 }
 
 int DriftClock::randomRange(int minValue, int maxValue) {

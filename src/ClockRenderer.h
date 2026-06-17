@@ -22,7 +22,7 @@ public:
     // Top-level time-rendering entry points used by Display::showTime().
     void drawTime(int hours, int minutes, int seconds);
     void drawBigTime(int hours, int minutes, int seconds);
-    void drawDriftTime(int hours, int minutes, int seconds, int offsetMinutes);
+    void drawDriftTime(int hours, int minutes, int seconds, int offsetMinutes, bool freshChange, bool separatorVisible);
     void drawWordTime(int hours, int minutes);
     void drawRomanTime(int hours, int minutes);
     void drawBinaryTime(int hours, int minutes, int seconds);
@@ -45,7 +45,7 @@ private:
     void drawBigTimeDigit(uint8_t digit, int x, int y);
     void drawSeparator(int x, int y, int seconds);
     void drawBigSeparator(int x, int y, int seconds);
-    void drawDriftSeparator(int x, int y, int seconds, int offsetMinutes);
+    void drawDriftSeparator(int x, int y, int offsetMinutes, bool freshChange, bool separatorVisible);
     void drawSecDigit(uint8_t digit, int x, int y);
     int textWidth(const char* s, int cellW, int letterSpacing, int wordGap) const;
     void drawText(const char* s, int x, int y, bool small, int letterSpacing, int wordGap);
@@ -76,7 +76,7 @@ private:
     static const char* getWesternZodiacElement(const char* sign);
     static const char* getChineseZodiacAnimal(int year);
     static const char* getChineseZodiacElement(int year);
-    void drawBigTimeInternal(int hours, int minutes, int seconds, bool driftMode, int offsetMinutes);
+    void drawBigTimeInternal(int hours, int minutes, int seconds, bool driftMode, int offsetMinutes, bool freshChange = false, bool separatorVisible = true);
 
     Display* _display = nullptr;
     TimeProvider* _timeProvider = nullptr;

@@ -495,7 +495,7 @@ void ClockRenderer::drawPreview(DisplayMode mode, ClockTime time) {
             drawBinaryTime(time.hours, time.minutes, time.seconds);
             break;
         case DisplayMode::Drift:
-            drawDriftTime(hours, time.minutes, time.seconds, 0);
+            drawDriftTime(hours, time.minutes, time.seconds, 0, false, true);
             break;
         case DisplayMode::Rnd:
             _display->drawCenteredBigText("RND", 0);
@@ -514,7 +514,7 @@ void ClockRenderer::setDriftStyleActive(bool active) {
     _driftStyleActive = active;
 }
 
-void ClockRenderer::drawBigTimeInternal(int hours, int minutes, int seconds, bool driftMode, int offsetMinutes) {
+void ClockRenderer::drawBigTimeInternal(int hours, int minutes, int seconds, bool driftMode, int offsetMinutes, bool freshChange, bool separatorVisible) {
     hours = effectiveHours(hours);
     int digitWidth = 6;
     int spacing = 1;
@@ -536,7 +536,7 @@ void ClockRenderer::drawBigTimeInternal(int hours, int minutes, int seconds, boo
 
     int sepX = x;
     if (driftMode) {
-        drawDriftSeparator(sepX, startY, seconds, offsetMinutes);
+        drawDriftSeparator(sepX, startY, offsetMinutes, freshChange, separatorVisible);
     } else {
         drawBigSeparator(sepX, startY, seconds);
     }
@@ -547,8 +547,8 @@ void ClockRenderer::drawBigTimeInternal(int hours, int minutes, int seconds, boo
     drawBigTimeDigit(minutes % 10, x, startY);
 }
 
-void ClockRenderer::drawDriftTime(int hours, int minutes, int seconds, int offsetMinutes) {
-    drawBigTimeInternal(hours, minutes, seconds, true, offsetMinutes);
+void ClockRenderer::drawDriftTime(int hours, int minutes, int seconds, int offsetMinutes, bool freshChange, bool separatorVisible) {
+    drawBigTimeInternal(hours, minutes, seconds, true, offsetMinutes, freshChange, separatorVisible);
 }
 
 void ClockRenderer::drawTime(int hours, int minutes, int seconds) {
@@ -581,24 +581,75 @@ void ClockRenderer::drawBigTime(int hours, int minutes, int seconds) {
     drawBigTimeInternal(hours, minutes, seconds, false, 0);
 }
 
-void ClockRenderer::drawDriftSeparator(int x, int y, int seconds, int offsetMinutes) {
-    (void)seconds;
-    int absOffset = offsetMinutes < 0 ? -offsetMinutes : offsetMinutes;
-    int empty = DRIFT_SEP_GAP_NEAR;
-#if DRIFT_SEPARATOR_INDICATOR
-    if (absOffset >= DRIFT_MAX_OFFSET_MINUTES / 3) {
-        empty = DRIFT_SEP_GAP_FAR;
-    } else if (absOffset >= DRIFT_MAX_OFFSET_MINUTES / 10) {
-        empty = DRIFT_SEP_GAP_MID;
+void ClockRenderer::drawDriftSeparator(int x, int y, int offsetMinutes, bool freshChange, bool separatorVisible) {
+    int intensity = DRIFT_VISUAL_INTENSITY;
+    if (intensity < 0 || intensity > 2) {
+        intensity = 1;
     }
-#endif
-    int ctc = empty + 1;
-    int topY = y + 7 - (ctc / 2);
-    int bottomY = topY + ctc;
-    if (topY < y) topY = y;
-    if (bottomY >= y + TIME_FONT_BIG_HEIGHT) bottomY = y + TIME_FONT_BIG_HEIGHT - 1;
-    _display->setPixel(x, topY, true);
-    _display->setPixel(x, bottomY, true);
+
+    if (intensity == 0) {
+        _display->setPixel(x, y + 6, true);
+        _display->setPixel(x, y + 9, true);
+        return;
+    }
+
+    if (!separatorVisible) {
+        return;
+    }
+
+    if (intensity == 1) {
+        _display->setPixel(x, y + 5, true);
+        _display->setPixel(x, y + 10, true);
+        return;
+    }
+
+    int absOffset = offsetMinutes < 0 ? -offsetMinutes : offsetMinutes;
+    int maxOffset = DRIFT_MAX_OFFSET_MINUTES;
+    if (maxOffset < 1) {
+        maxOffset = 1;
+    }
+    int nearLimit = (maxOffset + 5) / 6;
+    if (nearLimit < 1) {
+        nearLimit = 1;
+    }
+    int farStart = (maxOffset * 2 + 2) / 3;
+    if (farStart < nearLimit + 1) {
+        farStart = nearLimit + 1;
+    }
+
+    int upper = 5;
+    int lower = 10;
+    if (absOffset >= farStart) {
+        upper = 3;
+        lower = 12;
+    } else if (absOffset > nearLimit) {
+        upper = 4;
+        lower = 11;
+    }
+
+    if (freshChange && offsetMinutes == 0) {
+        _display->setPixel(x, y + 6, true);
+        _display->setPixel(x, y + 9, true);
+        return;
+    }
+
+    _display->setPixel(x, y + upper, true);
+    _display->setPixel(x, y + lower, true);
+
+    bool emphasizeUpper = offsetMinutes > 0;
+    bool emphasizeLower = offsetMinutes < 0;
+    if (freshChange) {
+        bool tmp = emphasizeUpper;
+        emphasizeUpper = emphasizeLower;
+        emphasizeLower = tmp;
+    }
+
+    if (emphasizeUpper && upper + 1 < TIME_FONT_BIG_HEIGHT) {
+        _display->setPixel(x, y + upper + 1, true);
+    }
+    if (emphasizeLower && lower - 1 >= 0) {
+        _display->setPixel(x, y + lower - 1, true);
+    }
 }
 
 void ClockRenderer::drawWordTimeLegacy(int hours, int minutes) {

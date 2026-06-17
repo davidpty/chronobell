@@ -82,47 +82,41 @@
 // DRIFT display tuning
 // ---------------------------------------------------------------------------
 
-// Maximum offset (in minutes) the displayed time is allowed to drift away from
-// real time in either direction. The separator spread scales automatically with
-// this value, so changing it keeps the visual indicator meaningful.
-#define DRIFT_MAX_OFFSET_MINUTES                    30
+// Drift personality:
+//   0 = WARY     - subtle default; mostly correct, occasional hesitation
+//   1 = RESTLESS - frequent small corrections, visibly alive
+//   2 = HAUNTED  - attracted to memorable times, more uncanny
+//   3 = TIRED    - pauses briefly, then catches up in visible bursts
+#define DRIFT_PERSONALITY                           0
 
-// 1 = enter Drift mode with a random initial offset.
-// 0 = start at the correct time and let it drift naturally from there.
+// Maximum displayed-time offset from real time, in minutes.
+#define DRIFT_MAX_OFFSET_MINUTES                    12
+
+// Maximum time HH:MM may remain unchanged before the displayed minute must move.
+#define DRIFT_MAX_STILL_MINUTES                     4
+
+// 1 = enter Drift mode already offset from real time.
+// 0 = start correct, then drift naturally.
 #define DRIFT_START_WITH_OFFSET                     0
 
-// Clock personality when in Drift mode (rush step is set separately above):
-//   0 = Creepy — very stable near correct time (65% pull), holds are moderate,
-//       rarely escapes to max offset. When it does, it hangs at the boundary
-//       before slowly returning. Most of the time the clock looks correct.
-//   1 = Erratic — near-random pull (50/40/25), short holds, high jump chance.
-//       Never settles — always at some offset, never the same two glances in a
-//       row. Feels subtly restless without ever looking obviously wrong.
-//   2 = Lazy — very strong pull (75%) keeps it near zero, but holds are 5–15
-//       minutes long. Spends most of its time frozen, then suddenly catches up
-//       in one burst. The clock that keeps falling asleep.
-#define DRIFT_PERSONALITY                           2
+//   0 = hidden     - visually identical to BIG
+//   1 = subtle     - quiet Drift colon signature
+//   2 = expressive - colon shows direction, offset, and recent correction
+#define DRIFT_VISUAL_INTENSITY                      1
 
-// 0 = separator colon always at NEAR gap (subtle tell that drift is active).
-// 1 = gap widens with offset: NEAR → MID → FAR.
-//     Gives an insider a glanceable cue of how far the clock has drifted.
-#define DRIFT_SEPARATOR_INDICATOR                   1
+//   0 = Drift separator is continuously visible
+//   1 = Drift separator blinks in proportion to displayed-minute speed
+#define DRIFT_SEPARATOR_BLINK                       1
 
-// Separator gap values — number of empty rows between the two colon dots.
-// BIG mode uses 2 empty rows between dots. Drift defaults:
-//   NEAR = 3 (one more than BIG — subtle tell that drift is active)
-//   MID  = 4 (widens when offset reaches the mid zone)
-//   FAR  = 5 (widest when offset is in the far zone)
-// Set all three to the same value for a fixed gap regardless of offset.
-#define DRIFT_SEP_GAP_NEAR                          3
-#define DRIFT_SEP_GAP_MID                           4
-#define DRIFT_SEP_GAP_FAR                           5
+// Minimum Drift separator blink half-period in milliseconds.
+#define DRIFT_SEPARATOR_BLINK_MIN_MS                250
 
-// Rush interval in seconds — how fast the displayed minute ticks during a
-// rush event. Lower values are more noticeable (3–4s = visible if you happen
-// to be looking), higher values are subtler (15–30s = invisible without a
-// reference). The personality presets are tuned for the default value below.
-#define DRIFT_RUSH_STEP_SECONDS                     15
+//   0 = bells follow real time
+//   1 = bells follow displayed Drift time
+#define DRIFT_BELL_FOLLOWS_DISPLAY                  1
+
+// Seconds per displayed minute during catch-up bursts.
+#define DRIFT_CATCHUP_STEP_SECONDS                  20
 
 // ---------------------------------------------------------------------------
 // WiFi reconnection backoff (used by WiFiManagerLite)

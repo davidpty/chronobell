@@ -190,9 +190,18 @@ void Display::showTime() {
                 _driftClock->update(time, nowMs);
                 ClockTime driftTime = _driftClock->displayTime(time, nowMs);
                 int offsetMinutes = _driftClock->offsetMinutes(time);
-                _clockRenderer->drawDriftTime(driftTime.hours, driftTime.minutes, driftTime.seconds, offsetMinutes);
+                bool freshChange = _driftClock->displayedMinuteFresh(nowMs);
+                bool separatorVisible = true;
+#if DRIFT_SEPARATOR_BLINK
+                unsigned long halfPeriodMs = _driftClock->separatorBlinkHalfPeriodMs(nowMs);
+                if (halfPeriodMs == 0) {
+                    halfPeriodMs = 1000UL;
+                }
+                separatorVisible = ((nowMs / halfPeriodMs) % 2UL) == 0;
+#endif
+                _clockRenderer->drawDriftTime(driftTime.hours, driftTime.minutes, driftTime.seconds, offsetMinutes, freshChange, separatorVisible);
             } else {
-                _clockRenderer->drawDriftTime(hours, minutes, seconds, 0);
+                _clockRenderer->drawDriftTime(hours, minutes, seconds, 0, false, true);
             }
             break;
         case DisplayMode::Rnd:

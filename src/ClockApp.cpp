@@ -401,7 +401,7 @@ void ClockApp::updateBellSchedule() {
     int h = 0, m = 0, s = 0;
     bool timeValid = getCurrentClockTime(h, m, s);
     ClockTime time{h, m, s};
-    if (timeValid && _displayMode == DisplayMode::Drift) {
+    if (timeValid && _displayMode == DisplayMode::Drift && DRIFT_BELL_FOLLOWS_DISPLAY) {
         unsigned long nowMs = millis();
         _driftClock.update(time, nowMs);
         time = _driftClock.displayTime(time, nowMs);
