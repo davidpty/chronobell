@@ -10,7 +10,6 @@ static constexpr int SECONDS_PER_DAY = 24 * 60 * 60;
 static constexpr int MINUTES_PER_DAY = 24 * 60;
 static constexpr unsigned long FRESH_DISPLAYED_SECOND_MS = 1500UL;
 static constexpr unsigned long MIN_DISPLAYED_SECOND_MS = 250UL;
-static constexpr unsigned long MAX_DISPLAYED_SECOND_MS = 10000UL;
 static constexpr float DRIFT_TWO_PI = 6.28318530718f;
 
 static bool elapsed(unsigned long nowMs, unsigned long deadlineMs) {
@@ -165,9 +164,7 @@ unsigned long DriftTimeModel::nextDisplayedSecondDurationMs(const ClockTime& rea
     if (durationMs < (float)MIN_DISPLAYED_SECOND_MS) {
         durationMs = (float)MIN_DISPLAYED_SECOND_MS;
     }
-    if (durationMs > (float)MAX_DISPLAYED_SECOND_MS) {
-        durationMs = (float)MAX_DISPLAYED_SECOND_MS;
-    }
+
     return (unsigned long)(durationMs + 0.5f);
 }
 
