@@ -2,7 +2,7 @@
 
 #include "AppSettings.h"
 #include "ClockRenderer.h"
-#include "DriftClock.h"
+#include "DriftTimeModel.h"
 #include "MenuBindings.h"
 #include "MenuRenderer.h"
 #include "RtcClock.h"
@@ -81,8 +81,8 @@ void Display::setRuntimeMode(DisplayMode* displayMode) {
     _displayMode = displayMode;
 }
 
-void Display::setDriftClock(DriftClock* driftClock) {
-    _driftClock = driftClock;
+void Display::setDriftTimeModel(DriftTimeModel* driftTimeModel) {
+    _driftTimeModel = driftTimeModel;
 }
 
 void Display::setTimeFormat(TimeFormat* timeFormat) {
@@ -184,15 +184,15 @@ void Display::showTime() {
             _clockRenderer->drawBinaryTime(hours, minutes, seconds);
             break;
         case DisplayMode::Drift:
-            if (_driftClock) {
+            if (_driftTimeModel) {
                 unsigned long nowMs = millis();
-                _driftClock->update(time, nowMs);
-                ClockTime driftTime = _driftClock->displayTime(time, nowMs);
-                int offsetMinutes = _driftClock->offsetMinutes(time);
-                bool freshChange = _driftClock->displayedMinuteFresh(nowMs);
+                _driftTimeModel->update(time, nowMs);
+                ClockTime driftTime = _driftTimeModel->displayTime(time, nowMs);
+                int offsetMinutes = _driftTimeModel->offsetMinutes(time);
+                bool freshChange = _driftTimeModel->displayedMinuteFresh(nowMs);
                 bool separatorVisible = true;
 #if DRIFT_SEPARATOR_BLINK
-                unsigned long halfPeriodMs = _driftClock->separatorBlinkHalfPeriodMs(nowMs);
+                unsigned long halfPeriodMs = _driftTimeModel->separatorBlinkHalfPeriodMs(nowMs);
                 if (halfPeriodMs == 0) {
                     halfPeriodMs = 1000UL;
                 }

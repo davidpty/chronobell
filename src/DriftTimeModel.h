@@ -1,11 +1,11 @@
-#ifndef DRIFT_CLOCK_H
-#define DRIFT_CLOCK_H
+#ifndef DRIFT_TIME_MODEL_H
+#define DRIFT_TIME_MODEL_H
 
 #include <Arduino.h>
 
 #include "RtcClock.h"
 
-class DriftClock {
+class DriftTimeModel {
 public:
     void update(const ClockTime& realTime, unsigned long nowMs);
     void reset(const ClockTime& realTime, unsigned long nowMs);
@@ -57,4 +57,4 @@ private:
     float _jitterPhaseB = 0.0f;
 };
 
-#endif // DRIFT_CLOCK_H
+#endif // DRIFT_TIME_MODEL_H

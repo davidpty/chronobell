@@ -63,7 +63,7 @@ void ClockApp::beginControllers() {
     _menuController.setSettingsStore(&_settingsStore);
     _display.setMenuBindings(&_menuBindings);
     _display.setRuntimeMode(&_displayMode);
-    _display.setDriftClock(&_driftClock);
+    _display.setDriftTimeModel(&_driftTimeModel);
     _display.setTimeFormat(&_timeFormat);
     _display.setDateStyle(&_activeDateStyle);
     _display.setGuestWifiController(&_guestWifi);
@@ -289,7 +289,7 @@ void ClockApp::render() {
         if (_lastDisplayModeSeen != DisplayMode::Drift) {
             ClockTime time;
             if (_timeProvider.currentTime(time)) {
-                _driftClock.activate(time, millis());
+                _driftTimeModel.activate(time, millis());
                 _lastDisplayModeSeen = DisplayMode::Drift;
             }
         }
@@ -402,8 +402,8 @@ void ClockApp::updateBellSchedule() {
     ClockTime time{h, m, s};
     if (timeValid && _displayMode == DisplayMode::Drift) {
         unsigned long nowMs = millis();
-        _driftClock.update(time, nowMs);
-        time = _driftClock.displayTime(time, nowMs);
+        _driftTimeModel.update(time, nowMs);
+        time = _driftTimeModel.displayTime(time, nowMs);
     }
     bool muteAutomatic = _nightModeController.shouldMuteAutomaticBell(time);
     _bellController.update(time, timeValid, _bellMode,

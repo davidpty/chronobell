@@ -1,4 +1,4 @@
-#include "DriftClock.h"
+#include "DriftTimeModel.h"
 
 #include "Config.h"
 
@@ -18,7 +18,7 @@ static bool elapsed(unsigned long nowMs, unsigned long deadlineMs) {
 }
 }
 
-void DriftClock::update(const ClockTime& realTime, unsigned long nowMs) {
+void DriftTimeModel::update(const ClockTime& realTime, unsigned long nowMs) {
     int realSecond = secondOfDay(realTime);
     if (!_initialized) {
         reset(realTime, nowMs);
@@ -49,22 +49,22 @@ void DriftClock::update(const ClockTime& realTime, unsigned long nowMs) {
     }
 }
 
-void DriftClock::reset(const ClockTime& realTime, unsigned long nowMs) {
+void DriftTimeModel::reset(const ClockTime& realTime, unsigned long nowMs) {
     initialize(realTime, nowMs);
 }
 
-void DriftClock::activate(const ClockTime& realTime, unsigned long nowMs) {
+void DriftTimeModel::activate(const ClockTime& realTime, unsigned long nowMs) {
     initialize(realTime, nowMs);
 }
 
-void DriftClock::initialize(const ClockTime& realTime, unsigned long nowMs) {
+void DriftTimeModel::initialize(const ClockTime& realTime, unsigned long nowMs) {
     _initialized = true;
     _displayedSecond = secondOfDay(realTime);
     _lastRealSecond = _displayedSecond;
     beginPhase(Phase::Away, realTime, nowMs);
 }
 
-void DriftClock::beginPhase(Phase phase, const ClockTime& realTime, unsigned long nowMs) {
+void DriftTimeModel::beginPhase(Phase phase, const ClockTime& realTime, unsigned long nowMs) {
     int realSecond = secondOfDay(realTime);
     _phase = phase;
     _phaseStartMs = nowMs;
@@ -84,7 +84,7 @@ void DriftClock::beginPhase(Phase phase, const ClockTime& realTime, unsigned lon
     scheduleNextDisplayedSecond(realTime, nowMs);
 }
 
-ClockTime DriftClock::displayTime(const ClockTime& realTime, unsigned long nowMs) const {
+ClockTime DriftTimeModel::displayTime(const ClockTime& realTime, unsigned long nowMs) const {
     (void)nowMs;
     int displayedSecond = _initialized ? _displayedSecond : secondOfDay(realTime);
     displayedSecond = wrapSecondOfDay(displayedSecond);
@@ -96,7 +96,7 @@ ClockTime DriftClock::displayTime(const ClockTime& realTime, unsigned long nowMs
     return time;
 }
 
-int DriftClock::offsetMinutes(const ClockTime& realTime) const {
+int DriftTimeModel::offsetMinutes(const ClockTime& realTime) const {
     if (!_initialized) {
         return 0;
     }
@@ -108,27 +108,27 @@ int DriftClock::offsetMinutes(const ClockTime& realTime) const {
     return -((-offsetSeconds + 30) / 60);
 }
 
-bool DriftClock::displayedMinuteFresh(unsigned long nowMs) const {
+bool DriftTimeModel::displayedMinuteFresh(unsigned long nowMs) const {
     return _initialized && (nowMs - _lastDisplayChangeMs) <= FRESH_DISPLAYED_SECOND_MS;
 }
 
-unsigned long DriftClock::separatorBlinkHalfPeriodMs(unsigned long nowMs) const {
+unsigned long DriftTimeModel::separatorBlinkHalfPeriodMs(unsigned long nowMs) const {
     (void)nowMs;
     return _lastSecondDurationMs > 0 ? _lastSecondDurationMs : 1000UL;
 }
 
-void DriftClock::advanceDisplayedSecond(unsigned long nowMs) {
+void DriftTimeModel::advanceDisplayedSecond(unsigned long nowMs) {
     _displayedSecond = wrapSecondOfDay(_displayedSecond + 1);
     _phaseDisplayedProgress++;
     _lastDisplayChangeMs = nowMs;
 }
 
-void DriftClock::scheduleNextDisplayedSecond(const ClockTime& realTime, unsigned long nowMs) {
+void DriftTimeModel::scheduleNextDisplayedSecond(const ClockTime& realTime, unsigned long nowMs) {
     _lastSecondDurationMs = nextDisplayedSecondDurationMs(realTime, nowMs);
     _nextDisplayedSecondMs = nowMs + _lastSecondDurationMs;
 }
 
-unsigned long DriftClock::nextDisplayedSecondDurationMs(const ClockTime& realTime, unsigned long nowMs) const {
+unsigned long DriftTimeModel::nextDisplayedSecondDurationMs(const ClockTime& realTime, unsigned long nowMs) const {
     (void)realTime;
 
     int targetProgress = targetDisplayedProgressSeconds();
@@ -171,7 +171,7 @@ unsigned long DriftClock::nextDisplayedSecondDurationMs(const ClockTime& realTim
     return (unsigned long)(durationMs + 0.5f);
 }
 
-int DriftClock::targetDisplayedProgressSeconds() const {
+int DriftTimeModel::targetDisplayedProgressSeconds() const {
     int phase = phaseSeconds();
     int offset = directionSign() * maxOffsetSeconds();
     if (_phase == Phase::Away) {
@@ -180,11 +180,11 @@ int DriftClock::targetDisplayedProgressSeconds() const {
     return clampInt(phase - offset, 1, phase + maxOffsetSeconds());
 }
 
-int DriftClock::displayedProgressSeconds() const {
+int DriftTimeModel::displayedProgressSeconds() const {
     return _phaseDisplayedProgress;
 }
 
-float DriftClock::jitterMultiplier(unsigned long nowMs) const {
+float DriftTimeModel::jitterMultiplier(unsigned long nowMs) const {
     int jitter = jitterPercent();
     if (jitter <= 0) {
         return 1.0f;
@@ -197,11 +197,11 @@ float DriftClock::jitterMultiplier(unsigned long nowMs) const {
     return 1.0f + (wave * ((float)jitter / 100.0f));
 }
 
-int DriftClock::minuteOfDay(const ClockTime& time) {
+int DriftTimeModel::minuteOfDay(const ClockTime& time) {
     return secondOfDay(time) / 60;
 }
 
-int DriftClock::secondOfDay(const ClockTime& time) {
+int DriftTimeModel::secondOfDay(const ClockTime& time) {
     int hours = time.hours;
     int minutes = time.minutes;
     int seconds = time.seconds;
@@ -212,7 +212,7 @@ int DriftClock::secondOfDay(const ClockTime& time) {
     return (hours * 3600) + (minutes * 60) + seconds;
 }
 
-int DriftClock::wrapMinuteOfDay(int minute) {
+int DriftTimeModel::wrapMinuteOfDay(int minute) {
     minute %= MINUTES_PER_DAY;
     if (minute < 0) {
         minute += MINUTES_PER_DAY;
@@ -220,7 +220,7 @@ int DriftClock::wrapMinuteOfDay(int minute) {
     return minute;
 }
 
-int DriftClock::wrapSecondOfDay(int second) {
+int DriftTimeModel::wrapSecondOfDay(int second) {
     second %= SECONDS_PER_DAY;
     if (second < 0) {
         second += SECONDS_PER_DAY;
@@ -228,7 +228,7 @@ int DriftClock::wrapSecondOfDay(int second) {
     return second;
 }
 
-int DriftClock::signedMinuteDelta(int fromMinute, int toMinute) {
+int DriftTimeModel::signedMinuteDelta(int fromMinute, int toMinute) {
     int diff = wrapMinuteOfDay(fromMinute) - wrapMinuteOfDay(toMinute);
     while (diff <= -MINUTES_PER_DAY / 2) {
         diff += MINUTES_PER_DAY;
@@ -239,7 +239,7 @@ int DriftClock::signedMinuteDelta(int fromMinute, int toMinute) {
     return diff;
 }
 
-int DriftClock::signedSecondDelta(int fromSecond, int toSecond) {
+int DriftTimeModel::signedSecondDelta(int fromSecond, int toSecond) {
     int diff = wrapSecondOfDay(fromSecond) - wrapSecondOfDay(toSecond);
     while (diff <= -SECONDS_PER_DAY / 2) {
         diff += SECONDS_PER_DAY;
@@ -250,7 +250,7 @@ int DriftClock::signedSecondDelta(int fromSecond, int toSecond) {
     return diff;
 }
 
-int DriftClock::maxOffsetMinutes() {
+int DriftTimeModel::maxOffsetMinutes() {
     int maxPhaseOffset = (phaseSeconds() - 1) / 60;
     if (maxPhaseOffset < 1) {
         maxPhaseOffset = 1;
@@ -258,24 +258,24 @@ int DriftClock::maxOffsetMinutes() {
     return clampInt(DRIFT_MAX_OFFSET_MINUTES, 1, maxPhaseOffset);
 }
 
-int DriftClock::maxOffsetSeconds() {
+int DriftTimeModel::maxOffsetSeconds() {
     int maxOffset = DRIFT_MAX_OFFSET_MINUTES * 60;
     return clampInt(maxOffset, 1, phaseSeconds() - 1);
 }
 
-int DriftClock::phaseSeconds() {
+int DriftTimeModel::phaseSeconds() {
     return clampInt(DRIFT_PHASE_MINUTES, 1, 12 * 60) * 60;
 }
 
-int DriftClock::jitterPercent() {
+int DriftTimeModel::jitterPercent() {
     return clampInt(DRIFT_JITTER_PERCENT, 0, 25);
 }
 
-int DriftClock::directionSign() {
+int DriftTimeModel::directionSign() {
     return DRIFT_DIRECTION == 1 ? 1 : -1;
 }
 
-int DriftClock::clampInt(int value, int minValue, int maxValue) {
+int DriftTimeModel::clampInt(int value, int minValue, int maxValue) {
     if (value < minValue) return minValue;
     if (value > maxValue) return maxValue;
     return value;
