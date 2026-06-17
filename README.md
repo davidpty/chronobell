@@ -1,6 +1,6 @@
 # ChronoBell
 
-ChronoBell is a clock that feels alive, with a glowing face, changing displays like drift, binary, and word styles, and a traditional ship's bell that can ring in different patterns, turning the passing of time into something playful, distinctive, and almost theatrical.
+ChronoBell is a compact ESP32 clock with a 32x16 LED display, touch controls, configurable clock faces, and a bell output inspired by traditional ship's clocks. It keeps precise time in everyday modes, while Drift slowly moves the displayed time away from real time and back again as a quiet experiment in how time is perceived.
 
 ![ChronoBell](chronobell.png) ![Config Portal](chronoportal.png)
 
@@ -8,7 +8,7 @@ ChronoBell is a clock that feels alive, with a glowing face, changing displays l
 
 **A bell that rings like a ship's clock** - Traditional 1-8 strike pattern from nautical tradition, plus six other modes: off, single ding, hour count, half-hour, pair, and triple. You can hear each one in the menu before you choose it.
 
-**9 display styles + 5 date views** - Big digits, seconds, deciseconds, date overlay, word clock, roman numerals, binary, drift, or a random one each day. Drift is the unusual one: it uses the big digital layout, but the displayed time can hesitate, nudge forward, and catch up without freezing indefinitely or visibly running backward. Date views include day and month, year, moon phase, Western zodiac, and Chinese zodiac. Tap to peek at any view.
+**9 display styles + 5 date views** - Big digits, seconds, deciseconds, date overlay, word clock, roman numerals, binary, drift, or a random one each day. Drift uses the big digital layout, but lets displayed time slowly move away from real time and return. Date views include day and month, year, moon phase, Western zodiac, and Chinese zodiac. Tap to peek at any view.
 
 **Guest WiFi on screen** - Fetches a guest network password at boot and shows it on the clock. No phone needed. Good for lobbies, cafes, offices.
 
@@ -46,7 +46,7 @@ ChronoBell has nine clock display modes. The menu label is short because the scr
 | Word clock | WORD | A compact phrase-style clock such as "TWENTY TO THREE" |
 | Roman | ROMA | Roman-numeral-style hours and minutes |
 | Binary | BIN | Binary hour, minute, and second rows |
-| Drift | DRIFT | BIG-style digits with intentionally unstable displayed time |
+| Drift | DRIFT | BIG-style digits where displayed time slowly drifts and returns |
 
 ### Date Views
 
@@ -59,50 +59,6 @@ The DATE clock style and the standalone date screen use the same five date views
 | Moon | MOON | Lunar phase state plus the next full/new moon countdown |
 | Western zodiac | ZOD | Western zodiac sign plus element |
 | Chinese zodiac | CZOD | Chinese zodiac animal plus element |
-
-### Drift mode
-
-Drift keeps the same large digital number font and digit positions as BIG, but it does
-not promise exact precision. It tracks its own displayed time, which may be ahead of or
-behind real time by a bounded number of minutes configured in `Config.h`. A displayed
-minute can linger, then nudge forward or catch up in visible forward steps, but the
-digits cannot remain unchanged beyond `DRIFT_MAX_STILL_MINUTES`.
-
-Drift never visibly runs backward during normal behavior. If the displayed time is
-ahead, correction happens by waiting for real time to catch up. If it is behind, catch-up
-bursts move the displayed minute forward.
-
-Four **personalities** are selectable in `Config.h`:
-
-| Personality | How it feels |
-|-------------|-------------|
-| **Wary** (default) | Mostly correct, with occasional hesitation and small forward corrections. |
-| **Restless** | Frequent small nudges and shorter holds; visibly alive without large jumps. |
-| **Haunted** | Attracted to memorable displayed minutes like `:00`, `:11`, `:22`, `:30`, `:44`, and `:59`. |
-| **Tired** | Pauses briefly, then catches up in visible forward bursts. |
-
-The colon is the only visual Drift indicator, and it always stays inside the existing
-one-column separator. `DRIFT_VISUAL_INTENSITY` controls how much it reveals:
-
-| Intensity | Behavior |
-|-----------|----------|
-| `0` hidden | Identical to the BIG colon. |
-| `1` subtle | Quiet two-dot Drift colon signature with no momentary correction cue. |
-| `2` expressive | Colon dot spacing and emphasis show offset band, direction, and recent correction. Offset bands scale with `DRIFT_MAX_OFFSET_MINUTES`. |
-
-`DRIFT_SEPARATOR_BLINK` makes the Drift separator pulse with the displayed-minute
-tempo. A normal 60-second displayed minute blinks `1s` on and `1s` off; faster
-catch-up minutes blink faster, and slower held minutes blink slower. Set
-`DRIFT_SEPARATOR_BLINK_MIN_MS` to the fastest allowed half-period, or `0` for pure
-proportional blinking with no minimum. Hidden intensity does not blink, so it remains
-visually identical to BIG.
-
-By default, the bell follows the displayed Drift time. If Drift shows `15:00` while
-real time is `14:42`, the 15:00 bell behavior happens when Drift displays `15:00`.
-Set `DRIFT_BELL_FOLLOWS_DISPLAY` to `0` to keep bells on real time while Drift remains
-display-only. Held bell minutes do not repeatedly chime.
-
----
 
 ## Timer
 
@@ -245,15 +201,12 @@ Open `Config.h` to adjust these:
 | `GUEST_WIFI_URL` | *(see file)* | Guest WiFi password URL; set to `""` to disable |
 | `TIME_SYNC_INTERVAL_MINUTES` | `60` | How often NTP re-syncs |
 | `HOTSPOT_TIMEOUT_MINUTES` | `0` | Auto-stop hotspot after N minutes (`0` = stays on) |
-| `DRIFT_PERSONALITY` | `0` (Wary) | 0=Wary, 1=Restless, 2=Haunted, 3=Tired |
 | `DRIFT_MAX_OFFSET_MINUTES` | `12` | Maximum displayed-time offset from real time |
-| `DRIFT_MAX_STILL_MINUTES` | `4` | Maximum time the displayed HH:MM digits may remain unchanged |
-| `DRIFT_START_WITH_OFFSET` | `0` | 1 = random start offset, 0 = start at correct time |
-| `DRIFT_VISUAL_INTENSITY` | `1` | 0=hidden, 1=subtle, 2=expressive colon behavior |
-| `DRIFT_SEPARATOR_BLINK` | `1` | 0=steady separator, 1=blink with displayed-minute tempo |
-| `DRIFT_SEPARATOR_BLINK_MIN_MS` | `250` | Minimum blink half-period; `0` disables the clamp |
-| `DRIFT_BELL_FOLLOWS_DISPLAY` | `1` | 0=bells use real time, 1=bells use displayed Drift time |
-| `DRIFT_CATCHUP_STEP_SECONDS` | `20` | Seconds per displayed minute during catch-up bursts |
+| `DRIFT_DIRECTION` | `0` | 0=fall behind first, 1=run ahead first |
+| `DRIFT_PHASE_MINUTES` | `60` | Minutes to drift out, and minutes to return |
+| `DRIFT_JITTER_PERCENT` | `8` | Smooth tempo variation around the base Drift rate |
+| `DRIFT_SEPARATOR_STYLE` | `1` | 0=fixed wider separator, 1=separator spreads with offset |
+| `DRIFT_SEPARATOR_BLINK` | `1` | 0=steady separator, 1=blink with displayed-second tempo |
 
 ---
 

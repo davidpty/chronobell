@@ -8,7 +8,6 @@
 
 #include <math.h>
 #include <cstring>
-#include <esp_system.h>
 
 namespace {
 struct WordSegment {
@@ -51,52 +50,6 @@ static constexpr int MOON_ANCHOR_END_MONTH = 12;
 static constexpr int MOON_ANCHOR_END_DAY = 31;
 static constexpr double MOON_SYNODIC_MONTH = 29.530588853;
 static constexpr double MOON_NEW_MOON_REF_JD = 2451550.09765;
-
-static int clampInt(int value, int minValue, int maxValue) {
-    if (value < minValue) return minValue;
-    if (value > maxValue) return maxValue;
-    return value;
-}
-
-static uint8_t fontIndex(char c) {
-    if (c >= 'A' && c <= 'Z') return (uint8_t)(c - 'A' + 10);
-    if (c >= '0' && c <= '9') return (uint8_t)(c - '0');
-    if (c == '%') return 36;
-    if (c == '-') return 37;
-    if (c == '+') return 38;
-    if (c == 'o') return 39;
-    if (c == '^') return 40;
-    if (c == '@') return 41;
-    if (c == 'v') return 42;
-    return 0;
-}
-
-static void smallGlyphBounds(char c, int& left, int& right) {
-    if (c == ' ') {
-        left = 0;
-        right = -1;
-        return;
-    }
-
-    if (c == '-') {
-        left = 0;
-        right = 2;
-        return;
-    }
-
-    uint8_t i = fontIndex(c);
-    left = 4;
-    right = -1;
-
-    for (int col = 0; col < 4; col++) {
-        for (int row = 0; row < SEC_FONT_HEIGHT; row++) {
-            if (FONT_SMALL[i][row][col]) {
-                if (col < left) left = col;
-                if (col > right) right = col;
-            }
-        }
-    }
-}
 
 int segmentWidth(const WordSegment& segment) {
     return Display::textWidth(segment.text, segment.small, 1, 2);
@@ -197,19 +150,6 @@ static int clampMonth(int month) {
     return month;
 }
 
-static int daysInMonth(int month, int year) {
-    static const int DAYS[] = {
-        31, 28, 31, 30, 31, 30,
-        31, 31, 30, 31, 30, 31
-    };
-    month = clampMonth(month);
-    if (month == 2) {
-        bool leap = ((year % 4 == 0) && (year % 100 != 0)) || (year % 400 == 0);
-        return leap ? 29 : 28;
-    }
-    return DAYS[month - 1];
-}
-
 static int weekdaySunday1(int year, int month, int day) {
     if (month < 3) {
         year--;
@@ -230,10 +170,6 @@ static int64_t daysFromCivilLocal(int year, int month, int day) {
 
 static double julianDayFromCivil(int year, int month, int day) {
     return 2440587.5 + (double)daysFromCivilLocal(year, month, day);
-}
-
-static int64_t julianDayNumberFromCivil(int year, int month, int day) {
-    return (int64_t)floor(julianDayFromCivil(year, month, day) + 0.5);
 }
 
 static double normalizeDegrees(double degrees) {
@@ -582,24 +518,22 @@ void ClockRenderer::drawBigTime(int hours, int minutes, int seconds) {
 }
 
 void ClockRenderer::drawDriftSeparator(int x, int y, int offsetMinutes, bool freshChange, bool separatorVisible) {
-    int intensity = DRIFT_VISUAL_INTENSITY;
-    if (intensity < 0 || intensity > 2) {
-        intensity = 1;
-    }
-
-    if (intensity == 0) {
-        _display->setPixel(x, y + 6, true);
-        _display->setPixel(x, y + 9, true);
-        return;
-    }
+    (void)freshChange;
 
     if (!separatorVisible) {
         return;
     }
 
-    if (intensity == 1) {
-        _display->setPixel(x, y + 5, true);
-        _display->setPixel(x, y + 10, true);
+    int style = DRIFT_SEPARATOR_STYLE;
+    if (style < 0 || style > 1) {
+        style = 1;
+    }
+
+    int upper = 5;
+    int lower = 10;
+    if (style == 0) {
+        _display->setPixel(x, y + upper, true);
+        _display->setPixel(x, y + lower, true);
         return;
     }
 
@@ -608,48 +542,13 @@ void ClockRenderer::drawDriftSeparator(int x, int y, int offsetMinutes, bool fre
     if (maxOffset < 1) {
         maxOffset = 1;
     }
-    int nearLimit = (maxOffset + 5) / 6;
-    if (nearLimit < 1) {
-        nearLimit = 1;
-    }
-    int farStart = (maxOffset * 2 + 2) / 3;
-    if (farStart < nearLimit + 1) {
-        farStart = nearLimit + 1;
-    }
-
-    int upper = 5;
-    int lower = 10;
-    if (absOffset >= farStart) {
-        upper = 3;
-        lower = 12;
-    } else if (absOffset > nearLimit) {
-        upper = 4;
-        lower = 11;
-    }
-
-    if (freshChange && offsetMinutes == 0) {
-        _display->setPixel(x, y + 6, true);
-        _display->setPixel(x, y + 9, true);
-        return;
-    }
+    int spread = (absOffset * 2 + (maxOffset / 2)) / maxOffset;
+    spread = spread < 0 ? 0 : (spread > 2 ? 2 : spread);
+    upper -= spread;
+    lower += spread;
 
     _display->setPixel(x, y + upper, true);
     _display->setPixel(x, y + lower, true);
-
-    bool emphasizeUpper = offsetMinutes > 0;
-    bool emphasizeLower = offsetMinutes < 0;
-    if (freshChange) {
-        bool tmp = emphasizeUpper;
-        emphasizeUpper = emphasizeLower;
-        emphasizeLower = tmp;
-    }
-
-    if (emphasizeUpper && upper + 1 < TIME_FONT_BIG_HEIGHT) {
-        _display->setPixel(x, y + upper + 1, true);
-    }
-    if (emphasizeLower && lower - 1 >= 0) {
-        _display->setPixel(x, y + lower - 1, true);
-    }
 }
 
 void ClockRenderer::drawWordTimeLegacy(int hours, int minutes) {
@@ -948,17 +847,6 @@ int ClockRenderer::weekdayMonday1(int year, int month, int day) {
     return (weekday0 == 0) ? 7 : weekday0;
 }
 
-int ClockRenderer::isoWeeksInYear(int year) {
-    int jan1 = weekdayMonday1(year, 1, 1);
-    if (jan1 == 4) {
-        return 53;
-    }
-    if (jan1 == 3 && isLeapYear(year)) {
-        return 53;
-    }
-    return 52;
-}
-
 double ClockRenderer::getMoonAgeDays(int year, int month, int day) {
     if (year < MOON_ANCHOR_START_YEAR) {
         return moonExactAgeDays(year, month, day);
@@ -993,10 +881,6 @@ static char moonStateGlyph(const char* state) {
     if (strcmp(state, "WANING") == 0) return 'v';
     if (strcmp(state, "FULL") == 0) return '@';
     return 'o';
-}
-
-int ClockRenderer::getChineseYearNumber(int year, int month, int day) {
-    return chineseZodiacYearForDate(year, month, day) + 2698;
 }
 
 const char* ClockRenderer::getWesternZodiacSign(int month, int day) {

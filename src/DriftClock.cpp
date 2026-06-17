@@ -3,30 +3,15 @@
 #include "Config.h"
 
 #include <esp_system.h>
+#include <math.h>
 
 namespace {
+static constexpr int SECONDS_PER_DAY = 24 * 60 * 60;
 static constexpr int MINUTES_PER_DAY = 24 * 60;
-static constexpr unsigned long FRESH_DISPLAYED_MINUTE_MS = 1500UL;
-
-struct DriftPreset {
-    int holdMinSec;
-    int holdMaxSec;
-    uint8_t nudgeChance;
-    uint8_t doubleStepChance;
-    uint8_t catchUpChance;
-    uint8_t anchorChance;
-};
-
-static const DriftPreset gPresets[] = {
-    // Wary
-    { 45, 150, 26, 4, 26, 2 },
-    // Restless
-    { 15, 75, 45, 10, 30, 4 },
-    // Haunted
-    { 45, 180, 18, 6, 24, 28 },
-    // Tired
-    { 120, 240, 10, 2, 70, 1 },
-};
+static constexpr unsigned long FRESH_DISPLAYED_SECOND_MS = 1500UL;
+static constexpr unsigned long MIN_DISPLAYED_SECOND_MS = 250UL;
+static constexpr unsigned long MAX_DISPLAYED_SECOND_MS = 10000UL;
+static constexpr float DRIFT_TWO_PI = 6.28318530718f;
 
 static bool elapsed(unsigned long nowMs, unsigned long deadlineMs) {
     return (int32_t)(nowMs - deadlineMs) >= 0;
@@ -34,70 +19,80 @@ static bool elapsed(unsigned long nowMs, unsigned long deadlineMs) {
 }
 
 void DriftClock::update(const ClockTime& realTime, unsigned long nowMs) {
-    int realMinute = minuteOfDay(realTime);
+    int realSecond = secondOfDay(realTime);
     if (!_initialized) {
         reset(realTime, nowMs);
         return;
     }
 
-    int realJump = signedMinuteDelta(realMinute, _lastRealMinute);
-    if (realJump < -2 || realJump > 2) {
+    int realJump = signedSecondDelta(realSecond, _lastRealSecond);
+    if (realJump < -10 || realJump > 10) {
         reset(realTime, nowMs);
         return;
     }
-    _lastRealMinute = realMinute;
+    _lastRealSecond = realSecond;
 
-    enforceStillnessCap(realTime, nowMs);
-
-    if (offsetMinutes(realTime) <= -maxOffsetMinutes()) {
-        startCatchUp(realTime, nowMs);
-        processCatchUp(realTime, nowMs);
-        return;
+    unsigned long phaseDurationMs = (unsigned long)phaseSeconds() * 1000UL;
+    if (elapsed(nowMs, _phaseStartMs + phaseDurationMs)) {
+        Phase nextPhase = (_phase == Phase::Away) ? Phase::Return : Phase::Away;
+        beginPhase(nextPhase, realTime, nowMs);
     }
 
-    if (_phase == Phase::CatchUp) {
-        processCatchUp(realTime, nowMs);
-        return;
+    while (elapsed(nowMs, _nextDisplayedSecondMs)) {
+        advanceDisplayedSecond(_nextDisplayedSecondMs);
+        if (displayedProgressSeconds() >= targetDisplayedProgressSeconds()) {
+            Phase nextPhase = (_phase == Phase::Away) ? Phase::Return : Phase::Away;
+            beginPhase(nextPhase, realTime, nowMs);
+            break;
+        }
+        scheduleNextDisplayedSecond(realTime, _nextDisplayedSecondMs);
     }
-
-    if (!elapsed(nowMs, _eventDeadlineMs)) {
-        return;
-    }
-
-    decideNextEvent(realTime, nowMs);
 }
 
 void DriftClock::reset(const ClockTime& realTime, unsigned long nowMs) {
-    initialize(realTime, nowMs, false);
+    initialize(realTime, nowMs);
 }
 
 void DriftClock::activate(const ClockTime& realTime, unsigned long nowMs) {
-    initialize(realTime, nowMs, DRIFT_START_WITH_OFFSET);
+    initialize(realTime, nowMs);
 }
 
-void DriftClock::initialize(const ClockTime& realTime, unsigned long nowMs, bool randomizeStart) {
-    int realMinute = minuteOfDay(realTime);
-    int startOffset = randomizeStart ? randomStartOffsetMinutes() : 0;
-
+void DriftClock::initialize(const ClockTime& realTime, unsigned long nowMs) {
     _initialized = true;
-    _phase = Phase::Hold;
-    _displayedMinute = wrapMinuteOfDay(realMinute + startOffset);
-    _lastRealMinute = realMinute;
-    _targetOffset = startOffset;
-    _catchUpStepsRemaining = 0;
-    _nextCatchUpStepMs = 0;
+    _displayedSecond = secondOfDay(realTime);
+    _lastRealSecond = _displayedSecond;
+    beginPhase(Phase::Away, realTime, nowMs);
+}
+
+void DriftClock::beginPhase(Phase phase, const ClockTime& realTime, unsigned long nowMs) {
+    int realSecond = secondOfDay(realTime);
+    _phase = phase;
+    _phaseStartMs = nowMs;
+    _lastRealSecond = realSecond;
+
+    int offset = directionSign() * maxOffsetSeconds();
+    if (phase == Phase::Away) {
+        _displayedSecond = realSecond;
+    } else {
+        _displayedSecond = wrapSecondOfDay(realSecond + offset);
+    }
+
+    _phaseDisplayedProgress = 0;
     _lastDisplayChangeMs = nowMs;
-    scheduleEvent(realTime, nowMs);
+    _jitterPhaseA = ((float)(esp_random() % 6283U)) / 1000.0f;
+    _jitterPhaseB = ((float)(esp_random() % 6283U)) / 1000.0f;
+    scheduleNextDisplayedSecond(realTime, nowMs);
 }
 
 ClockTime DriftClock::displayTime(const ClockTime& realTime, unsigned long nowMs) const {
     (void)nowMs;
+    int displayedSecond = _initialized ? _displayedSecond : secondOfDay(realTime);
+    displayedSecond = wrapSecondOfDay(displayedSecond);
+
     ClockTime time;
-    int displayedMinute = _initialized ? _displayedMinute : minuteOfDay(realTime);
-    displayedMinute = wrapMinuteOfDay(displayedMinute);
-    time.hours = displayedMinute / 60;
-    time.minutes = displayedMinute % 60;
-    time.seconds = 0;
+    time.hours = displayedSecond / 3600;
+    time.minutes = (displayedSecond / 60) % 60;
+    time.seconds = displayedSecond % 60;
     return time;
 }
 
@@ -105,171 +100,116 @@ int DriftClock::offsetMinutes(const ClockTime& realTime) const {
     if (!_initialized) {
         return 0;
     }
-    return signedMinuteDelta(_displayedMinute, minuteOfDay(realTime));
+
+    int offsetSeconds = signedSecondDelta(_displayedSecond, secondOfDay(realTime));
+    if (offsetSeconds >= 0) {
+        return (offsetSeconds + 30) / 60;
+    }
+    return -((-offsetSeconds + 30) / 60);
 }
 
 bool DriftClock::displayedMinuteFresh(unsigned long nowMs) const {
-    return _initialized && (nowMs - _lastDisplayChangeMs) <= FRESH_DISPLAYED_MINUTE_MS;
+    return _initialized && (nowMs - _lastDisplayChangeMs) <= FRESH_DISPLAYED_SECOND_MS;
 }
 
 unsigned long DriftClock::separatorBlinkHalfPeriodMs(unsigned long nowMs) const {
     (void)nowMs;
-    unsigned long displayedMinuteDurationMs = 60UL * 1000UL;
-    if (_initialized && _phase == Phase::CatchUp) {
-        displayedMinuteDurationMs = (unsigned long)clampInt(DRIFT_CATCHUP_STEP_SECONDS, 1, 60) * 1000UL;
-    } else if (_initialized && elapsed(_eventDeadlineMs, _lastDisplayChangeMs)) {
-        displayedMinuteDurationMs = _eventDeadlineMs - _lastDisplayChangeMs;
-    }
-
-    unsigned long halfPeriodMs = displayedMinuteDurationMs / 60UL;
-    if (halfPeriodMs == 0) {
-        halfPeriodMs = 1000UL;
-    }
-    if (DRIFT_SEPARATOR_BLINK_MIN_MS > 0 && halfPeriodMs < DRIFT_SEPARATOR_BLINK_MIN_MS) {
-        halfPeriodMs = DRIFT_SEPARATOR_BLINK_MIN_MS;
-    }
-    return halfPeriodMs;
+    return _lastSecondDurationMs > 0 ? _lastSecondDurationMs : 1000UL;
 }
 
-void DriftClock::scheduleEvent(const ClockTime& realTime, unsigned long nowMs) {
-    const DriftPreset& preset = gPresets[personality()];
-    int offset = offsetMinutes(realTime);
-    _targetOffset = offset;
-
-    if (offset > 0) {
-        int waitSec = randomRange(preset.holdMinSec, preset.holdMaxSec);
-        scheduleHold(nowMs, (unsigned long)waitSec * 1000UL, Phase::WaitCorrection);
-        return;
-    }
-
-    int holdSec = randomRange(preset.holdMinSec, preset.holdMaxSec);
-    scheduleHold(nowMs, (unsigned long)holdSec * 1000UL, Phase::Hold);
-}
-
-void DriftClock::scheduleHold(unsigned long nowMs, unsigned long holdMs, Phase phase) {
-    unsigned long maxDeadline = _lastDisplayChangeMs + (unsigned long)maxStillMinutes() * 60UL * 1000UL;
-    unsigned long requestedDeadline = nowMs + holdMs;
-    _phase = phase;
-    _eventDeadlineMs = elapsed(requestedDeadline, maxDeadline) ? maxDeadline : requestedDeadline;
-}
-
-void DriftClock::startCatchUp(const ClockTime& realTime, unsigned long nowMs) {
-    int offset = offsetMinutes(realTime);
-    if (offset >= 0) {
-        scheduleEvent(realTime, nowMs);
-        return;
-    }
-
-    int behind = -offset;
-    _phase = Phase::CatchUp;
-    _targetOffset = 0;
-    _catchUpStepsRemaining = (uint8_t)clampInt(behind, 1, maxOffsetMinutes());
-    _nextCatchUpStepMs = nowMs;
-}
-
-void DriftClock::decideNextEvent(const ClockTime& realTime, unsigned long nowMs) {
-    int offset = offsetMinutes(realTime);
-    int maxOffset = maxOffsetMinutes();
-
-    if (offset < 0) {
-        const DriftPreset& preset = gPresets[personality()];
-        int catchUpChance = preset.catchUpChance;
-        if (personality() == 3 || -offset >= maxOffset / 2 || (int)(esp_random() % 100U) < catchUpChance) {
-            startCatchUp(realTime, nowMs);
-            return;
-        }
-    }
-
-    if (personality() == 2 && offset < maxOffset) {
-        int anchorStep = distanceToNextAnchor(_displayedMinute, 8);
-        if (anchorStep > 0 && canAdvance(realTime, anchorStep) &&
-            (int)(esp_random() % 100U) < gPresets[personality()].anchorChance) {
-            advanceDisplayed(realTime, nowMs, anchorStep);
-            scheduleHold(nowMs, cappedHoldMs(nowMs, _lastDisplayChangeMs, 35, 95), Phase::AnchorHold);
-            return;
-        }
-    }
-
-    const DriftPreset& preset = gPresets[personality()];
-    int roll = (int)(esp_random() % 100U);
-    if (roll < preset.doubleStepChance && canAdvance(realTime, 2)) {
-        _phase = Phase::DoubleStep;
-        advanceDisplayed(realTime, nowMs, 2);
-        scheduleEvent(realTime, nowMs);
-        return;
-    }
-    if (roll < preset.doubleStepChance + preset.nudgeChance && canAdvance(realTime, 1)) {
-        _phase = Phase::Nudge;
-        advanceDisplayed(realTime, nowMs, 1);
-        scheduleEvent(realTime, nowMs);
-        return;
-    }
-
-    scheduleEvent(realTime, nowMs);
-}
-
-void DriftClock::processCatchUp(const ClockTime& realTime, unsigned long nowMs) {
-    int offset = offsetMinutes(realTime);
-    if (offset >= 0 || _catchUpStepsRemaining == 0) {
-        _catchUpStepsRemaining = 0;
-        scheduleEvent(realTime, nowMs);
-        return;
-    }
-
-    if (!elapsed(nowMs, _nextCatchUpStepMs)) {
-        return;
-    }
-
-    if (advanceDisplayed(realTime, nowMs, 1)) {
-        _catchUpStepsRemaining--;
-    } else {
-        _catchUpStepsRemaining = 0;
-    }
-
-    if (_catchUpStepsRemaining == 0 || offsetMinutes(realTime) >= 0) {
-        scheduleEvent(realTime, nowMs);
-    } else {
-        _nextCatchUpStepMs = nowMs + (unsigned long)clampInt(DRIFT_CATCHUP_STEP_SECONDS, 1, 60) * 1000UL;
-    }
-}
-
-bool DriftClock::advanceDisplayed(const ClockTime& realTime, unsigned long nowMs, int steps) {
-    steps = clampInt(steps, 1, maxOffsetMinutes());
-    if (!canAdvance(realTime, steps)) {
-        return false;
-    }
-
-    _displayedMinute = wrapMinuteOfDay(_displayedMinute + steps);
+void DriftClock::advanceDisplayedSecond(unsigned long nowMs) {
+    _displayedSecond = wrapSecondOfDay(_displayedSecond + 1);
+    _phaseDisplayedProgress++;
     _lastDisplayChangeMs = nowMs;
-    _targetOffset = offsetMinutes(realTime);
-    return true;
 }
 
-bool DriftClock::canAdvance(const ClockTime& realTime, int steps) const {
-    int candidate = wrapMinuteOfDay(_displayedMinute + clampInt(steps, 1, maxOffsetMinutes()));
-    int candidateOffset = signedMinuteDelta(candidate, minuteOfDay(realTime));
-    return candidateOffset <= maxOffsetMinutes();
+void DriftClock::scheduleNextDisplayedSecond(const ClockTime& realTime, unsigned long nowMs) {
+    _lastSecondDurationMs = nextDisplayedSecondDurationMs(realTime, nowMs);
+    _nextDisplayedSecondMs = nowMs + _lastSecondDurationMs;
 }
 
-void DriftClock::enforceStillnessCap(const ClockTime& realTime, unsigned long nowMs) {
-    unsigned long maxStillMs = (unsigned long)maxStillMinutes() * 60UL * 1000UL;
-    if (!elapsed(nowMs, _lastDisplayChangeMs + maxStillMs)) {
-        return;
+unsigned long DriftClock::nextDisplayedSecondDurationMs(const ClockTime& realTime, unsigned long nowMs) const {
+    (void)realTime;
+
+    int targetProgress = targetDisplayedProgressSeconds();
+    int displayedProgress = displayedProgressSeconds();
+    int remainingDisplayed = targetProgress - displayedProgress;
+    if (remainingDisplayed <= 0) {
+        return MIN_DISPLAYED_SECOND_MS;
     }
 
-    if (advanceDisplayed(realTime, nowMs, 1)) {
-        scheduleEvent(realTime, nowMs);
+    unsigned long phaseDurationMs = (unsigned long)phaseSeconds() * 1000UL;
+    unsigned long elapsedMs = elapsed(nowMs, _phaseStartMs) ? nowMs - _phaseStartMs : 0;
+    if (elapsedMs >= phaseDurationMs) {
+        return MIN_DISPLAYED_SECOND_MS;
     }
+
+    unsigned long remainingMs = phaseDurationMs - elapsedMs;
+    float durationMs = (float)remainingMs / (float)remainingDisplayed;
+
+    int fadeWindow = clampInt(targetProgress / 12, 8, 120);
+    int fromStart = displayedProgress;
+    int fromEnd = remainingDisplayed;
+    float fade = 1.0f;
+    if (fromStart < fadeWindow) {
+        fade = (float)fromStart / (float)fadeWindow;
+    }
+    if (fromEnd < fadeWindow) {
+        float endFade = (float)fromEnd / (float)fadeWindow;
+        if (endFade < fade) {
+            fade = endFade;
+        }
+    }
+
+    durationMs *= 1.0f + ((jitterMultiplier(nowMs) - 1.0f) * fade);
+    if (durationMs < (float)MIN_DISPLAYED_SECOND_MS) {
+        durationMs = (float)MIN_DISPLAYED_SECOND_MS;
+    }
+    if (durationMs > (float)MAX_DISPLAYED_SECOND_MS) {
+        durationMs = (float)MAX_DISPLAYED_SECOND_MS;
+    }
+    return (unsigned long)(durationMs + 0.5f);
+}
+
+int DriftClock::targetDisplayedProgressSeconds() const {
+    int phase = phaseSeconds();
+    int offset = directionSign() * maxOffsetSeconds();
+    if (_phase == Phase::Away) {
+        return clampInt(phase + offset, 1, phase + maxOffsetSeconds());
+    }
+    return clampInt(phase - offset, 1, phase + maxOffsetSeconds());
+}
+
+int DriftClock::displayedProgressSeconds() const {
+    return _phaseDisplayedProgress;
+}
+
+float DriftClock::jitterMultiplier(unsigned long nowMs) const {
+    int jitter = jitterPercent();
+    if (jitter <= 0) {
+        return 1.0f;
+    }
+
+    float seconds = (float)(nowMs - _phaseStartMs) / 1000.0f;
+    float waveA = sinf((seconds / 73.0f) * DRIFT_TWO_PI + _jitterPhaseA);
+    float waveB = sinf((seconds / 41.0f) * DRIFT_TWO_PI + _jitterPhaseB);
+    float wave = (waveA * 0.65f) + (waveB * 0.35f);
+    return 1.0f + (wave * ((float)jitter / 100.0f));
 }
 
 int DriftClock::minuteOfDay(const ClockTime& time) {
+    return secondOfDay(time) / 60;
+}
+
+int DriftClock::secondOfDay(const ClockTime& time) {
     int hours = time.hours;
     int minutes = time.minutes;
+    int seconds = time.seconds;
     while (hours < 0) hours += 24;
     hours %= 24;
-    if (minutes < 0) minutes = 0;
-    if (minutes > 59) minutes = 59;
-    return hours * 60 + minutes;
+    minutes = clampInt(minutes, 0, 59);
+    seconds = clampInt(seconds, 0, 59);
+    return (hours * 3600) + (minutes * 60) + seconds;
 }
 
 int DriftClock::wrapMinuteOfDay(int minute) {
@@ -278,6 +218,14 @@ int DriftClock::wrapMinuteOfDay(int minute) {
         minute += MINUTES_PER_DAY;
     }
     return minute;
+}
+
+int DriftClock::wrapSecondOfDay(int second) {
+    second %= SECONDS_PER_DAY;
+    if (second < 0) {
+        second += SECONDS_PER_DAY;
+    }
+    return second;
 }
 
 int DriftClock::signedMinuteDelta(int fromMinute, int toMinute) {
@@ -291,54 +239,40 @@ int DriftClock::signedMinuteDelta(int fromMinute, int toMinute) {
     return diff;
 }
 
-bool DriftClock::isAnchorMinute(int displayedMinute) {
-    int minute = wrapMinuteOfDay(displayedMinute) % 60;
-    return minute == 0 || minute == 11 || minute == 22 ||
-           minute == 30 || minute == 44 || minute == 59;
-}
-
-int DriftClock::distanceToNextAnchor(int displayedMinute, int maxDistance) {
-    for (int distance = 1; distance <= maxDistance; distance++) {
-        if (isAnchorMinute(displayedMinute + distance)) {
-            return distance;
-        }
+int DriftClock::signedSecondDelta(int fromSecond, int toSecond) {
+    int diff = wrapSecondOfDay(fromSecond) - wrapSecondOfDay(toSecond);
+    while (diff <= -SECONDS_PER_DAY / 2) {
+        diff += SECONDS_PER_DAY;
     }
-    return 0;
-}
-
-int DriftClock::randomStartOffsetMinutes() {
-    int maxOffset = maxOffsetMinutes();
-    return randomRange(0, maxOffset);
-}
-
-unsigned long DriftClock::cappedHoldMs(unsigned long nowMs, unsigned long lastChangeMs, int minSec, int maxSec) {
-    unsigned long holdMs = (unsigned long)randomRange(minSec, maxSec) * 1000UL;
-    unsigned long maxDeadline = lastChangeMs + (unsigned long)maxStillMinutes() * 60UL * 1000UL;
-    unsigned long requestedDeadline = nowMs + holdMs;
-    if (elapsed(requestedDeadline, maxDeadline)) {
-        return elapsed(maxDeadline, nowMs) ? 0 : maxDeadline - nowMs;
+    while (diff > SECONDS_PER_DAY / 2) {
+        diff -= SECONDS_PER_DAY;
     }
-    return holdMs;
+    return diff;
 }
 
 int DriftClock::maxOffsetMinutes() {
-    return clampInt(DRIFT_MAX_OFFSET_MINUTES, 1, 12 * 60);
-}
-
-int DriftClock::maxStillMinutes() {
-    return clampInt(DRIFT_MAX_STILL_MINUTES, 1, 60);
-}
-
-uint8_t DriftClock::personality() {
-    return (DRIFT_PERSONALITY >= 0 && DRIFT_PERSONALITY <= 3) ? DRIFT_PERSONALITY : 0;
-}
-
-int DriftClock::randomRange(int minValue, int maxValue) {
-    if (maxValue <= minValue) {
-        return minValue;
+    int maxPhaseOffset = (phaseSeconds() - 1) / 60;
+    if (maxPhaseOffset < 1) {
+        maxPhaseOffset = 1;
     }
-    uint32_t span = (uint32_t)(maxValue - minValue + 1);
-    return minValue + (int)(esp_random() % span);
+    return clampInt(DRIFT_MAX_OFFSET_MINUTES, 1, maxPhaseOffset);
+}
+
+int DriftClock::maxOffsetSeconds() {
+    int maxOffset = DRIFT_MAX_OFFSET_MINUTES * 60;
+    return clampInt(maxOffset, 1, phaseSeconds() - 1);
+}
+
+int DriftClock::phaseSeconds() {
+    return clampInt(DRIFT_PHASE_MINUTES, 1, 12 * 60) * 60;
+}
+
+int DriftClock::jitterPercent() {
+    return clampInt(DRIFT_JITTER_PERCENT, 0, 25);
+}
+
+int DriftClock::directionSign() {
+    return DRIFT_DIRECTION == 1 ? 1 : -1;
 }
 
 int DriftClock::clampInt(int value, int minValue, int maxValue) {

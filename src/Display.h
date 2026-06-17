@@ -48,7 +48,7 @@ public:
     // Runtime mode accessors. App layer sets pointers to its own state so
     // Display can read the live display mode without a global.
     void setMenuBindings(void* bindings);
-    void setRuntimeMode(DisplayMode* displayMode, BellMode* bellMode);
+    void setRuntimeMode(DisplayMode* displayMode);
     void setDriftClock(DriftClock* driftClock);
     void setTimeFormat(TimeFormat* timeFormat);
     void setDateStyle(DateStyle* dateStyle);
@@ -84,9 +84,6 @@ public:
 
     // Text helpers are proportional: empty glyph columns are trimmed so menu,
     // word clock, date, and status labels center optically.
-    void drawMediumChar(char c, int x, int y);
-    void drawSmallChar(char c, int x, int y);
-    void drawBigChar(char c, int x, int y);
     void drawText(const char* s, int x, int y, bool small, int letterSpacing, int wordGap);
     void drawMediumText(const char* s, int x, int y);
     void drawSmallText(const char* s, int x, int y);
@@ -101,11 +98,15 @@ public:
 
     static int charWidth(char c, bool small);
     static int textWidth(const char* s, bool small, int letterSpacing, int wordGap);
-    static int charWidthBig(char c);
-    static int textWidthBig(const char* s, int letterSpacing, int wordGap);
     static int menuTextWidth(const char* s, int cellW, int spacing);
 
 private:
+    void drawMediumChar(char c, int x, int y);
+    void drawSmallChar(char c, int x, int y);
+    void drawBigChar(char c, int x, int y);
+    static int charWidthBig(char c);
+    static int textWidthBig(const char* s, int letterSpacing, int wordGap);
+
     // --- Owned child renderers (constructed in ctor) ---
     ClockRenderer*  _clockRenderer  = nullptr;
     MenuRenderer*   _menuRenderer   = nullptr;
@@ -121,7 +122,6 @@ private:
 
     void* _menuBindings = nullptr;
     DisplayMode* _displayMode = nullptr;
-    BellMode* _bellMode = nullptr;
     DriftClock* _driftClock = nullptr;
     TimeFormat* _timeFormat = nullptr;
     DateStyle* _dateStyle = nullptr;

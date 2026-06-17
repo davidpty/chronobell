@@ -133,10 +133,6 @@ const char* nightValueName(int16_t value) {
     return "?";
 }
 
-static const char* onOffValueName(int16_t value) {
-    return value == 0 ? "OFF" : "ON";
-}
-
 static const char* hotspotValueName(void* ctx, int16_t value) {
     if (value == 0) {
         return "OFF";

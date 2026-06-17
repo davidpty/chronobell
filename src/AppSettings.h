@@ -108,10 +108,6 @@ inline DisplayMode clampDisplayMode(int mode) {
     return static_cast<DisplayMode>(mode);
 }
 
-inline bool isConcreteDisplayMode(DisplayMode mode) {
-    return mode >= DisplayMode::LargeDigitsOnly && mode <= DisplayMode::Drift;
-}
-
 inline bool isRandomDisplayMode(DisplayMode mode) {
     return mode == DisplayMode::Rnd;
 }

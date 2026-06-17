@@ -77,9 +77,8 @@ void Display::setMenuBindings(void* bindings) {
     _menuBindings = bindings;
 }
 
-void Display::setRuntimeMode(DisplayMode* displayMode, BellMode* bellMode) {
+void Display::setRuntimeMode(DisplayMode* displayMode) {
     _displayMode = displayMode;
-    _bellMode = bellMode;
 }
 
 void Display::setDriftClock(DriftClock* driftClock) {

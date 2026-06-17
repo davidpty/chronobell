@@ -82,41 +82,12 @@
 // DRIFT display tuning
 // ---------------------------------------------------------------------------
 
-// Drift personality:
-//   0 = WARY     - subtle default; mostly correct, occasional hesitation
-//   1 = RESTLESS - frequent small corrections, visibly alive
-//   2 = HAUNTED  - attracted to memorable times, more uncanny
-//   3 = TIRED    - pauses briefly, then catches up in visible bursts
-#define DRIFT_PERSONALITY                           0
-
-// Maximum displayed-time offset from real time, in minutes.
-#define DRIFT_MAX_OFFSET_MINUTES                    12
-
-// Maximum time HH:MM may remain unchanged before the displayed minute must move.
-#define DRIFT_MAX_STILL_MINUTES                     4
-
-// 1 = enter Drift mode already offset from real time.
-// 0 = start correct, then drift naturally.
-#define DRIFT_START_WITH_OFFSET                     0
-
-//   0 = hidden     - visually identical to BIG
-//   1 = subtle     - quiet Drift colon signature
-//   2 = expressive - colon shows direction, offset, and recent correction
-#define DRIFT_VISUAL_INTENSITY                      1
-
-//   0 = Drift separator is continuously visible
-//   1 = Drift separator blinks in proportion to displayed-minute speed
-#define DRIFT_SEPARATOR_BLINK                       1
-
-// Minimum Drift separator blink half-period in milliseconds.
-#define DRIFT_SEPARATOR_BLINK_MIN_MS                250
-
-//   0 = bells follow real time
-//   1 = bells follow displayed Drift time
-#define DRIFT_BELL_FOLLOWS_DISPLAY                  1
-
-// Seconds per displayed minute during catch-up bursts.
-#define DRIFT_CATCHUP_STEP_SECONDS                  20
+#define DRIFT_MAX_OFFSET_MINUTES                    12                                  // Maximum displayed-time offset from real time, in minutes
+#define DRIFT_DIRECTION                             0                                   // 0 = slow first / behind, 1 = fast first / ahead
+#define DRIFT_PHASE_MINUTES                         60                                  // Real minutes to drift out to the maximum offset, and to return
+#define DRIFT_JITTER_PERCENT                        8                                   // Smooth tempo wave around the base Drift rate, as +/- percent
+#define DRIFT_SEPARATOR_STYLE                       1                                   // 0 = fixed wider separator, 1 = spreads with offset
+#define DRIFT_SEPARATOR_BLINK                       1                                   // 0 = steady separator, 1 = blink with displayed-second speed
 
 // ---------------------------------------------------------------------------
 // WiFi reconnection backoff (used by WiFiManagerLite)

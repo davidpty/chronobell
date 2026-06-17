@@ -65,13 +65,11 @@ private:
     void drawDateStyleCzod(const ClockDate& currentDate);
     static const char* getChineseZodiacAnimalCode(int year);
     static int dayOfYear(int year, int month, int day);
-    static int isoWeeksInYear(int year);
     static bool isLeapYear(int year);
     static int weekdayMonday1(int year, int month, int day);
     static double getMoonAgeDays(int year, int month, int day);
     static double getMoonIlluminationPercent(double ageDays);
     static const char* getMoonState(double ageDays, double illuminationPercent);
-    static int getChineseYearNumber(int year, int month, int day);
     static const char* getWesternZodiacSign(int month, int day);
     static const char* getWesternZodiacElement(const char* sign);
     static const char* getChineseZodiacAnimal(int year);

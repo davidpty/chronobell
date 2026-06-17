@@ -18,46 +18,43 @@ public:
 
 private:
     enum class Phase : uint8_t {
-        Hold,
-        Nudge,
-        DoubleStep,
-        CatchUp,
-        AnchorHold,
-        WaitCorrection
+        Away,
+        Return
     };
 
-    void initialize(const ClockTime& realTime, unsigned long nowMs, bool randomizeStart);
-    void scheduleEvent(const ClockTime& realTime, unsigned long nowMs);
-    void scheduleHold(unsigned long nowMs, unsigned long holdMs, Phase phase);
-    void startCatchUp(const ClockTime& realTime, unsigned long nowMs);
-    void decideNextEvent(const ClockTime& realTime, unsigned long nowMs);
-    void processCatchUp(const ClockTime& realTime, unsigned long nowMs);
-    bool advanceDisplayed(const ClockTime& realTime, unsigned long nowMs, int steps = 1);
-    bool canAdvance(const ClockTime& realTime, int steps = 1) const;
-    void enforceStillnessCap(const ClockTime& realTime, unsigned long nowMs);
+    void initialize(const ClockTime& realTime, unsigned long nowMs);
+    void beginPhase(Phase phase, const ClockTime& realTime, unsigned long nowMs);
+    void advanceDisplayedSecond(unsigned long nowMs);
+    void scheduleNextDisplayedSecond(const ClockTime& realTime, unsigned long nowMs);
+    unsigned long nextDisplayedSecondDurationMs(const ClockTime& realTime, unsigned long nowMs) const;
+    int targetDisplayedProgressSeconds() const;
+    int displayedProgressSeconds() const;
+    float jitterMultiplier(unsigned long nowMs) const;
 
     static int minuteOfDay(const ClockTime& time);
+    static int secondOfDay(const ClockTime& time);
     static int wrapMinuteOfDay(int minute);
+    static int wrapSecondOfDay(int second);
     static int signedMinuteDelta(int fromMinute, int toMinute);
-    static bool isAnchorMinute(int displayedMinute);
-    static int distanceToNextAnchor(int displayedMinute, int maxDistance);
-    static int randomStartOffsetMinutes();
-    static unsigned long cappedHoldMs(unsigned long nowMs, unsigned long lastChangeMs, int minSec, int maxSec);
+    static int signedSecondDelta(int fromSecond, int toSecond);
     static int maxOffsetMinutes();
-    static int maxStillMinutes();
-    static uint8_t personality();
-    static int randomRange(int minValue, int maxValue);
+    static int maxOffsetSeconds();
+    static int phaseSeconds();
+    static int jitterPercent();
+    static int directionSign();
     static int clampInt(int value, int minValue, int maxValue);
 
     bool _initialized = false;
-    Phase _phase = Phase::Hold;
-    int _displayedMinute = 0;
-    int _lastRealMinute = 0;
-    int _targetOffset = 0;
-    unsigned long _eventDeadlineMs = 0;
-    unsigned long _nextCatchUpStepMs = 0;
+    Phase _phase = Phase::Away;
+    int _displayedSecond = 0;
+    int _phaseDisplayedProgress = 0;
+    int _lastRealSecond = 0;
+    unsigned long _phaseStartMs = 0;
+    unsigned long _nextDisplayedSecondMs = 0;
     unsigned long _lastDisplayChangeMs = 0;
-    uint8_t _catchUpStepsRemaining = 0;
+    unsigned long _lastSecondDurationMs = 1000;
+    float _jitterPhaseA = 0.0f;
+    float _jitterPhaseB = 0.0f;
 };
 
 #endif // DRIFT_CLOCK_H
