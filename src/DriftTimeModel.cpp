@@ -131,7 +131,9 @@ double DriftTimeModel::phaseProgressSeconds(unsigned long elapsedMs) const {
 
 unsigned long DriftTimeModel::currentPhaseDurationSeconds() const {
     unsigned long duration = (unsigned long)effectivePhaseSeconds();
-    if (_phase == Phase::InitialToBehind) duration = (duration + 1UL) / 2UL;
+    if (directionMode() == 0 && _phase != Phase::InitialToBehind) {
+        duration *= 2UL;
+    }
     return duration > 0 ? duration : 1UL;
 }
 
@@ -195,8 +197,8 @@ int DriftTimeModel::effectivePhaseSeconds() {
     double availableRate = 1.0 - MINIMUM_DISPLAY_RATE - tempoVariation;
     if (availableRate < 0.05) availableRate = 0.05;
 
-    double slopeFactor = directionMode() == 0 ? DRIFT_PI : DRIFT_PI * 0.5;
-    int minimumSafe = (int)ceil((double)maxOffsetSeconds() * slopeFactor / availableRate);
+    int minimumSafe = (int)ceil((double)maxOffsetSeconds() * (DRIFT_PI * 0.5) /
+                                availableRate);
     int requested = requestedPhaseSeconds();
     return requested > minimumSafe ? requested : minimumSafe;
 }
