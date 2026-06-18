@@ -525,7 +525,7 @@ void ClockRenderer::drawDriftSeparator(int x, int y, int offsetMinutes, bool fre
     }
 
     int style = DRIFT_SEPARATOR_STYLE;
-    if (style < 0 || style > 1) {
+    if (style < 0 || style > 2) {
         style = 1;
     }
 
@@ -542,10 +542,20 @@ void ClockRenderer::drawDriftSeparator(int x, int y, int offsetMinutes, bool fre
     if (maxOffset < 1) {
         maxOffset = 1;
     }
-    int spread = (absOffset * 2 + (maxOffset / 2)) / maxOffset;
-    spread = spread < 0 ? 0 : (spread > 2 ? 2 : spread);
-    upper -= spread;
-    lower += spread;
+    if (style == 1) {
+        int spread = (absOffset * 2 + (maxOffset / 2)) / maxOffset;
+        spread = spread < 0 ? 0 : (spread > 2 ? 2 : spread);
+        upper -= spread;
+        lower += spread;
+    } else {
+        int travel = (absOffset * 4 + (maxOffset / 2)) / maxOffset;
+        travel = travel < 0 ? 0 : (travel > 4 ? 4 : travel);
+        if (offsetMinutes < 0) {
+            lower += travel;
+        } else if (offsetMinutes > 0) {
+            upper -= travel;
+        }
+    }
 
     _display->setPixel(x, y + upper, true);
     _display->setPixel(x, y + lower, true);

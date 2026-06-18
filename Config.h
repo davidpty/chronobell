@@ -82,11 +82,11 @@
 // DRIFT display tuning
 // ---------------------------------------------------------------------------
 
-#define DRIFT_MAX_OFFSET_MINUTES                    12                                  // Maximum distance from real time in either direction, in minutes
-#define DRIFT_DIRECTION                             0                                   // 0 = real->behind->real, 1 = real->ahead->real, 2 = behind<->ahead
-#define DRIFT_PHASE_MINUTES                         60                                  // Minutes per real<->extreme leg (0/1), or requested extreme<->extreme leg (2); unsafe values are extended
+#define DRIFT_MAX_OFFSET_MINUTES                    8                                   // Maximum distance from real time in either direction, in minutes
+#define DRIFT_DIRECTION                             0                                   // 0 = behind<->ahead, 1 = real->behind->real, 2 = real->ahead->real
+#define DRIFT_PHASE_MINUTES                         60                                  // Requested extreme<->extreme leg (0), or real<->extreme leg (1/2); unsafe values are extended
 #define DRIFT_TEMPO_VARIATION_PERCENT               8                                   // Smooth zero-mean tempo variation, as +/- percent; reaches zero at phase boundaries
-#define DRIFT_SEPARATOR_STYLE                       1                                   // 0 = fixed wider separator, 1 = spreads with offset
+#define DRIFT_SEPARATOR_STYLE                       2                                   // 0 = fixed, 1 = symmetric spread, 2 = directional spread (lower=behind, upper=ahead)
 #define DRIFT_SEPARATOR_BLINK                       1                                   // 0 = steady separator, 1 = toggle on each continuously modeled displayed second
 
 // ---------------------------------------------------------------------------

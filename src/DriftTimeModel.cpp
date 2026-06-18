@@ -68,7 +68,7 @@ void DriftTimeModel::initialize(const ClockTime& realTime, unsigned long nowMs) 
     _phaseStartMs = nowMs;
     _lastUpdateMs = nowMs;
     _lastDisplayChangeMs = nowMs;
-    _phase = directionMode() == 2 ? Phase::InitialToBehind : Phase::Away;
+    _phase = directionMode() == 0 ? Phase::InitialToBehind : Phase::Away;
 }
 
 void DriftTimeModel::finishCurrentPhase() {
@@ -77,7 +77,7 @@ void DriftTimeModel::finishCurrentPhase() {
 }
 
 DriftTimeModel::Phase DriftTimeModel::nextPhase() const {
-    if (directionMode() == 2) {
+    if (directionMode() == 0) {
         switch (_phase) {
             case Phase::InitialToBehind: return Phase::BehindToAhead;
             case Phase::BehindToAhead:   return Phase::AheadToBehind;
@@ -195,7 +195,7 @@ int DriftTimeModel::effectivePhaseSeconds() {
     double availableRate = 1.0 - MINIMUM_DISPLAY_RATE - tempoVariation;
     if (availableRate < 0.05) availableRate = 0.05;
 
-    double slopeFactor = directionMode() == 2 ? DRIFT_PI : DRIFT_PI * 0.5;
+    double slopeFactor = directionMode() == 0 ? DRIFT_PI : DRIFT_PI * 0.5;
     int minimumSafe = (int)ceil((double)maxOffsetSeconds() * slopeFactor / availableRate);
     int requested = requestedPhaseSeconds();
     return requested > minimumSafe ? requested : minimumSafe;
@@ -210,7 +210,7 @@ int DriftTimeModel::directionMode() {
 }
 
 int DriftTimeModel::directionSign() {
-    return directionMode() == 1 ? 1 : -1;
+    return directionMode() == 2 ? 1 : -1;
 }
 
 int DriftTimeModel::clampInt(int value, int minValue, int maxValue) {
