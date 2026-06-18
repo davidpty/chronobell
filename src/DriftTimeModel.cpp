@@ -189,7 +189,7 @@ int DriftTimeModel::maxOffsetSeconds() {
 }
 
 int DriftTimeModel::requestedPhaseSeconds() {
-    return clampInt(DRIFT_PHASE_MINUTES, 1, 12 * 60) * 60;
+    return clampInt(DRIFT_TIME_TO_MAX_OFFSET_MINUTES, 1, 12 * 60) * 60;
 }
 
 int DriftTimeModel::effectivePhaseSeconds() {
@@ -208,7 +208,7 @@ int DriftTimeModel::tempoVariationPercent() {
 }
 
 int DriftTimeModel::directionMode() {
-    return clampInt(DRIFT_DIRECTION, 0, 2);
+    return clampInt(DRIFT_PATTERN, 0, 2);
 }
 
 int DriftTimeModel::directionSign() {

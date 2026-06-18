@@ -202,8 +202,8 @@ Open `Config.h` to adjust these:
 | `TIME_SYNC_INTERVAL_MINUTES` | `60` | How often NTP re-syncs |
 | `HOTSPOT_TIMEOUT_MINUTES` | `0` | Auto-stop hotspot after N minutes (`0` = stays on) |
 | `DRIFT_MAX_OFFSET_MINUTES` | `8` | Maximum distance from real time in either direction |
-| `DRIFT_DIRECTION` | `0` | 0=behind↔ahead, 1=real→behind→real, 2=real→ahead→real |
-| `DRIFT_PHASE_MINUTES` | `60` | Minutes from real time to maximum offset; mode 0 takes twice this between extremes |
+| `DRIFT_PATTERN` | `0` | 0=behind↔ahead, 1=real→behind→real, 2=real→ahead→real |
+| `DRIFT_TIME_TO_MAX_OFFSET_MINUTES` | `60` | Minutes from real time to maximum offset; pattern 0 takes twice this between extremes |
 | `DRIFT_TEMPO_VARIATION_PERCENT` | `8` | Smooth zero-mean tempo variation around the drift curve |
 | `DRIFT_SEPARATOR_STYLE` | `2` | 0=fixed, 1=symmetric spread, 2=directional spread showing behind/ahead |
 | `DRIFT_SEPARATOR_BLINK` | `1` | 0=steady separator, 1=toggle with each displayed second |
