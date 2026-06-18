@@ -192,11 +192,7 @@ void Display::showTime() {
                 bool freshChange = _driftTimeModel->displayedMinuteFresh(nowMs);
                 bool separatorVisible = true;
 #if DRIFT_SEPARATOR_BLINK
-                unsigned long halfPeriodMs = _driftTimeModel->separatorBlinkHalfPeriodMs(nowMs);
-                if (halfPeriodMs == 0) {
-                    halfPeriodMs = 1000UL;
-                }
-                separatorVisible = ((nowMs / halfPeriodMs) % 2UL) == 0;
+                separatorVisible = _driftTimeModel->separatorVisible();
 #endif
                 _clockRenderer->drawDriftTime(driftTime.hours, driftTime.minutes, driftTime.seconds, offsetMinutes, freshChange, separatorVisible);
             } else {

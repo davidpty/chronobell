@@ -82,12 +82,12 @@
 // DRIFT display tuning
 // ---------------------------------------------------------------------------
 
-#define DRIFT_MAX_OFFSET_MINUTES                    12                                  // Maximum displayed-time offset from real time, in minutes
-#define DRIFT_DIRECTION                             0                                   // 0 = slow first / behind, 1 = fast first / ahead
-#define DRIFT_PHASE_MINUTES                         60                                  // Real minutes to drift out to the maximum offset, and to return
-#define DRIFT_JITTER_PERCENT                        8                                   // Smooth tempo wave around the base Drift rate, as +/- percent
+#define DRIFT_MAX_OFFSET_MINUTES                    12                                  // Maximum distance from real time in either direction, in minutes
+#define DRIFT_DIRECTION                             0                                   // 0 = real->behind->real, 1 = real->ahead->real, 2 = behind<->ahead
+#define DRIFT_PHASE_MINUTES                         60                                  // Minutes per real<->extreme leg (0/1), or requested extreme<->extreme leg (2); unsafe values are extended
+#define DRIFT_TEMPO_VARIATION_PERCENT               8                                   // Smooth zero-mean tempo variation, as +/- percent; reaches zero at phase boundaries
 #define DRIFT_SEPARATOR_STYLE                       1                                   // 0 = fixed wider separator, 1 = spreads with offset
-#define DRIFT_SEPARATOR_BLINK                       1                                   // 0 = steady separator, 1 = blink with displayed-second speed
+#define DRIFT_SEPARATOR_BLINK                       1                                   // 0 = steady separator, 1 = toggle on each continuously modeled displayed second
 
 // ---------------------------------------------------------------------------
 // WiFi reconnection backoff (used by WiFiManagerLite)

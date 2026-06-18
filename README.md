@@ -201,12 +201,12 @@ Open `Config.h` to adjust these:
 | `GUEST_WIFI_URL` | *(see file)* | Guest WiFi password URL; set to `""` to disable |
 | `TIME_SYNC_INTERVAL_MINUTES` | `60` | How often NTP re-syncs |
 | `HOTSPOT_TIMEOUT_MINUTES` | `0` | Auto-stop hotspot after N minutes (`0` = stays on) |
-| `DRIFT_MAX_OFFSET_MINUTES` | `12` | Maximum displayed-time offset from real time |
-| `DRIFT_DIRECTION` | `0` | 0=fall behind first, 1=run ahead first |
-| `DRIFT_PHASE_MINUTES` | `60` | Minutes to drift out, and minutes to return |
-| `DRIFT_JITTER_PERCENT` | `8` | Smooth tempo variation around the base Drift rate |
+| `DRIFT_MAX_OFFSET_MINUTES` | `12` | Maximum distance from real time in either direction |
+| `DRIFT_DIRECTION` | `0` | 0=real→behind→real, 1=real→ahead→real, 2=behind↔ahead |
+| `DRIFT_PHASE_MINUTES` | `60` | Requested leg duration; unsafe values are extended automatically |
+| `DRIFT_TEMPO_VARIATION_PERCENT` | `8` | Smooth zero-mean tempo variation around the drift curve |
 | `DRIFT_SEPARATOR_STYLE` | `1` | 0=fixed wider separator, 1=separator spreads with offset |
-| `DRIFT_SEPARATOR_BLINK` | `1` | 0=steady separator, 1=blink with displayed-second tempo |
+| `DRIFT_SEPARATOR_BLINK` | `1` | 0=steady separator, 1=toggle with each displayed second |
 
 ---
 
