@@ -148,7 +148,7 @@ When night mode turns the display off, any touch wakes it for a minute.
 | SETTIME | AUTO / MANUAL | Time source - automatic (NTP + RTC) or manual entry |
 | HOTSPOT | OFF / ON | Turn the web config portal on or off |
 
-Hold center to enter the menu, left/right to browse, and tap center to edit. STYLE has a second step for clocks with a separator: BIG, SEC, DECI, DATE, and WDAY offer STEADY or PULSE; DRIFT offers STEADY, PULSE, SPREAD, or TRACK. Each style remembers its own separator choice. WORD, ROMA, BIN, and RND save immediately because they do not expose a separator choice.
+Hold center to enter the menu, left/right to browse, and tap center to edit. STYLE has a second step for clocks with a separator: BIG, SEC, DECI, DATE, and WDAY offer SOLID or BLINK; DRIFT offers SOLID or BLINK. The second step is labeled COLON in the menu. Each style remembers its own separator choice. WORD, ROMA, BIN, and RND save immediately because they do not expose a separator choice.
 
 ### Setting the time manually
 

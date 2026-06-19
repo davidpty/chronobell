@@ -93,7 +93,7 @@ void MenuRenderer::drawMenuValue(const MenuItem& it, int16_t v, int y) {
 }
 
 void MenuRenderer::drawMenuName(const MenuItem& it, int y) {
-    const char* label = (strcmp(it.name, "STYLE") == 0 && g_styleStep == 1) ? "SEP" : it.name;
+    const char* label = (strcmp(it.name, "STYLE") == 0 && g_styleStep == 1) ? "COLON" : it.name;
     int w = _display->menuTextWidth(label, 4, 1);
     int x = (COLS_PER_ROW - w) / 2;
     _display->drawSmallText(label, x, y);

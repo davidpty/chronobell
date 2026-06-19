@@ -455,10 +455,10 @@ void ConfigPortal::handleRoot() {
             if (!configurable) return;
 
             const options = style === 9
-                ? [[0, 'STEADY - Always on, position shows drift'],
-                   [1, 'PULSE - Both dots blink, position shows drift']]
-                : [[0, 'STEADY - Always visible'],
-                   [1, 'PULSE - Blink each second']];
+                ? [[0, 'SOLID - Always on, position shows drift'],
+                   [1, 'BLINK - Both dots blink, position shows drift']]
+                : [[0, 'SOLID - Always visible'],
+                   [1, 'BLINK - Blink each second']];
             select.innerHTML = '';
             options.forEach(function(option) {
                 const el = document.createElement('option');

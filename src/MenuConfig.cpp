@@ -109,8 +109,8 @@ const char* styleValueName(int16_t value) {
 }
 
 static const char* separatorValueName(int16_t value, bool drift) {
-    static const char* const STANDARD[] = {"STEADY", "PULSE"};
-    static const char* const DRIFT[] = {"STEADY", "PULSE"};
+    static const char* const STANDARD[] = {"SOLID", "BLINK"};
+    static const char* const DRIFT[] = {"SOLID", "BLINK"};
     if (drift) return (value >= 0 && value <= 1) ? DRIFT[value] : "?";
     return (value >= 0 && value <= 1) ? STANDARD[value] : "?";
 }
@@ -231,10 +231,6 @@ static void previewDisplayModeMenu(void* ctx, int16_t v) {
     if (g_styleStep == 0) {
         g_stylePreviewMode = clampDisplayMode((int)v);
         b->displayMode = g_stylePreviewMode;
-    } else if (g_stylePreviewMode == DisplayMode::Drift) {
-        b->appSettings.driftSeparator = clampDriftSeparatorMode((int)v);
-    } else {
-        setSeparatorModeFor(b->appSettings, g_stylePreviewMode, clampSeparatorMode((int)v));
     }
 }
 static void commitDisplayModeMenu(void* ctx, int16_t v) {
