@@ -100,7 +100,7 @@ const char* bellValueName(int16_t value) {
 
 const char* styleValueName(int16_t value) {
     static const char* const NAMES[] = {
-        "RND", "BIG", "SEC", "DECI", "DATE", "WORD", "ROMA", "BIN", "DRIFT", "WDAY", nullptr
+        "RND", "BIG", "SEC", "DECI", "DATE", "WDAY", "WORD", "ROMA", "BIN", "DRIFT", nullptr
     };
     for (uint8_t i = 0; NAMES[i]; i++) {
         if ((int16_t)i == value) return NAMES[i];

@@ -25,11 +25,11 @@ static const DisplayMode QUICK_STYLE_POOL[] = {
     DisplayMode::TimeWithSeconds,
     DisplayMode::TimeWithDeciseconds,
     DisplayMode::TimeWithDate,
+    DisplayMode::TimeWithWeekday,
     DisplayMode::Word,
     DisplayMode::Roma,
     DisplayMode::Bin,
     DisplayMode::Drift,
-    DisplayMode::TimeWithWeekday,
 };
 
 static const uint8_t QUICK_STYLE_POOL_COUNT =
@@ -40,10 +40,10 @@ static const DisplayMode RANDOM_STYLE_POOL[] = {
     DisplayMode::TimeWithSeconds,
     DisplayMode::TimeWithDeciseconds,
     DisplayMode::TimeWithDate,
+    DisplayMode::TimeWithWeekday,
     DisplayMode::Word,
     DisplayMode::Roma,
     DisplayMode::Bin,
-    DisplayMode::TimeWithWeekday,
 };
 
 static const uint8_t RANDOM_STYLE_POOL_COUNT =

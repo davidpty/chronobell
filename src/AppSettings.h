@@ -9,11 +9,11 @@ enum class DisplayMode : uint8_t {
     TimeWithSeconds = 2,
     TimeWithDeciseconds = 3,
     TimeWithDate = 4,
-    Word = 5,
-    Roma = 6,
-    Bin = 7,
-    Drift = 8,
-    TimeWithWeekday = 9
+    TimeWithWeekday = 5,
+    Word = 6,
+    Roma = 7,
+    Bin = 8,
+    Drift = 9
 };
 
 enum class DateStyle : uint8_t {
@@ -145,6 +145,8 @@ inline const char* displayModeLabel(DisplayMode mode) {
             return "DECI";
         case DisplayMode::TimeWithDate:
             return "DATE";
+        case DisplayMode::TimeWithWeekday:
+            return "WDAY";
         case DisplayMode::Word:
             return "WORD";
         case DisplayMode::Roma:
@@ -153,8 +155,6 @@ inline const char* displayModeLabel(DisplayMode mode) {
             return "BIN";
         case DisplayMode::Drift:
             return "DRIFT";
-        case DisplayMode::TimeWithWeekday:
-            return "WDAY";
         default:
             return "?";
     }
@@ -164,8 +164,8 @@ inline DisplayMode clampDisplayMode(int mode) {
     if (mode < (int)DisplayMode::Rnd) {
         return DisplayMode::Rnd;
     }
-    if (mode > (int)DisplayMode::TimeWithWeekday) {
-        return DisplayMode::TimeWithWeekday;
+    if (mode > (int)DisplayMode::Drift) {
+        return DisplayMode::Drift;
     }
     return static_cast<DisplayMode>(mode);
 }

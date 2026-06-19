@@ -277,11 +277,11 @@ void ConfigPortal::handleRoot() {
                     <option value="2">SEC - HH:MM with seconds below</option>
                     <option value="3">DECI - HH:MM with SS.d below</option>
                     <option value="4">DATE - HH:MM with date below</option>
-                    <option value="5">WORD - Mixed-size word clock display</option>
-                    <option value="6">ROMA - Roman numeral clock</option>
-                    <option value="7">BIN - Binary clock</option>
-                    <option value="8">DRIFT - Irregular BIG-style clock</option>
-                    <option value="9">WDAY - HH:MM with weekday below</option>
+                    <option value="5">WDAY - HH:MM with weekday below</option>
+                    <option value="6">WORD - Mixed-size word clock display</option>
+                    <option value="7">ROMA - Roman numeral clock</option>
+                    <option value="8">BIN - Binary clock</option>
+                    <option value="9">DRIFT - Irregular BIG-style clock</option>
                 </select>
             </div>
 
@@ -444,17 +444,17 @@ void ConfigPortal::handleRoot() {
         let pendingPollTimer = null;
         let statusPollTimer = null;
         let wifiFieldsDirty = false;
-        let separatorSettings = {1: 0, 2: 0, 3: 0, 4: 0, 8: 3, 9: 0};
+        let separatorSettings = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 9: 3};
 
         function syncSeparatorRow() {
             const style = Number(document.getElementById('style').value);
             const row = document.getElementById('separatorRow');
             const select = document.getElementById('separator');
-            const configurable = style === 1 || style === 2 || style === 3 || style === 4 || style === 8 || style === 9;
+            const configurable = style === 1 || style === 2 || style === 3 || style === 4 || style === 5 || style === 9;
             row.classList.toggle('hidden', !configurable);
             if (!configurable) return;
 
-            const options = style === 8
+            const options = style === 9
                 ? [[0, 'STEADY - Fixed and always visible'],
                    [1, 'PULSE - Fixed dots blinking'],
                    [2, 'SPREAD - Symmetric drift spread'],
@@ -1198,10 +1198,10 @@ void ConfigPortal::handleStatus() {
     json += (int)_settings.decisecondsSeparator;
     json += ",\"4\":";
     json += (int)_settings.dateSeparator;
-    json += ",\"8\":";
-    json += (int)_settings.driftSeparator;
-    json += ",\"9\":";
+    json += ",\"5\":";
     json += (int)_settings.weekdaySeparator;
+    json += ",\"9\":";
+    json += (int)_settings.driftSeparator;
     json += "}";
     json += ",\"hotspotActive\":";
     json += hotspotActive ? "true" : "false";
