@@ -431,7 +431,7 @@ void ClockRenderer::drawPreview(DisplayMode mode, ClockTime time) {
             drawBinaryTime(time.hours, time.minutes, time.seconds);
             break;
         case DisplayMode::Drift:
-            drawDriftTime(hours, time.minutes, time.seconds, 0, false, true);
+            drawDriftTime(hours, time.minutes, time.seconds, 0, false, true, 0);
             break;
         case DisplayMode::Rnd:
             _display->drawCenteredBigText("RND", 0);
