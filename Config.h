@@ -78,6 +78,7 @@
 #define LAST_STYLE_TIMEOUT_MINUTES                  360                                 // Reset remembered clock view to configured View after N idle min (0=off)
 #define LAST_DATEVIEW_TIMEOUT_MINUTES               5                                   // Reset remembered date view to configured after N idle min (0=off)
 #define RND_STYLE_INTERVAL_HOURS                    24                                  // RND changes on local-hour boundaries aligned to midnight (3 = 00,03,06...; valid 1-24)
+#define INFO_ALT_INTERVAL_SECONDS                   12                                  // ALT switches between DATE and WDAY every N seconds after entering ALT (valid 1-3600)
 
 // ---------------------------------------------------------------------------
 // DRIFT display tuning

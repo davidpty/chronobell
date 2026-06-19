@@ -22,10 +22,7 @@ bool sameDate(const ClockDate& a, const ClockDate& b) {
 
 static const DisplayMode QUICK_STYLE_POOL[] = {
     DisplayMode::LargeDigitsOnly,
-    DisplayMode::TimeWithSeconds,
-    DisplayMode::TimeWithDeciseconds,
-    DisplayMode::TimeWithDate,
-    DisplayMode::TimeWithWeekday,
+    DisplayMode::Info,
     DisplayMode::Word,
     DisplayMode::Roma,
     DisplayMode::Bin,
@@ -37,10 +34,7 @@ static const uint8_t QUICK_STYLE_POOL_COUNT =
 
 static const DisplayMode RANDOM_STYLE_POOL[] = {
     DisplayMode::LargeDigitsOnly,
-    DisplayMode::TimeWithSeconds,
-    DisplayMode::TimeWithDeciseconds,
-    DisplayMode::TimeWithDate,
-    DisplayMode::TimeWithWeekday,
+    DisplayMode::Info,
     DisplayMode::Word,
     DisplayMode::Roma,
     DisplayMode::Bin,

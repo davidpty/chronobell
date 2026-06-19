@@ -50,6 +50,7 @@ public:
     void setMenuBindings(void* bindings);
     void setRuntimeMode(DisplayMode* displayMode);
     void setAppSettings(AppSettings* settings);
+    void setInfoLineMode(InfoLineMode* infoLineMode);
     void setDriftTimeModel(DriftTimeModel* driftTimeModel);
     void setTimeFormat(TimeFormat* timeFormat);
     void setDateStyle(DateStyle* dateStyle);

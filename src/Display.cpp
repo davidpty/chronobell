@@ -46,6 +46,7 @@ void Display::begin() {
 
     _clockRenderer->init(*this, _timeProvider);
     _clockRenderer->setTimeFormat(_timeFormat);
+    _clockRenderer->setInfoLineMode(_appSettings ? &_appSettings->infoLineMode : nullptr);
     _menuRenderer->init(*this, _menu);
     _timerRenderer->init(*this, _timer, *_clockRenderer);
 }
@@ -83,6 +84,15 @@ void Display::setRuntimeMode(DisplayMode* displayMode) {
 
 void Display::setAppSettings(AppSettings* settings) {
     _appSettings = settings;
+    if (_clockRenderer && _appSettings) {
+        _clockRenderer->setInfoLineMode(&_appSettings->infoLineMode);
+    }
+}
+
+void Display::setInfoLineMode(InfoLineMode* infoLineMode) {
+    if (_clockRenderer) {
+        _clockRenderer->setInfoLineMode(infoLineMode);
+    }
 }
 
 void Display::setDriftTimeModel(DriftTimeModel* driftTimeModel) {
@@ -173,13 +183,8 @@ void Display::showTime() {
     _clockRenderer->setSeparatorModes(separatorMode, driftSeparatorMode);
     _clockRenderer->setDriftStyleActive(mode == DisplayMode::Drift);
     switch (mode) {
-        case DisplayMode::TimeWithSeconds:
-            _clockRenderer->drawTime(hours, minutes, seconds);
-            _clockRenderer->drawSeconds(seconds);
-            break;
-        case DisplayMode::TimeWithDeciseconds:
-            _clockRenderer->drawTime(hours, minutes, seconds);
-            _clockRenderer->drawDeciseconds(seconds, _clockRenderer->currentClockDeciseconds());
+        case DisplayMode::Info:
+            _clockRenderer->drawInfoTime(time);
             break;
         case DisplayMode::Word:
             _clockRenderer->drawWordTime(hours, minutes);
@@ -207,12 +212,6 @@ void Display::showTime() {
             break;
         case DisplayMode::Rnd:
             _clockRenderer->drawPreview(mode, time);
-            break;
-        case DisplayMode::TimeWithDate:
-            _clockRenderer->drawDateTime(time);
-            break;
-        case DisplayMode::TimeWithWeekday:
-            _clockRenderer->drawWeekdayTime(time);
             break;
         case DisplayMode::LargeDigitsOnly:
         default:

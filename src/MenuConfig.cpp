@@ -52,6 +52,9 @@ uint8_t  g_setMonth = 1;
 uint16_t g_setYear = 2025;
 uint8_t g_styleStep = 0;
 DisplayMode g_stylePreviewMode = DisplayMode::LargeDigitsOnly;
+static InfoLineMode g_stylePendingInfoLineMode = InfoLineMode::Seconds;
+static SeparatorMode g_stylePendingSeparatorMode = SeparatorMode::Steady;
+static DriftSeparatorMode g_stylePendingDriftSeparatorMode = DriftSeparatorMode::Steady;
 static bool g_styleEditing = false;
 static AppSettings g_styleOriginalSettings;
 static DisplayMode g_styleOriginalRuntimeMode = DisplayMode::LargeDigitsOnly;
@@ -68,7 +71,7 @@ enum MenuIndex : uint8_t {
 };
 
 MenuItem MENU_ITEMS[] = {
-  {"STYLE",   (int16_t)DisplayMode::Rnd,  (int16_t)DisplayMode::TimeWithWeekday,
+  {"STYLE",   (int16_t)DisplayMode::Rnd,  (int16_t)DisplayMode::Drift,
               getDisplayModeMenu, previewDisplayModeMenu, commitDisplayModeMenu, nullptr,
               editCommitDisplayModeMenu, cancelDisplayModeMenu},
   {"DATE",    (int16_t)DateStyle::Date,    (int16_t)DateStyle::Czod,
@@ -100,7 +103,17 @@ const char* bellValueName(int16_t value) {
 
 const char* styleValueName(int16_t value) {
     static const char* const NAMES[] = {
-        "RND", "BIG", "SEC", "DECI", "DATE", "WDAY", "WORD", "ROMA", "BIN", "DRIFT", nullptr
+        "RND", "BIG", "INFO", "WORD", "ROMA", "BIN", "DRIFT", nullptr
+    };
+    for (uint8_t i = 0; NAMES[i]; i++) {
+        if ((int16_t)i == value) return NAMES[i];
+    }
+    return "?";
+}
+
+static const char* infoLineValueName(int16_t value) {
+    static const char* const NAMES[] = {
+        "SEC", "DECI", "DATE", "WDAY", "ALT", nullptr
     };
     for (uint8_t i = 0; NAMES[i]; i++) {
         if ((int16_t)i == value) return NAMES[i];
@@ -178,8 +191,11 @@ static const char* setTimeValueName(int16_t value) {
 
 const char* menuValueName(uint8_t index, int16_t value, void* ctx) {
     if (index == MENU_STYLE) {
-        return g_styleStep == 0 ? styleValueName(value)
-                                : separatorValueName(value, g_stylePreviewMode == DisplayMode::Drift);
+        if (g_styleStep == 0) return styleValueName(value);
+        if (g_stylePreviewMode == DisplayMode::Info && g_styleStep == 1) {
+            return infoLineValueName(value);
+        }
+        return separatorValueName(value, g_stylePreviewMode == DisplayMode::Drift);
     }
     if (index == MENU_DATE) return dateStyleValueName(value);
     if (index == MENU_FORMAT) return formatValueName(value);
@@ -215,9 +231,12 @@ static void commitBellModeMenu(void* ctx, int16_t v) {
 }
 static int16_t getDisplayModeMenu(void* ctx) {
     if (g_styleStep == 1) {
-        MenuBindings* b = static_cast<MenuBindings*>(ctx);
-        if (g_stylePreviewMode == DisplayMode::Drift) return (int16_t)b->appSettings.driftSeparator;
-        return (int16_t)separatorModeFor(b->appSettings, g_stylePreviewMode);
+        if (g_stylePreviewMode == DisplayMode::Info) return (int16_t)g_stylePendingInfoLineMode;
+        if (g_stylePreviewMode == DisplayMode::Drift) return (int16_t)g_stylePendingDriftSeparatorMode;
+        return (int16_t)g_stylePendingSeparatorMode;
+    }
+    if (g_styleStep == 2) {
+        return (int16_t)g_stylePendingSeparatorMode;
     }
     return (int16_t)static_cast<MenuBindings*>(ctx)->appSettings.displayMode;
 }
@@ -227,10 +246,21 @@ static void previewDisplayModeMenu(void* ctx, int16_t v) {
         g_styleEditing = true;
         g_styleOriginalSettings = b->appSettings;
         g_styleOriginalRuntimeMode = b->displayMode;
+        g_stylePendingInfoLineMode = b->appSettings.infoLineMode;
+        g_stylePendingSeparatorMode = b->appSettings.bigSeparator;
+        g_stylePendingDriftSeparatorMode = b->appSettings.driftSeparator;
     }
     if (g_styleStep == 0) {
         g_stylePreviewMode = clampDisplayMode((int)v);
         b->displayMode = g_stylePreviewMode;
+    } else if (g_stylePreviewMode == DisplayMode::Info && g_styleStep == 1) {
+        g_stylePendingInfoLineMode = clampInfoLineMode((int)v);
+    } else if (g_stylePreviewMode == DisplayMode::Info && g_styleStep == 2) {
+        g_stylePendingSeparatorMode = clampSeparatorMode((int)v);
+    } else if (g_stylePreviewMode == DisplayMode::Drift && g_styleStep == 1) {
+        g_stylePendingDriftSeparatorMode = clampDriftSeparatorMode((int)v);
+    } else if (g_styleStep == 1) {
+        g_stylePendingSeparatorMode = clampSeparatorMode((int)v);
     }
 }
 static void commitDisplayModeMenu(void* ctx, int16_t v) {
@@ -239,23 +269,41 @@ static void commitDisplayModeMenu(void* ctx, int16_t v) {
 }
 static void resetStyleMenuRange() {
     MENU_ITEMS[MENU_STYLE].minValue = (int16_t)DisplayMode::Rnd;
-    MENU_ITEMS[MENU_STYLE].maxValue = (int16_t)DisplayMode::TimeWithWeekday;
+    MENU_ITEMS[MENU_STYLE].maxValue = (int16_t)DisplayMode::Drift;
 }
 static bool editCommitDisplayModeMenu(void* ctx, int16_t v) {
     MenuBindings* b = static_cast<MenuBindings*>(ctx);
     if (g_styleStep == 0) {
         g_stylePreviewMode = clampDisplayMode((int)v);
-        if (hasConfigurableSeparator(g_stylePreviewMode)) {
+        if (g_stylePreviewMode == DisplayMode::Info) {
             g_styleStep = 1;
             MENU_ITEMS[MENU_STYLE].minValue = 0;
-            MENU_ITEMS[MENU_STYLE].maxValue = g_stylePreviewMode == DisplayMode::Drift ? 1 : 1;
+            MENU_ITEMS[MENU_STYLE].maxValue = (int16_t)InfoLineMode::Alt;
             return true;
         }
-    } else if (g_stylePreviewMode == DisplayMode::Drift) {
-        b->appSettings.driftSeparator = clampDriftSeparatorMode((int)v);
+        if (g_stylePreviewMode == DisplayMode::LargeDigitsOnly || g_stylePreviewMode == DisplayMode::Drift) {
+            g_styleStep = 1;
+            MENU_ITEMS[MENU_STYLE].minValue = 0;
+            MENU_ITEMS[MENU_STYLE].maxValue = (int16_t)SeparatorMode::Pulse;
+            return true;
+        }
+    } else if (g_stylePreviewMode == DisplayMode::Info && g_styleStep == 1) {
+        g_stylePendingInfoLineMode = clampInfoLineMode((int)v);
+        g_styleStep = 2;
+        MENU_ITEMS[MENU_STYLE].minValue = 0;
+        MENU_ITEMS[MENU_STYLE].maxValue = (int16_t)SeparatorMode::Pulse;
+        return true;
+    } else if (g_stylePreviewMode == DisplayMode::Info && g_styleStep == 2) {
+        SeparatorMode separator = g_stylePendingSeparatorMode;
+        b->appSettings.infoLineMode = g_stylePendingInfoLineMode;
+        b->settingsStore.saveInfoLineMode(b->appSettings.infoLineMode);
+        setSeparatorModeFor(b->appSettings, g_stylePreviewMode, separator);
+        b->settingsStore.saveSeparatorMode(DisplayMode::Info, separator);
+    } else if (g_stylePreviewMode == DisplayMode::Drift && g_styleStep == 1) {
+        b->appSettings.driftSeparator = g_stylePendingDriftSeparatorMode;
         b->settingsStore.saveDriftSeparatorMode(b->appSettings.driftSeparator);
-    } else {
-        SeparatorMode separator = clampSeparatorMode((int)v);
+    } else if (g_styleStep == 1) {
+        SeparatorMode separator = g_stylePendingSeparatorMode;
         setSeparatorModeFor(b->appSettings, g_stylePreviewMode, separator);
         b->settingsStore.saveSeparatorMode(g_stylePreviewMode, separator);
     }
@@ -271,13 +319,14 @@ static bool editCommitDisplayModeMenu(void* ctx, int16_t v) {
 static void cancelDisplayModeMenu(void* ctx) {
     if (!g_styleEditing) return;
     MenuBindings* b = static_cast<MenuBindings*>(ctx);
+    b->appSettings.displayMode = g_styleOriginalSettings.displayMode;
     b->appSettings.bigSeparator = g_styleOriginalSettings.bigSeparator;
-    b->appSettings.secondsSeparator = g_styleOriginalSettings.secondsSeparator;
-    b->appSettings.decisecondsSeparator = g_styleOriginalSettings.decisecondsSeparator;
-    b->appSettings.dateSeparator = g_styleOriginalSettings.dateSeparator;
-    b->appSettings.weekdaySeparator = g_styleOriginalSettings.weekdaySeparator;
+    b->appSettings.infoLineMode = g_styleOriginalSettings.infoLineMode;
     b->appSettings.driftSeparator = g_styleOriginalSettings.driftSeparator;
     b->displayMode = g_styleOriginalRuntimeMode;
+    g_stylePendingInfoLineMode = g_styleOriginalSettings.infoLineMode;
+    g_stylePendingSeparatorMode = g_styleOriginalSettings.bigSeparator;
+    g_stylePendingDriftSeparatorMode = g_styleOriginalSettings.driftSeparator;
     g_styleStep = 0;
     g_styleEditing = false;
     resetStyleMenuRange();

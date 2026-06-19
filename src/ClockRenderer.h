@@ -18,6 +18,7 @@ public:
     // before this is called.
     void init(Display& display, TimeProvider& timeProvider);
     void setTimeFormat(TimeFormat* timeFormat);
+    void setInfoLineMode(InfoLineMode* infoLineMode);
     void setSeparatorModes(SeparatorMode separatorMode, DriftSeparatorMode driftSeparatorMode);
 
     // Top-level time-rendering entry points used by Display::showTime().
@@ -27,6 +28,7 @@ public:
     void drawWordTime(int hours, int minutes);
     void drawRomanTime(int hours, int minutes);
     void drawBinaryTime(int hours, int minutes, int seconds);
+    void drawInfoTime(ClockTime time);
     void drawDateTime(ClockTime time);
     void drawWeekdayTime(ClockTime time);
     void drawDateView(DateStyle style);
@@ -81,6 +83,9 @@ private:
     Display* _display = nullptr;
     TimeProvider* _timeProvider = nullptr;
     TimeFormat* _timeFormat = nullptr;
+    InfoLineMode* _infoLineMode = nullptr;
+    unsigned long _infoAltStartMs = 0;
+    bool _infoAltStartValid = false;
     bool _driftStyleActive = false;
     SeparatorMode _separatorMode = SeparatorMode::Steady;
     DriftSeparatorMode _driftSeparatorMode = DriftSeparatorMode::Steady;

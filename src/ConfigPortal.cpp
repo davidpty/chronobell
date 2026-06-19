@@ -274,15 +274,17 @@ void ConfigPortal::handleRoot() {
                 <select id="style" onchange="onStyleChange(this.value)">
                     <option value="0" selected>RND - Daily random style</option>
                     <option value="1">BIG - Large HH:MM, no seconds</option>
-                    <option value="2">SEC - HH:MM with seconds below</option>
-                    <option value="3">DECI - HH:MM with SS.d below</option>
-                    <option value="4">DATE - HH:MM with date below</option>
-                    <option value="5">WDAY - HH:MM with weekday below</option>
-                    <option value="6">WORD - Mixed-size word clock display</option>
-                    <option value="7">ROMA - Roman numeral clock</option>
-                    <option value="8">BIN - Binary clock</option>
-                    <option value="9">DRIFT - Irregular BIG-style clock</option>
+                    <option value="2">INFO - Seconds, date, wday, or alternate</option>
+                    <option value="3">WORD - Mixed-size word clock display</option>
+                    <option value="4">ROMA - Roman numeral clock</option>
+                    <option value="5">BIN - Binary clock</option>
+                    <option value="6">DRIFT - Irregular BIG-style clock</option>
                 </select>
+            </div>
+
+            <div class="setting-row hidden" id="infoLineRow">
+                <div class="setting-label">INFO</div>
+                <select id="infoLine" onchange="applyInfoLine(this.value)"></select>
             </div>
 
             <div class="setting-row hidden" id="separatorRow">
@@ -444,17 +446,44 @@ void ConfigPortal::handleRoot() {
         let pendingPollTimer = null;
         let statusPollTimer = null;
         let wifiFieldsDirty = false;
-        let separatorSettings = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 9: 0};
+        let separatorSetting = 0;
+        let driftSeparatorSetting = 0;
+        let infoLineSetting = 0;
+
+        function syncInfoLineRow() {
+            const style = Number(document.getElementById('style').value);
+            const row = document.getElementById('infoLineRow');
+            const select = document.getElementById('infoLine');
+            const configurable = style === 2;
+            row.classList.toggle('hidden', !configurable);
+            if (!configurable) return;
+
+            const options = [
+                [0, 'SEC - Seconds on the second line'],
+                [1, 'DECI - Deciseconds on the second line'],
+                [2, 'DATE - Date on the second line'],
+                [3, 'WDAY - Day-of-week on the second line'],
+                [4, 'ALT - Alternate DATE and WDAY']
+            ];
+            select.innerHTML = '';
+            options.forEach(function(option) {
+                const el = document.createElement('option');
+                el.value = String(option[0]);
+                el.textContent = option[1];
+                select.appendChild(el);
+            });
+            select.value = String(infoLineSetting || 0);
+        }
 
         function syncSeparatorRow() {
             const style = Number(document.getElementById('style').value);
             const row = document.getElementById('separatorRow');
             const select = document.getElementById('separator');
-            const configurable = style === 1 || style === 2 || style === 3 || style === 4 || style === 5 || style === 9;
+            const configurable = style === 1 || style === 2 || style === 6;
             row.classList.toggle('hidden', !configurable);
             if (!configurable) return;
 
-            const options = style === 9
+            const options = style === 6
                 ? [[0, 'SOLID - Always on, position shows drift'],
                    [1, 'BLINK - Both dots blink, position shows drift']]
                 : [[0, 'SOLID - Always visible'],
@@ -466,21 +495,35 @@ void ConfigPortal::handleRoot() {
                 el.textContent = option[1];
                 select.appendChild(el);
             });
-            select.value = String(separatorSettings[style] || 0);
+            select.value = String(style === 6 ? driftSeparatorSetting : separatorSetting);
         }
 
         function onStyleChange(value) {
+            syncInfoLineRow();
             syncSeparatorRow();
+            const infoLine = document.getElementById('infoLine');
             const separator = document.getElementById('separator');
+            if (infoLine) infoLine.disabled = true;
             separator.disabled = true;
             applySetting('style', value).finally(function() {
+                if (infoLine) infoLine.disabled = false;
                 separator.disabled = false;
             });
         }
 
+        function applyInfoLine(value) {
+            infoLineSetting = Number(value);
+            return fetch('/apply?field=infoline&value=' + encodeURIComponent(value));
+        }
+
         function applySeparator(value) {
             const style = Number(document.getElementById('style').value);
-            separatorSettings[style] = Number(value);
+            const parsed = Number(value);
+            if (style === 6) {
+                driftSeparatorSetting = parsed;
+            } else {
+                separatorSetting = parsed;
+            }
             return fetch('/apply?field=separator&style=' + encodeURIComponent(style) +
                          '&value=' + encodeURIComponent(value));
         }
@@ -539,6 +582,7 @@ void ConfigPortal::handleRoot() {
         function applyInitialState() {
             const initial = {
                 style: "__INITIAL_STYLE__",
+                infoLine: "__INITIAL_INFOLINE__",
                 datestyle: "__INITIAL_DATESTYLE__",
                 timefmt: "__INITIAL_TIMEFMT__",
                 nightmode: "__INITIAL_NIGHTMODE__",
@@ -550,6 +594,7 @@ void ConfigPortal::handleRoot() {
 
             const pairs = [
                 ['style', initial.style],
+                ['infoLine', initial.infoLine],
                 ['datestyle', initial.datestyle],
                 ['timefmt', initial.timefmt],
                 ['nightmode', initial.nightmode],
@@ -572,6 +617,7 @@ void ConfigPortal::handleRoot() {
             document.getElementById('brightnessVal').textContent = initial.brightness;
             setWifiMode(initial.manualMode === 'manual' ? 'manual' : 'auto');
             syncHotspotToggle();
+            syncInfoLineRow();
             syncSeparatorRow();
         }
 
@@ -630,6 +676,7 @@ void ConfigPortal::handleRoot() {
 
                 const selects = [
                     ['style', data.style],
+                    ['infoLine', data.infoLineMode],
                     ['datestyle', data.datestyle],
                     ['timefmt', data.timefmt],
                     ['nightmode', data.nightmode],
@@ -654,10 +701,18 @@ void ConfigPortal::handleRoot() {
                     document.getElementById('brightnessVal').textContent = b;
                 }
 
-                if (data.separators) {
-                    separatorSettings = data.separators;
-                    syncSeparatorRow();
+                if (data.infoLineMode !== undefined) {
+                    infoLineSetting = Number(data.infoLineMode);
+                    syncInfoLineRow();
                 }
+
+                if (data.separatorBig !== undefined) {
+                    separatorSetting = Number(data.separatorBig);
+                }
+                if (data.separatorDrift !== undefined) {
+                    driftSeparatorSetting = Number(data.separatorDrift);
+                }
+                syncSeparatorRow();
 
                 updateHotspotFromStatus(data);
 
@@ -912,6 +967,7 @@ void ConfigPortal::handleRoot() {
     html.replace("__HOTSPOT_OFF_CLASS__", hotspotOffClass);
     html.replace("__HOTSPOT_ON_CLASS__", hotspotOnClass);
     html.replace("__INITIAL_STYLE__", initialStyle);
+    html.replace("__INITIAL_INFOLINE__", String((int)_settings.infoLineMode));
     html.replace("__INITIAL_DATESTYLE__", initialDateStyle);
     html.replace("__INITIAL_TIMEFMT__", initialTimeFormat);
     html.replace("__INITIAL_NIGHTMODE__", initialNightMode);
@@ -1086,11 +1142,13 @@ void ConfigPortal::handleApply() {
 
     if (field == "style") {
         settings.displayMode = clampDisplayMode(value.toInt());
+    } else if (field == "infoline") {
+        settings.infoLineMode = clampInfoLineMode(value.toInt());
     } else if (field == "separator") {
         DisplayMode style = clampDisplayMode(_webServer.arg("style").toInt());
         if (style == DisplayMode::Drift) {
             settings.driftSeparator = clampDriftSeparatorMode(value.toInt());
-        } else if (hasConfigurableSeparator(style)) {
+        } else if (style == DisplayMode::LargeDigitsOnly || style == DisplayMode::Info) {
             setSeparatorModeFor(settings, style, clampSeparatorMode(value.toInt()));
         } else {
             _webServer.send(400, "application/json", "{\"success\":false}");
@@ -1153,7 +1211,7 @@ void ConfigPortal::handleApply() {
         (void)_saveCb(_saveContext, false, tzChanged, manualTimeChanged, "", "");
     }
 
-    if (_previewCb && (field == "style" || field == "separator" || field == "datestyle" || field == "timefmt" || field == "timezone" || field == "timeMode" || field == "manualtime" || field == "bellmode" || field == "brightness")) {
+    if (_previewCb && (field == "style" || field == "infoline" || field == "separator" || field == "datestyle" || field == "timefmt" || field == "timezone" || field == "timeMode" || field == "manualtime" || field == "bellmode" || field == "brightness")) {
         _previewCb(_previewContext, field);
     }
 
@@ -1178,6 +1236,8 @@ void ConfigPortal::handleStatus() {
     json += "\"";
     json += ",\"style\":";
     json += (int)_settings.displayMode;
+    json += ",\"infoLineMode\":";
+    json += (int)_settings.infoLineMode;
     json += ",\"datestyle\":";
     json += (int)_settings.dateStyle;
     json += ",\"timefmt\":";
@@ -1188,19 +1248,10 @@ void ConfigPortal::handleStatus() {
     json += (int)_settings.nightMode;
     json += ",\"brightness\":";
     json += (int)_settingsStore.loadBrightness(4);
-    json += ",\"separators\":{\"1\":";
+    json += ",\"separatorBig\":";
     json += (int)_settings.bigSeparator;
-    json += ",\"2\":";
-    json += (int)_settings.secondsSeparator;
-    json += ",\"3\":";
-    json += (int)_settings.decisecondsSeparator;
-    json += ",\"4\":";
-    json += (int)_settings.dateSeparator;
-    json += ",\"5\":";
-    json += (int)_settings.weekdaySeparator;
-    json += ",\"9\":";
+    json += ",\"separatorDrift\":";
     json += (int)_settings.driftSeparator;
-    json += "}";
     json += ",\"hotspotActive\":";
     json += hotspotActive ? "true" : "false";
     json += ",\"hotspotRemaining\":";

@@ -396,6 +396,10 @@ void ClockRenderer::setTimeFormat(TimeFormat* timeFormat) {
     _timeFormat = timeFormat;
 }
 
+void ClockRenderer::setInfoLineMode(InfoLineMode* infoLineMode) {
+    _infoLineMode = infoLineMode;
+}
+
 // =============================================================================
 // Time rendering
 // =============================================================================
@@ -413,13 +417,8 @@ void ClockRenderer::drawPreview(DisplayMode mode, ClockTime time) {
     int hours = effectiveHours(time.hours);
     setDriftStyleActive(mode == DisplayMode::Drift);
     switch (mode) {
-        case DisplayMode::TimeWithSeconds:
-            drawTime(hours, time.minutes, time.seconds);
-            drawSeconds(time.seconds);
-            break;
-        case DisplayMode::TimeWithDeciseconds:
-            drawTime(hours, time.minutes, time.seconds);
-            drawDeciseconds(time.seconds, currentClockDeciseconds());
+        case DisplayMode::Info:
+            drawInfoTime(time);
             break;
         case DisplayMode::Word:
             drawWordTime(hours, time.minutes);
@@ -435,12 +434,6 @@ void ClockRenderer::drawPreview(DisplayMode mode, ClockTime time) {
             break;
         case DisplayMode::Rnd:
             _display->drawCenteredBigText("RND", 0);
-            break;
-        case DisplayMode::TimeWithDate:
-            drawDateTime(time);
-            break;
-        case DisplayMode::TimeWithWeekday:
-            drawWeekdayTime(time);
             break;
         case DisplayMode::LargeDigitsOnly:
         default:
@@ -527,6 +520,47 @@ void ClockRenderer::drawTime(int hours, int minutes, int seconds) {
 
 void ClockRenderer::drawBigTime(int hours, int minutes, int seconds) {
     drawBigTimeInternal(hours, minutes, seconds, false, 0);
+}
+
+void ClockRenderer::drawInfoTime(ClockTime time) {
+    InfoLineMode mode = _infoLineMode ? *_infoLineMode : InfoLineMode::Seconds;
+    if (mode == InfoLineMode::Alt) {
+        int interval = INFO_ALT_INTERVAL_SECONDS;
+        if (interval < 1) interval = 1;
+        if (interval > 3600) interval = 3600;
+        unsigned long nowMs = millis();
+        if (!_infoAltStartValid) {
+            _infoAltStartMs = nowMs;
+            _infoAltStartValid = true;
+            mode = InfoLineMode::Date;
+        } else {
+            unsigned long elapsedSeconds = (nowMs - _infoAltStartMs) / 1000UL;
+            mode = (((elapsedSeconds / (unsigned long)interval) & 1UL) == 0UL)
+                ? InfoLineMode::Date
+                : InfoLineMode::Weekday;
+        }
+    } else {
+        _infoAltStartValid = false;
+    }
+
+    int hours = effectiveHours(time.hours);
+    switch (mode) {
+        case InfoLineMode::Deciseconds:
+            drawTime(hours, time.minutes, time.seconds);
+            drawDeciseconds(time.seconds, currentClockDeciseconds());
+            break;
+        case InfoLineMode::Date:
+            drawDateTime(time);
+            break;
+        case InfoLineMode::Weekday:
+            drawWeekdayTime(time);
+            break;
+        case InfoLineMode::Seconds:
+        default:
+            drawTime(hours, time.minutes, time.seconds);
+            drawSeconds(time.seconds);
+            break;
+    }
 }
 
 void ClockRenderer::drawDriftSeparator(int x, int y, int offsetMinutes, bool freshChange, bool separatorVisible, int driftDirection) {

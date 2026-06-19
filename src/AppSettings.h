@@ -6,14 +6,19 @@
 enum class DisplayMode : uint8_t {
     Rnd = 0,
     LargeDigitsOnly = 1,
-    TimeWithSeconds = 2,
-    TimeWithDeciseconds = 3,
-    TimeWithDate = 4,
-    TimeWithWeekday = 5,
-    Word = 6,
-    Roma = 7,
-    Bin = 8,
-    Drift = 9
+    Info = 2,
+    Word = 3,
+    Roma = 4,
+    Bin = 5,
+    Drift = 6
+};
+
+enum class InfoLineMode : uint8_t {
+    Seconds = 0,
+    Deciseconds = 1,
+    Date = 2,
+    Weekday = 3,
+    Alt = 4
 };
 
 enum class DateStyle : uint8_t {
@@ -82,20 +87,14 @@ struct AppSettings {
     TimeFormat timeFormat = TimeFormat::Hours24;
     NightMode nightMode = NightMode::Off;
     SeparatorMode bigSeparator = SeparatorMode::Steady;
-    SeparatorMode secondsSeparator = SeparatorMode::Steady;
-    SeparatorMode decisecondsSeparator = SeparatorMode::Steady;
-    SeparatorMode dateSeparator = SeparatorMode::Steady;
-    SeparatorMode weekdaySeparator = SeparatorMode::Steady;
+    InfoLineMode infoLineMode = InfoLineMode::Seconds;
     DriftSeparatorMode driftSeparator = DriftSeparatorMode::Steady;
     ManualTimeSetting manualTime;
 };
 
 inline bool hasConfigurableSeparator(DisplayMode mode) {
     return mode == DisplayMode::LargeDigitsOnly ||
-           mode == DisplayMode::TimeWithSeconds ||
-           mode == DisplayMode::TimeWithDeciseconds ||
-           mode == DisplayMode::TimeWithDate ||
-           mode == DisplayMode::TimeWithWeekday ||
+           mode == DisplayMode::Info ||
            mode == DisplayMode::Drift;
 }
 
@@ -111,10 +110,7 @@ inline DriftSeparatorMode clampDriftSeparatorMode(int mode) {
 
 inline SeparatorMode separatorModeFor(const AppSettings& settings, DisplayMode mode) {
     switch (mode) {
-        case DisplayMode::TimeWithSeconds: return settings.secondsSeparator;
-        case DisplayMode::TimeWithDeciseconds: return settings.decisecondsSeparator;
-        case DisplayMode::TimeWithDate: return settings.dateSeparator;
-        case DisplayMode::TimeWithWeekday: return settings.weekdaySeparator;
+        case DisplayMode::Info:
         case DisplayMode::LargeDigitsOnly:
         default: return settings.bigSeparator;
     }
@@ -122,10 +118,7 @@ inline SeparatorMode separatorModeFor(const AppSettings& settings, DisplayMode m
 
 inline void setSeparatorModeFor(AppSettings& settings, DisplayMode mode, SeparatorMode separator) {
     switch (mode) {
-        case DisplayMode::TimeWithSeconds: settings.secondsSeparator = separator; break;
-        case DisplayMode::TimeWithDeciseconds: settings.decisecondsSeparator = separator; break;
-        case DisplayMode::TimeWithDate: settings.dateSeparator = separator; break;
-        case DisplayMode::TimeWithWeekday: settings.weekdaySeparator = separator; break;
+        case DisplayMode::Info:
         case DisplayMode::LargeDigitsOnly: settings.bigSeparator = separator; break;
         default: break;
     }
@@ -137,14 +130,8 @@ inline const char* displayModeLabel(DisplayMode mode) {
             return "RND";
         case DisplayMode::LargeDigitsOnly:
             return "BIG";
-        case DisplayMode::TimeWithSeconds:
-            return "SEC";
-        case DisplayMode::TimeWithDeciseconds:
-            return "DECI";
-        case DisplayMode::TimeWithDate:
-            return "DATE";
-        case DisplayMode::TimeWithWeekday:
-            return "WDAY";
+        case DisplayMode::Info:
+            return "INFO";
         case DisplayMode::Word:
             return "WORD";
         case DisplayMode::Roma:
@@ -170,6 +157,27 @@ inline DisplayMode clampDisplayMode(int mode) {
 
 inline bool isRandomDisplayMode(DisplayMode mode) {
     return mode == DisplayMode::Rnd;
+}
+
+inline const char* infoLineLabel(InfoLineMode mode) {
+    switch (mode) {
+        case InfoLineMode::Seconds:     return "SEC";
+        case InfoLineMode::Deciseconds: return "DECI";
+        case InfoLineMode::Date:        return "DATE";
+        case InfoLineMode::Weekday:     return "WDAY";
+        case InfoLineMode::Alt:         return "ALT";
+        default:                        return "?";
+    }
+}
+
+inline InfoLineMode clampInfoLineMode(int mode) {
+    if (mode < (int)InfoLineMode::Seconds) {
+        return InfoLineMode::Seconds;
+    }
+    if (mode > (int)InfoLineMode::Alt) {
+        return InfoLineMode::Alt;
+    }
+    return static_cast<InfoLineMode>(mode);
 }
 
 inline const char* dateStyleLabel(DateStyle style) {
