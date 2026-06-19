@@ -534,9 +534,9 @@ void ClockRenderer::drawDriftSeparator(int x, int y, int offsetMinutes, bool fre
 
     int upper, lower;
     if (offsetMinutes > 0 || (offsetMinutes == 0 && driftDirection > 0)) {
-        upper = 6; lower = 10;
+        upper = 5; lower = 9;
     } else if (offsetMinutes < 0 || (offsetMinutes == 0 && driftDirection < 0)) {
-        upper = 7; lower = 11;
+        upper = 6; lower = 10;
     } else {
         upper = 5; lower = 10;
     }
