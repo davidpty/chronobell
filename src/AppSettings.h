@@ -55,9 +55,7 @@ enum class SeparatorMode : uint8_t {
 
 enum class DriftSeparatorMode : uint8_t {
     Steady = 0,
-    Pulse = 1,
-    Spread = 2,
-    Track = 3
+    Pulse = 1
 };
 
 struct NetworkCredentials {
@@ -88,7 +86,7 @@ struct AppSettings {
     SeparatorMode decisecondsSeparator = SeparatorMode::Steady;
     SeparatorMode dateSeparator = SeparatorMode::Steady;
     SeparatorMode weekdaySeparator = SeparatorMode::Steady;
-    DriftSeparatorMode driftSeparator = DriftSeparatorMode::Track;
+    DriftSeparatorMode driftSeparator = DriftSeparatorMode::Steady;
     ManualTimeSetting manualTime;
 };
 
@@ -107,7 +105,7 @@ inline SeparatorMode clampSeparatorMode(int mode) {
 
 inline DriftSeparatorMode clampDriftSeparatorMode(int mode) {
     if (mode < (int)DriftSeparatorMode::Steady) return DriftSeparatorMode::Steady;
-    if (mode > (int)DriftSeparatorMode::Track) return DriftSeparatorMode::Track;
+    if (mode > (int)DriftSeparatorMode::Pulse) return DriftSeparatorMode::Pulse;
     return static_cast<DriftSeparatorMode>(mode);
 }
 

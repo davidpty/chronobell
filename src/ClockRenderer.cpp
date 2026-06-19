@@ -458,7 +458,7 @@ void ClockRenderer::setSeparatorModes(SeparatorMode separatorMode, DriftSeparato
     _driftSeparatorMode = driftSeparatorMode;
 }
 
-void ClockRenderer::drawBigTimeInternal(int hours, int minutes, int seconds, bool driftMode, int offsetMinutes, bool freshChange, bool separatorVisible) {
+void ClockRenderer::drawBigTimeInternal(int hours, int minutes, int seconds, bool driftMode, int offsetMinutes, bool freshChange, bool separatorVisible, int driftDirection) {
     hours = effectiveHours(hours);
     int digitWidth = 6;
     int spacing = 1;
@@ -482,7 +482,7 @@ void ClockRenderer::drawBigTimeInternal(int hours, int minutes, int seconds, boo
 
     int sepX = x;
     if (driftMode) {
-        drawDriftSeparator(sepX, startY, offsetMinutes, freshChange, separatorVisible);
+        drawDriftSeparator(sepX, startY, offsetMinutes, freshChange, separatorVisible, driftDirection);
     } else {
         drawBigSeparator(sepX, startY, seconds);
     }
@@ -493,8 +493,8 @@ void ClockRenderer::drawBigTimeInternal(int hours, int minutes, int seconds, boo
     drawBigTimeDigit(minutes % 10, x, startY);
 }
 
-void ClockRenderer::drawDriftTime(int hours, int minutes, int seconds, int offsetMinutes, bool freshChange, bool separatorVisible) {
-    drawBigTimeInternal(hours, minutes, seconds, true, offsetMinutes, freshChange, separatorVisible);
+void ClockRenderer::drawDriftTime(int hours, int minutes, int seconds, int offsetMinutes, bool freshChange, bool separatorVisible, int driftDirection) {
+    drawBigTimeInternal(hours, minutes, seconds, true, offsetMinutes, freshChange, separatorVisible, driftDirection);
 }
 
 void ClockRenderer::drawTime(int hours, int minutes, int seconds) {
@@ -529,44 +529,28 @@ void ClockRenderer::drawBigTime(int hours, int minutes, int seconds) {
     drawBigTimeInternal(hours, minutes, seconds, false, 0);
 }
 
-void ClockRenderer::drawDriftSeparator(int x, int y, int offsetMinutes, bool freshChange, bool separatorVisible) {
+void ClockRenderer::drawDriftSeparator(int x, int y, int offsetMinutes, bool freshChange, bool separatorVisible, int driftDirection) {
     (void)freshChange;
 
-    if (!separatorVisible) {
-        return;
-    }
-
-    int style = 0;
-    if (_driftSeparatorMode == DriftSeparatorMode::Spread) style = 1;
-    if (_driftSeparatorMode == DriftSeparatorMode::Track) style = 2;
-
-    int upper = 6;
-    int lower = 9;
-    if (style == 0) {
-        _display->setPixel(x, y + upper, true);
-        _display->setPixel(x, y + lower, true);
-        return;
-    }
-
-    int absOffset = offsetMinutes < 0 ? -offsetMinutes : offsetMinutes;
-    int maxOffset = DRIFT_MAX_OFFSET_MINUTES;
-    if (maxOffset < 1) {
-        maxOffset = 1;
-    }
-    if (style == 1) {
-        int spread = (absOffset * 2 + (maxOffset / 2)) / maxOffset;
-        spread = spread < 0 ? 0 : (spread > 2 ? 2 : spread);
-        upper -= spread;
-        lower += spread;
+    int upper, lower;
+    if (offsetMinutes > 0 || (offsetMinutes == 0 && driftDirection > 0)) {
+        upper = 6; lower = 10;
+    } else if (offsetMinutes < 0 || (offsetMinutes == 0 && driftDirection < 0)) {
+        upper = 7; lower = 11;
     } else {
-        int travel = (absOffset * 4 + (maxOffset / 2)) / maxOffset;
-        travel = travel < 0 ? 0 : (travel > 4 ? 4 : travel);
-        if (offsetMinutes < 0) {
-            lower += travel;
-        } else if (offsetMinutes > 0) {
-            upper -= travel;
-        }
+        upper = 5; lower = 10;
     }
+
+    int absOffset = abs(offsetMinutes);
+    int maxOff = max(DRIFT_MAX_OFFSET_MINUTES, 1);
+    int travel = (absOffset * 4 + maxOff / 2) / maxOff;
+    if (travel > 4) travel = 4;
+
+    if (offsetMinutes > 0)      upper -= travel;
+    else if (offsetMinutes < 0) lower += travel;
+
+    if (_driftSeparatorMode == DriftSeparatorMode::Pulse && !separatorVisible)
+        return;
 
     _display->setPixel(x, y + upper, true);
     _display->setPixel(x, y + lower, true);

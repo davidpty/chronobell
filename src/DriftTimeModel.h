@@ -13,6 +13,7 @@ public:
 
     ClockTime displayTime(const ClockTime& realTime, unsigned long nowMs) const;
     int offsetMinutes(const ClockTime& realTime) const;
+    int driftDirection() const;
     bool displayedMinuteFresh(unsigned long nowMs) const;
     bool separatorVisible() const;
 

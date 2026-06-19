@@ -110,8 +110,8 @@ const char* styleValueName(int16_t value) {
 
 static const char* separatorValueName(int16_t value, bool drift) {
     static const char* const STANDARD[] = {"STEADY", "PULSE"};
-    static const char* const DRIFT[] = {"STEADY", "PULSE", "SPREAD", "TRACK"};
-    if (drift) return (value >= 0 && value <= 3) ? DRIFT[value] : "?";
+    static const char* const DRIFT[] = {"STEADY", "PULSE"};
+    if (drift) return (value >= 0 && value <= 1) ? DRIFT[value] : "?";
     return (value >= 0 && value <= 1) ? STANDARD[value] : "?";
 }
 
@@ -252,7 +252,7 @@ static bool editCommitDisplayModeMenu(void* ctx, int16_t v) {
         if (hasConfigurableSeparator(g_stylePreviewMode)) {
             g_styleStep = 1;
             MENU_ITEMS[MENU_STYLE].minValue = 0;
-            MENU_ITEMS[MENU_STYLE].maxValue = g_stylePreviewMode == DisplayMode::Drift ? 3 : 1;
+            MENU_ITEMS[MENU_STYLE].maxValue = g_stylePreviewMode == DisplayMode::Drift ? 1 : 1;
             return true;
         }
     } else if (g_stylePreviewMode == DisplayMode::Drift) {

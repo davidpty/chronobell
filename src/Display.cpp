@@ -169,7 +169,7 @@ void Display::showTime() {
 
     DisplayMode mode = _displayMode ? *_displayMode : DisplayMode::LargeDigitsOnly;
     SeparatorMode separatorMode = _appSettings ? separatorModeFor(*_appSettings, mode) : SeparatorMode::Steady;
-    DriftSeparatorMode driftSeparatorMode = _appSettings ? _appSettings->driftSeparator : DriftSeparatorMode::Track;
+    DriftSeparatorMode driftSeparatorMode = _appSettings ? _appSettings->driftSeparator : DriftSeparatorMode::Steady;
     _clockRenderer->setSeparatorModes(separatorMode, driftSeparatorMode);
     _clockRenderer->setDriftStyleActive(mode == DisplayMode::Drift);
     switch (mode) {
@@ -196,12 +196,13 @@ void Display::showTime() {
                 _driftTimeModel->update(time, nowMs);
                 ClockTime driftTime = _driftTimeModel->displayTime(time, nowMs);
                 int offsetMinutes = _driftTimeModel->offsetMinutes(time);
+                int driftDirection = _driftTimeModel->driftDirection();
                 bool freshChange = _driftTimeModel->displayedMinuteFresh(nowMs);
                 bool separatorVisible = driftSeparatorMode == DriftSeparatorMode::Steady ||
                                         _driftTimeModel->separatorVisible();
-                _clockRenderer->drawDriftTime(driftTime.hours, driftTime.minutes, driftTime.seconds, offsetMinutes, freshChange, separatorVisible);
+                _clockRenderer->drawDriftTime(driftTime.hours, driftTime.minutes, driftTime.seconds, offsetMinutes, freshChange, separatorVisible, driftDirection);
             } else {
-                _clockRenderer->drawDriftTime(hours, minutes, seconds, 0, false, true);
+                _clockRenderer->drawDriftTime(hours, minutes, seconds, 0, false, true, 0);
             }
             break;
         case DisplayMode::Rnd:
@@ -225,7 +226,7 @@ void Display::showTime() {
 void Display::drawStylePreview(DisplayMode mode) {
     ClockTime time = _timeProvider.displayTime();
     SeparatorMode separatorMode = _appSettings ? separatorModeFor(*_appSettings, mode) : SeparatorMode::Steady;
-    DriftSeparatorMode driftSeparatorMode = _appSettings ? _appSettings->driftSeparator : DriftSeparatorMode::Track;
+    DriftSeparatorMode driftSeparatorMode = _appSettings ? _appSettings->driftSeparator : DriftSeparatorMode::Steady;
     _clockRenderer->setSeparatorModes(separatorMode, driftSeparatorMode);
     _clockRenderer->setDriftStyleActive(mode == DisplayMode::Drift);
     if (mode == DisplayMode::Drift && _driftTimeModel) {
@@ -233,9 +234,11 @@ void Display::drawStylePreview(DisplayMode mode) {
         _driftTimeModel->update(time, nowMs);
         ClockTime driftTime = _driftTimeModel->displayTime(time, nowMs);
         bool visible = driftSeparatorMode == DriftSeparatorMode::Steady || _driftTimeModel->separatorVisible();
+        int driftDirection = _driftTimeModel->driftDirection();
         _clockRenderer->drawDriftTime(driftTime.hours, driftTime.minutes, driftTime.seconds,
                                       _driftTimeModel->offsetMinutes(time),
-                                      _driftTimeModel->displayedMinuteFresh(nowMs), visible);
+                                      _driftTimeModel->displayedMinuteFresh(nowMs), visible,
+                                      driftDirection);
     } else {
         _clockRenderer->drawPreview(mode, time);
     }

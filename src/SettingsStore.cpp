@@ -60,7 +60,7 @@ AppSettings SettingsStore::load() {
     settings.decisecondsSeparator = clampSeparatorMode(prefs.getUChar(KEY_SEPARATOR_DECISECONDS, (uint8_t)SeparatorMode::Steady));
     settings.dateSeparator = clampSeparatorMode(prefs.getUChar(KEY_SEPARATOR_DATE, (uint8_t)SeparatorMode::Steady));
     settings.weekdaySeparator = clampSeparatorMode(prefs.getUChar(KEY_SEPARATOR_WEEKDAY, (uint8_t)SeparatorMode::Steady));
-    settings.driftSeparator = clampDriftSeparatorMode(prefs.getUChar(KEY_SEPARATOR_DRIFT, (uint8_t)DriftSeparatorMode::Track));
+    settings.driftSeparator = clampDriftSeparatorMode(prefs.getUChar(KEY_SEPARATOR_DRIFT, (uint8_t)DriftSeparatorMode::Steady));
     settings.manualTime.enabled = prefs.getBool(KEY_MANUAL_TIME_ENABLED, false);
     settings.manualTime.epoch = prefs.getULong(KEY_MANUAL_EPOCH, 0);
     if (settings.network.ssid.length() == 0) {

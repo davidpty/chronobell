@@ -147,6 +147,18 @@ ClockTime DriftTimeModel::displayTime(const ClockTime& realTime, unsigned long n
     return time;
 }
 
+int DriftTimeModel::driftDirection() const {
+    if (!_initialized) return 0;
+    switch (_phase) {
+        case Phase::InitialToBehind: return -1;
+        case Phase::BehindToAhead:   return 1;
+        case Phase::AheadToBehind:   return -1;
+        case Phase::Away:            return directionSign();
+        case Phase::Return:          return -directionSign();
+    }
+    return 0;
+}
+
 int DriftTimeModel::offsetMinutes(const ClockTime& realTime) const {
     if (!_initialized) return 0;
     int offsetSeconds = signedSecondDelta(_displayedSecond, secondOfDay(realTime));

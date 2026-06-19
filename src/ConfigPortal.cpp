@@ -444,7 +444,7 @@ void ConfigPortal::handleRoot() {
         let pendingPollTimer = null;
         let statusPollTimer = null;
         let wifiFieldsDirty = false;
-        let separatorSettings = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 9: 3};
+        let separatorSettings = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 9: 0};
 
         function syncSeparatorRow() {
             const style = Number(document.getElementById('style').value);
@@ -455,10 +455,8 @@ void ConfigPortal::handleRoot() {
             if (!configurable) return;
 
             const options = style === 9
-                ? [[0, 'STEADY - Fixed and always visible'],
-                   [1, 'PULSE - Fixed dots blinking'],
-                   [2, 'SPREAD - Symmetric drift spread'],
-                   [3, 'TRACK - Indicates ahead or behind']]
+                ? [[0, 'STEADY - Always on, shifts by drift'],
+                   [1, 'PULSE - Alternating dots, shifts by drift']]
                 : [[0, 'STEADY - Always visible'],
                    [1, 'PULSE - Blink each second']];
             select.innerHTML = '';
