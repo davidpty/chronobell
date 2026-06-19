@@ -2,10 +2,13 @@
 #define MENU_CONFIG_H
 
 #include <Arduino.h>
+#include "AppSettings.h"
 #include "MenuController.h"
 
 extern MenuItem MENU_ITEMS[];
 extern const uint8_t MENU_ITEM_COUNT;
+extern uint8_t g_styleStep;
+extern DisplayMode g_stylePreviewMode;
 
 extern uint8_t g_settimeStep;
 extern uint8_t  g_setHour;

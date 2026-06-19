@@ -439,6 +439,9 @@ void ClockRenderer::drawPreview(DisplayMode mode, ClockTime time) {
         case DisplayMode::TimeWithDate:
             drawDateTime(time);
             break;
+        case DisplayMode::TimeWithWeekday:
+            drawWeekdayTime(time);
+            break;
         case DisplayMode::LargeDigitsOnly:
         default:
             drawBigTime(hours, time.minutes, time.seconds);
@@ -448,6 +451,11 @@ void ClockRenderer::drawPreview(DisplayMode mode, ClockTime time) {
 
 void ClockRenderer::setDriftStyleActive(bool active) {
     _driftStyleActive = active;
+}
+
+void ClockRenderer::setSeparatorModes(SeparatorMode separatorMode, DriftSeparatorMode driftSeparatorMode) {
+    _separatorMode = separatorMode;
+    _driftSeparatorMode = driftSeparatorMode;
 }
 
 void ClockRenderer::drawBigTimeInternal(int hours, int minutes, int seconds, bool driftMode, int offsetMinutes, bool freshChange, bool separatorVisible) {
@@ -524,13 +532,12 @@ void ClockRenderer::drawDriftSeparator(int x, int y, int offsetMinutes, bool fre
         return;
     }
 
-    int style = DRIFT_SEPARATOR_STYLE;
-    if (style < 0 || style > 2) {
-        style = 1;
-    }
+    int style = 0;
+    if (_driftSeparatorMode == DriftSeparatorMode::Spread) style = 1;
+    if (_driftSeparatorMode == DriftSeparatorMode::Track) style = 2;
 
-    int upper = 5;
-    int lower = 10;
+    int upper = 6;
+    int lower = 9;
     if (style == 0) {
         _display->setPixel(x, y + upper, true);
         _display->setPixel(x, y + lower, true);
@@ -671,6 +678,21 @@ void ClockRenderer::drawDateTime(ClockTime time) {
     }
 }
 
+void ClockRenderer::drawWeekdayTime(ClockTime time) {
+    static const char* const WEEKDAYS[] = {"SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"};
+    int hours = effectiveHours(time.hours);
+    drawTime(hours, time.minutes, time.seconds);
+
+    ClockDate currentDate;
+    if (_timeProvider->currentDate(currentDate)) {
+        int day = currentDate.day;
+        if (day < 1 || day > 7) day = 1;
+        _display->drawCenteredSmallText(WEEKDAYS[day - 1], 11);
+    } else {
+        _display->drawCenteredSmallText("---", 11);
+    }
+}
+
 void ClockRenderer::drawTimeDigit(uint8_t digit, int x, int y) {
     if (digit > 9) return;
 
@@ -713,15 +735,15 @@ void ClockRenderer::drawBinaryRow(uint8_t value, int y) {
 }
 
 void ClockRenderer::drawSeparator(int x, int y, int seconds) {
-    (void)seconds;
-    _display->setPixel(x, y + 4, true);
+    if (_separatorMode == SeparatorMode::Pulse && (seconds & 1) != 0) return;
+    _display->setPixel(x, y + 3, true);
     _display->setPixel(x, y + 6, true);
 }
 
 void ClockRenderer::drawBigSeparator(int x, int y, int seconds) {
-    (void)seconds;
-    _display->setPixel(x, y + 6, true);
-    _display->setPixel(x, y + 9, true);
+    if (_separatorMode == SeparatorMode::Pulse && (seconds & 1) != 0) return;
+    _display->setPixel(x, y + 5, true);
+    _display->setPixel(x, y + 10, true);
 }
 
 void ClockRenderer::drawSeconds(int seconds) {

@@ -20,7 +20,7 @@ bool sameDate(const ClockDate& a, const ClockDate& b) {
            a.year == b.year;
 }
 
-static const DisplayMode RANDOM_STYLE_POOL[] = {
+static const DisplayMode QUICK_STYLE_POOL[] = {
     DisplayMode::LargeDigitsOnly,
     DisplayMode::TimeWithSeconds,
     DisplayMode::TimeWithDeciseconds,
@@ -29,10 +29,31 @@ static const DisplayMode RANDOM_STYLE_POOL[] = {
     DisplayMode::Roma,
     DisplayMode::Bin,
     DisplayMode::Drift,
+    DisplayMode::TimeWithWeekday,
+};
+
+static const uint8_t QUICK_STYLE_POOL_COUNT =
+    sizeof(QUICK_STYLE_POOL) / sizeof(QUICK_STYLE_POOL[0]);
+
+static const DisplayMode RANDOM_STYLE_POOL[] = {
+    DisplayMode::LargeDigitsOnly,
+    DisplayMode::TimeWithSeconds,
+    DisplayMode::TimeWithDeciseconds,
+    DisplayMode::TimeWithDate,
+    DisplayMode::Word,
+    DisplayMode::Roma,
+    DisplayMode::Bin,
+    DisplayMode::TimeWithWeekday,
 };
 
 static const uint8_t RANDOM_STYLE_POOL_COUNT =
     sizeof(RANDOM_STYLE_POOL) / sizeof(RANDOM_STYLE_POOL[0]);
+
+int randomStyleIntervalHours() {
+    int hours = RND_STYLE_INTERVAL_HOURS;
+    if (hours < 1 || hours > 24) return 24;
+    return hours;
+}
 }
 
 // =============================================================================
@@ -63,6 +84,7 @@ void ClockApp::beginControllers() {
     _menuController.setSettingsStore(&_settingsStore);
     _display.setMenuBindings(&_menuBindings);
     _display.setRuntimeMode(&_displayMode);
+    _display.setAppSettings(&_appSettings);
     _display.setDriftTimeModel(&_driftTimeModel);
     _display.setTimeFormat(&_timeFormat);
     _display.setDateStyle(&_activeDateStyle);
@@ -427,22 +449,31 @@ void ClockApp::syncDisplayModeSelection() {
     if (isRandomDisplayMode(_savedDisplayMode)) {
         ClockDate currentDate;
         bool haveDate = _timeProvider.currentDate(currentDate);
+        ClockTime currentTime;
+        bool haveTime = _timeProvider.currentTime(currentTime);
+        uint8_t currentSlot = haveTime
+            ? (uint8_t)(currentTime.hours / randomStyleIntervalHours())
+            : 0;
 
         if (!_randomDisplayModeValid) {
             _randomDisplayMode = pickRandomConcreteDisplayMode(DisplayMode::Rnd);
             _randomDisplayModeValid = true;
-            if (haveDate) {
+            if (haveDate && haveTime) {
                 _randomDisplayDate = currentDate;
                 _randomDisplayDateValid = true;
+                _randomDisplayHourSlot = currentSlot;
             }
         }
 
-        if (haveDate) {
+        if (haveDate && haveTime) {
             if (!_randomDisplayDateValid) {
                 _randomDisplayDate = currentDate;
                 _randomDisplayDateValid = true;
-            } else if (!sameDate(currentDate, _randomDisplayDate)) {
+                _randomDisplayHourSlot = currentSlot;
+            } else if (!sameDate(currentDate, _randomDisplayDate) ||
+                       currentSlot != _randomDisplayHourSlot) {
                 _randomDisplayDate = currentDate;
+                _randomDisplayHourSlot = currentSlot;
                 _randomDisplayMode = pickRandomConcreteDisplayMode(_randomDisplayMode);
             }
         }
@@ -479,8 +510,8 @@ void ClockApp::cycleTemporaryDisplayMode(int direction) {
 
     syncDisplayModeSelection();
     int currentIndex = -1;
-    for (uint8_t i = 0; i < RANDOM_STYLE_POOL_COUNT; i++) {
-        if (RANDOM_STYLE_POOL[i] == _displayMode) {
+    for (uint8_t i = 0; i < QUICK_STYLE_POOL_COUNT; i++) {
+        if (QUICK_STYLE_POOL[i] == _displayMode) {
             currentIndex = (int)i;
             break;
         }
@@ -489,8 +520,8 @@ void ClockApp::cycleTemporaryDisplayMode(int direction) {
         currentIndex = 0;
     }
 
-    int nextIndex = (currentIndex + direction + RANDOM_STYLE_POOL_COUNT) % RANDOM_STYLE_POOL_COUNT;
-    DisplayMode mode = RANDOM_STYLE_POOL[nextIndex];
+    int nextIndex = (currentIndex + direction + QUICK_STYLE_POOL_COUNT) % QUICK_STYLE_POOL_COUNT;
+    DisplayMode mode = QUICK_STYLE_POOL[nextIndex];
     if (_displayOverrideActive && mode == _overrideDisplayMode) {
         return;
     }

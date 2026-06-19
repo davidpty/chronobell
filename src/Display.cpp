@@ -81,6 +81,10 @@ void Display::setRuntimeMode(DisplayMode* displayMode) {
     _displayMode = displayMode;
 }
 
+void Display::setAppSettings(AppSettings* settings) {
+    _appSettings = settings;
+}
+
 void Display::setDriftTimeModel(DriftTimeModel* driftTimeModel) {
     _driftTimeModel = driftTimeModel;
 }
@@ -164,6 +168,9 @@ void Display::showTime() {
     int seconds = time.seconds;
 
     DisplayMode mode = _displayMode ? *_displayMode : DisplayMode::LargeDigitsOnly;
+    SeparatorMode separatorMode = _appSettings ? separatorModeFor(*_appSettings, mode) : SeparatorMode::Steady;
+    DriftSeparatorMode driftSeparatorMode = _appSettings ? _appSettings->driftSeparator : DriftSeparatorMode::Track;
+    _clockRenderer->setSeparatorModes(separatorMode, driftSeparatorMode);
     _clockRenderer->setDriftStyleActive(mode == DisplayMode::Drift);
     switch (mode) {
         case DisplayMode::TimeWithSeconds:
@@ -190,10 +197,8 @@ void Display::showTime() {
                 ClockTime driftTime = _driftTimeModel->displayTime(time, nowMs);
                 int offsetMinutes = _driftTimeModel->offsetMinutes(time);
                 bool freshChange = _driftTimeModel->displayedMinuteFresh(nowMs);
-                bool separatorVisible = true;
-#if DRIFT_SEPARATOR_BLINK
-                separatorVisible = _driftTimeModel->separatorVisible();
-#endif
+                bool separatorVisible = driftSeparatorMode == DriftSeparatorMode::Steady ||
+                                        _driftTimeModel->separatorVisible();
                 _clockRenderer->drawDriftTime(driftTime.hours, driftTime.minutes, driftTime.seconds, offsetMinutes, freshChange, separatorVisible);
             } else {
                 _clockRenderer->drawDriftTime(hours, minutes, seconds, 0, false, true);
@@ -204,6 +209,9 @@ void Display::showTime() {
             break;
         case DisplayMode::TimeWithDate:
             _clockRenderer->drawDateTime(time);
+            break;
+        case DisplayMode::TimeWithWeekday:
+            _clockRenderer->drawWeekdayTime(time);
             break;
         case DisplayMode::LargeDigitsOnly:
         default:
@@ -216,8 +224,21 @@ void Display::showTime() {
 
 void Display::drawStylePreview(DisplayMode mode) {
     ClockTime time = _timeProvider.displayTime();
+    SeparatorMode separatorMode = _appSettings ? separatorModeFor(*_appSettings, mode) : SeparatorMode::Steady;
+    DriftSeparatorMode driftSeparatorMode = _appSettings ? _appSettings->driftSeparator : DriftSeparatorMode::Track;
+    _clockRenderer->setSeparatorModes(separatorMode, driftSeparatorMode);
     _clockRenderer->setDriftStyleActive(mode == DisplayMode::Drift);
-    _clockRenderer->drawPreview(mode, time);
+    if (mode == DisplayMode::Drift && _driftTimeModel) {
+        unsigned long nowMs = millis();
+        _driftTimeModel->update(time, nowMs);
+        ClockTime driftTime = _driftTimeModel->displayTime(time, nowMs);
+        bool visible = driftSeparatorMode == DriftSeparatorMode::Steady || _driftTimeModel->separatorVisible();
+        _clockRenderer->drawDriftTime(driftTime.hours, driftTime.minutes, driftTime.seconds,
+                                      _driftTimeModel->offsetMinutes(time),
+                                      _driftTimeModel->displayedMinuteFresh(nowMs), visible);
+    } else {
+        _clockRenderer->drawPreview(mode, time);
+    }
 }
 
 void Display::runTest(uint8_t seconds) {

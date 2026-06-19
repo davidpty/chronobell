@@ -15,6 +15,8 @@ public:
     bool saveBellMode(BellMode mode);
     bool saveTimeFormat(TimeFormat format);
     bool saveNightMode(NightMode mode);
+    bool saveSeparatorMode(DisplayMode displayMode, SeparatorMode mode);
+    bool saveDriftSeparatorMode(DriftSeparatorMode mode);
     int8_t loadBrightness(int8_t defaultBrightness);
     bool saveBrightness(int8_t brightness);
     uint8_t loadMenuIndex(uint8_t itemCount, uint8_t defaultIndex = 0);
@@ -64,6 +66,12 @@ private:
     static const char* KEY_BELL_MODE;
     static const char* KEY_TIME_FORMAT;
     static const char* KEY_NIGHT_MODE;
+    static const char* KEY_SEPARATOR_BIG;
+    static const char* KEY_SEPARATOR_SECONDS;
+    static const char* KEY_SEPARATOR_DECISECONDS;
+    static const char* KEY_SEPARATOR_DATE;
+    static const char* KEY_SEPARATOR_WEEKDAY;
+    static const char* KEY_SEPARATOR_DRIFT;
     static const char* KEY_MANUAL_TIME_ENABLED;
     static const char* KEY_MANUAL_EPOCH;
     static const char* MENU_PREFS_NAMESPACE;

@@ -12,7 +12,8 @@ enum class DisplayMode : uint8_t {
     Word = 5,
     Roma = 6,
     Bin = 7,
-    Drift = 8
+    Drift = 8,
+    TimeWithWeekday = 9
 };
 
 enum class DateStyle : uint8_t {
@@ -47,6 +48,18 @@ enum class NightMode : uint8_t {
     Mute     = 5
 };
 
+enum class SeparatorMode : uint8_t {
+    Steady = 0,
+    Pulse = 1
+};
+
+enum class DriftSeparatorMode : uint8_t {
+    Steady = 0,
+    Pulse = 1,
+    Spread = 2,
+    Track = 3
+};
+
 struct NetworkCredentials {
     String ssid;
     String password;
@@ -70,8 +83,55 @@ struct AppSettings {
     BellMode bellMode = BellMode::Off;
     TimeFormat timeFormat = TimeFormat::Hours24;
     NightMode nightMode = NightMode::Off;
+    SeparatorMode bigSeparator = SeparatorMode::Steady;
+    SeparatorMode secondsSeparator = SeparatorMode::Steady;
+    SeparatorMode decisecondsSeparator = SeparatorMode::Steady;
+    SeparatorMode dateSeparator = SeparatorMode::Steady;
+    SeparatorMode weekdaySeparator = SeparatorMode::Steady;
+    DriftSeparatorMode driftSeparator = DriftSeparatorMode::Track;
     ManualTimeSetting manualTime;
 };
+
+inline bool hasConfigurableSeparator(DisplayMode mode) {
+    return mode == DisplayMode::LargeDigitsOnly ||
+           mode == DisplayMode::TimeWithSeconds ||
+           mode == DisplayMode::TimeWithDeciseconds ||
+           mode == DisplayMode::TimeWithDate ||
+           mode == DisplayMode::TimeWithWeekday ||
+           mode == DisplayMode::Drift;
+}
+
+inline SeparatorMode clampSeparatorMode(int mode) {
+    return mode <= (int)SeparatorMode::Steady ? SeparatorMode::Steady : SeparatorMode::Pulse;
+}
+
+inline DriftSeparatorMode clampDriftSeparatorMode(int mode) {
+    if (mode < (int)DriftSeparatorMode::Steady) return DriftSeparatorMode::Steady;
+    if (mode > (int)DriftSeparatorMode::Track) return DriftSeparatorMode::Track;
+    return static_cast<DriftSeparatorMode>(mode);
+}
+
+inline SeparatorMode separatorModeFor(const AppSettings& settings, DisplayMode mode) {
+    switch (mode) {
+        case DisplayMode::TimeWithSeconds: return settings.secondsSeparator;
+        case DisplayMode::TimeWithDeciseconds: return settings.decisecondsSeparator;
+        case DisplayMode::TimeWithDate: return settings.dateSeparator;
+        case DisplayMode::TimeWithWeekday: return settings.weekdaySeparator;
+        case DisplayMode::LargeDigitsOnly:
+        default: return settings.bigSeparator;
+    }
+}
+
+inline void setSeparatorModeFor(AppSettings& settings, DisplayMode mode, SeparatorMode separator) {
+    switch (mode) {
+        case DisplayMode::TimeWithSeconds: settings.secondsSeparator = separator; break;
+        case DisplayMode::TimeWithDeciseconds: settings.decisecondsSeparator = separator; break;
+        case DisplayMode::TimeWithDate: settings.dateSeparator = separator; break;
+        case DisplayMode::TimeWithWeekday: settings.weekdaySeparator = separator; break;
+        case DisplayMode::LargeDigitsOnly: settings.bigSeparator = separator; break;
+        default: break;
+    }
+}
 
 inline const char* displayModeLabel(DisplayMode mode) {
     switch (mode) {
@@ -93,6 +153,8 @@ inline const char* displayModeLabel(DisplayMode mode) {
             return "BIN";
         case DisplayMode::Drift:
             return "DRIFT";
+        case DisplayMode::TimeWithWeekday:
+            return "WDAY";
         default:
             return "?";
     }
@@ -102,8 +164,8 @@ inline DisplayMode clampDisplayMode(int mode) {
     if (mode < (int)DisplayMode::Rnd) {
         return DisplayMode::Rnd;
     }
-    if (mode > (int)DisplayMode::Drift) {
-        return DisplayMode::Drift;
+    if (mode > (int)DisplayMode::TimeWithWeekday) {
+        return DisplayMode::TimeWithWeekday;
     }
     return static_cast<DisplayMode>(mode);
 }

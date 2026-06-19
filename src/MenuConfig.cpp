@@ -19,6 +19,8 @@ static void    commitBellModeMenu(void* ctx, int16_t v);
 static int16_t getDisplayModeMenu(void* ctx);
 static void    previewDisplayModeMenu(void* ctx, int16_t v);
 static void    commitDisplayModeMenu(void* ctx, int16_t v);
+static bool    editCommitDisplayModeMenu(void* ctx, int16_t v);
+static void    cancelDisplayModeMenu(void* ctx);
 static int16_t getDateStyleMenu(void* ctx);
 static void    previewDateStyleMenu(void* ctx, int16_t v);
 static void    commitDateStyleMenu(void* ctx, int16_t v);
@@ -48,6 +50,11 @@ uint8_t  g_setSec = 0;
 uint8_t  g_setDay = 1;
 uint8_t  g_setMonth = 1;
 uint16_t g_setYear = 2025;
+uint8_t g_styleStep = 0;
+DisplayMode g_stylePreviewMode = DisplayMode::LargeDigitsOnly;
+static bool g_styleEditing = false;
+static AppSettings g_styleOriginalSettings;
+static DisplayMode g_styleOriginalRuntimeMode = DisplayMode::LargeDigitsOnly;
 
 enum MenuIndex : uint8_t {
     MENU_STYLE = 0,
@@ -61,8 +68,9 @@ enum MenuIndex : uint8_t {
 };
 
 MenuItem MENU_ITEMS[] = {
-  {"STYLE",   (int16_t)DisplayMode::Rnd,  (int16_t)DisplayMode::Drift,
-              getDisplayModeMenu, previewDisplayModeMenu, commitDisplayModeMenu, nullptr},
+  {"STYLE",   (int16_t)DisplayMode::Rnd,  (int16_t)DisplayMode::TimeWithWeekday,
+              getDisplayModeMenu, previewDisplayModeMenu, commitDisplayModeMenu, nullptr,
+              editCommitDisplayModeMenu, cancelDisplayModeMenu},
   {"DATE",    (int16_t)DateStyle::Date,    (int16_t)DateStyle::Czod,
               getDateStyleMenu, previewDateStyleMenu, commitDateStyleMenu, nullptr},
   {"FORMAT",  (int16_t)TimeFormat::Hours24, (int16_t)TimeFormat::AmPm,
@@ -92,12 +100,19 @@ const char* bellValueName(int16_t value) {
 
 const char* styleValueName(int16_t value) {
     static const char* const NAMES[] = {
-        "RND", "BIG", "SEC", "DECI", "DATE", "WORD", "ROMA", "BIN", "DRIFT", nullptr
+        "RND", "BIG", "SEC", "DECI", "DATE", "WORD", "ROMA", "BIN", "DRIFT", "WDAY", nullptr
     };
     for (uint8_t i = 0; NAMES[i]; i++) {
         if ((int16_t)i == value) return NAMES[i];
     }
     return "?";
+}
+
+static const char* separatorValueName(int16_t value, bool drift) {
+    static const char* const STANDARD[] = {"STEADY", "PULSE"};
+    static const char* const DRIFT[] = {"STEADY", "PULSE", "SPREAD", "TRACK"};
+    if (drift) return (value >= 0 && value <= 3) ? DRIFT[value] : "?";
+    return (value >= 0 && value <= 1) ? STANDARD[value] : "?";
 }
 
 const char* dateStyleValueName(int16_t value) {
@@ -162,7 +177,10 @@ static const char* setTimeValueName(int16_t value) {
 }
 
 const char* menuValueName(uint8_t index, int16_t value, void* ctx) {
-    if (index == MENU_STYLE) return styleValueName(value);
+    if (index == MENU_STYLE) {
+        return g_styleStep == 0 ? styleValueName(value)
+                                : separatorValueName(value, g_stylePreviewMode == DisplayMode::Drift);
+    }
     if (index == MENU_DATE) return dateStyleValueName(value);
     if (index == MENU_FORMAT) return formatValueName(value);
     if (index == MENU_NIGHT) return nightValueName(value);
@@ -196,18 +214,77 @@ static void commitBellModeMenu(void* ctx, int16_t v) {
     b->settingsStore.saveBellMode(mode);
 }
 static int16_t getDisplayModeMenu(void* ctx) {
+    if (g_styleStep == 1) {
+        MenuBindings* b = static_cast<MenuBindings*>(ctx);
+        if (g_stylePreviewMode == DisplayMode::Drift) return (int16_t)b->appSettings.driftSeparator;
+        return (int16_t)separatorModeFor(b->appSettings, g_stylePreviewMode);
+    }
     return (int16_t)static_cast<MenuBindings*>(ctx)->appSettings.displayMode;
 }
 static void previewDisplayModeMenu(void* ctx, int16_t v) {
     MenuBindings* b = static_cast<MenuBindings*>(ctx);
-    b->displayMode = clampDisplayMode((int)v);
+    if (!g_styleEditing) {
+        g_styleEditing = true;
+        g_styleOriginalSettings = b->appSettings;
+        g_styleOriginalRuntimeMode = b->displayMode;
+    }
+    if (g_styleStep == 0) {
+        g_stylePreviewMode = clampDisplayMode((int)v);
+        b->displayMode = g_stylePreviewMode;
+    } else if (g_stylePreviewMode == DisplayMode::Drift) {
+        b->appSettings.driftSeparator = clampDriftSeparatorMode((int)v);
+    } else {
+        setSeparatorModeFor(b->appSettings, g_stylePreviewMode, clampSeparatorMode((int)v));
+    }
 }
 static void commitDisplayModeMenu(void* ctx, int16_t v) {
+    (void)ctx;
+    (void)v;
+}
+static void resetStyleMenuRange() {
+    MENU_ITEMS[MENU_STYLE].minValue = (int16_t)DisplayMode::Rnd;
+    MENU_ITEMS[MENU_STYLE].maxValue = (int16_t)DisplayMode::TimeWithWeekday;
+}
+static bool editCommitDisplayModeMenu(void* ctx, int16_t v) {
     MenuBindings* b = static_cast<MenuBindings*>(ctx);
-    DisplayMode mode = clampDisplayMode((int)v);
-    b->appSettings.displayMode = mode;
-    b->displayMode = mode;
-    b->settingsStore.saveDisplayMode(mode);
+    if (g_styleStep == 0) {
+        g_stylePreviewMode = clampDisplayMode((int)v);
+        if (hasConfigurableSeparator(g_stylePreviewMode)) {
+            g_styleStep = 1;
+            MENU_ITEMS[MENU_STYLE].minValue = 0;
+            MENU_ITEMS[MENU_STYLE].maxValue = g_stylePreviewMode == DisplayMode::Drift ? 3 : 1;
+            return true;
+        }
+    } else if (g_stylePreviewMode == DisplayMode::Drift) {
+        b->appSettings.driftSeparator = clampDriftSeparatorMode((int)v);
+        b->settingsStore.saveDriftSeparatorMode(b->appSettings.driftSeparator);
+    } else {
+        SeparatorMode separator = clampSeparatorMode((int)v);
+        setSeparatorModeFor(b->appSettings, g_stylePreviewMode, separator);
+        b->settingsStore.saveSeparatorMode(g_stylePreviewMode, separator);
+    }
+
+    b->appSettings.displayMode = g_stylePreviewMode;
+    b->displayMode = g_stylePreviewMode;
+    b->settingsStore.saveDisplayMode(g_stylePreviewMode);
+    g_styleStep = 0;
+    g_styleEditing = false;
+    resetStyleMenuRange();
+    return false;
+}
+static void cancelDisplayModeMenu(void* ctx) {
+    if (!g_styleEditing) return;
+    MenuBindings* b = static_cast<MenuBindings*>(ctx);
+    b->appSettings.bigSeparator = g_styleOriginalSettings.bigSeparator;
+    b->appSettings.secondsSeparator = g_styleOriginalSettings.secondsSeparator;
+    b->appSettings.decisecondsSeparator = g_styleOriginalSettings.decisecondsSeparator;
+    b->appSettings.dateSeparator = g_styleOriginalSettings.dateSeparator;
+    b->appSettings.weekdaySeparator = g_styleOriginalSettings.weekdaySeparator;
+    b->appSettings.driftSeparator = g_styleOriginalSettings.driftSeparator;
+    b->displayMode = g_styleOriginalRuntimeMode;
+    g_styleStep = 0;
+    g_styleEditing = false;
+    resetStyleMenuRange();
 }
 static int16_t getDateStyleMenu(void* ctx) {
     return (int16_t)static_cast<MenuBindings*>(ctx)->appSettings.dateStyle;

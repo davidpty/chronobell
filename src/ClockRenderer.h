@@ -18,6 +18,7 @@ public:
     // before this is called.
     void init(Display& display, TimeProvider& timeProvider);
     void setTimeFormat(TimeFormat* timeFormat);
+    void setSeparatorModes(SeparatorMode separatorMode, DriftSeparatorMode driftSeparatorMode);
 
     // Top-level time-rendering entry points used by Display::showTime().
     void drawTime(int hours, int minutes, int seconds);
@@ -27,6 +28,7 @@ public:
     void drawRomanTime(int hours, int minutes);
     void drawBinaryTime(int hours, int minutes, int seconds);
     void drawDateTime(ClockTime time);
+    void drawWeekdayTime(ClockTime time);
     void drawDateView(DateStyle style);
     void drawSeconds(int seconds);
     void drawDeciseconds(int seconds, uint8_t deciseconds);
@@ -80,6 +82,8 @@ private:
     TimeProvider* _timeProvider = nullptr;
     TimeFormat* _timeFormat = nullptr;
     bool _driftStyleActive = false;
+    SeparatorMode _separatorMode = SeparatorMode::Steady;
+    DriftSeparatorMode _driftSeparatorMode = DriftSeparatorMode::Track;
 };
 
 #endif // CLOCK_RENDERER_H

@@ -271,7 +271,7 @@ void ConfigPortal::handleRoot() {
         <div class="card">
             <div class="setting-row">
                 <div class="setting-label">Style</div>
-                <select id="style" onchange="applySetting('style', this.value)">
+                <select id="style" onchange="onStyleChange(this.value)">
                     <option value="0" selected>RND - Daily random style</option>
                     <option value="1">BIG - Large HH:MM, no seconds</option>
                     <option value="2">SEC - HH:MM with seconds below</option>
@@ -281,7 +281,13 @@ void ConfigPortal::handleRoot() {
                     <option value="6">ROMA - Roman numeral clock</option>
                     <option value="7">BIN - Binary clock</option>
                     <option value="8">DRIFT - Irregular BIG-style clock</option>
+                    <option value="9">WDAY - HH:MM with weekday below</option>
                 </select>
+            </div>
+
+            <div class="setting-row hidden" id="separatorRow">
+                <div class="setting-label">Separator</div>
+                <select id="separator" onchange="applySeparator(this.value)"></select>
             </div>
 
             <div class="setting-row">
@@ -438,6 +444,48 @@ void ConfigPortal::handleRoot() {
         let pendingPollTimer = null;
         let statusPollTimer = null;
         let wifiFieldsDirty = false;
+        let separatorSettings = {1: 0, 2: 0, 3: 0, 4: 0, 8: 3, 9: 0};
+
+        function syncSeparatorRow() {
+            const style = Number(document.getElementById('style').value);
+            const row = document.getElementById('separatorRow');
+            const select = document.getElementById('separator');
+            const configurable = style === 1 || style === 2 || style === 3 || style === 4 || style === 8 || style === 9;
+            row.classList.toggle('hidden', !configurable);
+            if (!configurable) return;
+
+            const options = style === 8
+                ? [[0, 'STEADY - Fixed and always visible'],
+                   [1, 'PULSE - Fixed dots blinking'],
+                   [2, 'SPREAD - Symmetric drift spread'],
+                   [3, 'TRACK - Indicates ahead or behind']]
+                : [[0, 'STEADY - Always visible'],
+                   [1, 'PULSE - Blink each second']];
+            select.innerHTML = '';
+            options.forEach(function(option) {
+                const el = document.createElement('option');
+                el.value = String(option[0]);
+                el.textContent = option[1];
+                select.appendChild(el);
+            });
+            select.value = String(separatorSettings[style] || 0);
+        }
+
+        function onStyleChange(value) {
+            syncSeparatorRow();
+            const separator = document.getElementById('separator');
+            separator.disabled = true;
+            applySetting('style', value).finally(function() {
+                separator.disabled = false;
+            });
+        }
+
+        function applySeparator(value) {
+            const style = Number(document.getElementById('style').value);
+            separatorSettings[style] = Number(value);
+            return fetch('/apply?field=separator&style=' + encodeURIComponent(style) +
+                         '&value=' + encodeURIComponent(value));
+        }
 
         function htmlEscape(value) {
             return String(value).replace(/[&<>"']/g, function(ch) {
@@ -526,6 +574,7 @@ void ConfigPortal::handleRoot() {
             document.getElementById('brightnessVal').textContent = initial.brightness;
             setWifiMode(initial.manualMode === 'manual' ? 'manual' : 'auto');
             syncHotspotToggle();
+            syncSeparatorRow();
         }
 
         function stopPendingPoll() {
@@ -605,6 +654,11 @@ void ConfigPortal::handleRoot() {
                 if (b !== undefined) {
                     document.getElementById('brightness').value = b;
                     document.getElementById('brightnessVal').textContent = b;
+                }
+
+                if (data.separators) {
+                    separatorSettings = data.separators;
+                    syncSeparatorRow();
                 }
 
                 updateHotspotFromStatus(data);
@@ -1034,6 +1088,16 @@ void ConfigPortal::handleApply() {
 
     if (field == "style") {
         settings.displayMode = clampDisplayMode(value.toInt());
+    } else if (field == "separator") {
+        DisplayMode style = clampDisplayMode(_webServer.arg("style").toInt());
+        if (style == DisplayMode::Drift) {
+            settings.driftSeparator = clampDriftSeparatorMode(value.toInt());
+        } else if (hasConfigurableSeparator(style)) {
+            setSeparatorModeFor(settings, style, clampSeparatorMode(value.toInt()));
+        } else {
+            _webServer.send(400, "application/json", "{\"success\":false}");
+            return;
+        }
     } else if (field == "datestyle") {
         settings.dateStyle = clampDateStyle(value.toInt());
     } else if (field == "timefmt") {
@@ -1091,7 +1155,7 @@ void ConfigPortal::handleApply() {
         (void)_saveCb(_saveContext, false, tzChanged, manualTimeChanged, "", "");
     }
 
-    if (_previewCb && (field == "style" || field == "datestyle" || field == "timefmt" || field == "timezone" || field == "timeMode" || field == "manualtime" || field == "bellmode" || field == "brightness")) {
+    if (_previewCb && (field == "style" || field == "separator" || field == "datestyle" || field == "timefmt" || field == "timezone" || field == "timeMode" || field == "manualtime" || field == "bellmode" || field == "brightness")) {
         _previewCb(_previewContext, field);
     }
 
@@ -1126,6 +1190,19 @@ void ConfigPortal::handleStatus() {
     json += (int)_settings.nightMode;
     json += ",\"brightness\":";
     json += (int)_settingsStore.loadBrightness(4);
+    json += ",\"separators\":{\"1\":";
+    json += (int)_settings.bigSeparator;
+    json += ",\"2\":";
+    json += (int)_settings.secondsSeparator;
+    json += ",\"3\":";
+    json += (int)_settings.decisecondsSeparator;
+    json += ",\"4\":";
+    json += (int)_settings.dateSeparator;
+    json += ",\"8\":";
+    json += (int)_settings.driftSeparator;
+    json += ",\"9\":";
+    json += (int)_settings.weekdaySeparator;
+    json += "}";
     json += ",\"hotspotActive\":";
     json += hotspotActive ? "true" : "false";
     json += ",\"hotspotRemaining\":";

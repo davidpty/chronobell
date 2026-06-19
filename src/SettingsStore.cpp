@@ -16,6 +16,12 @@ const char* SettingsStore::KEY_DATE_STYLE = "date_style";
 const char* SettingsStore::KEY_BELL_MODE = "bell";
 const char* SettingsStore::KEY_TIME_FORMAT = "time_fmt";
 const char* SettingsStore::KEY_NIGHT_MODE = "night";
+const char* SettingsStore::KEY_SEPARATOR_BIG = "sep_big";
+const char* SettingsStore::KEY_SEPARATOR_SECONDS = "sep_sec";
+const char* SettingsStore::KEY_SEPARATOR_DECISECONDS = "sep_deci";
+const char* SettingsStore::KEY_SEPARATOR_DATE = "sep_date";
+const char* SettingsStore::KEY_SEPARATOR_WEEKDAY = "sep_wday";
+const char* SettingsStore::KEY_SEPARATOR_DRIFT = "sep_drift";
 const char* SettingsStore::KEY_MANUAL_TIME_ENABLED = "manual_enabled";
 const char* SettingsStore::KEY_MANUAL_EPOCH = "manual_epoch";
 const char* SettingsStore::MENU_PREFS_NAMESPACE = "menu";
@@ -49,6 +55,12 @@ AppSettings SettingsStore::load() {
     settings.bellMode = clampBellMode(prefs.getUChar(KEY_BELL_MODE, (uint8_t)BellMode::Off));
     settings.timeFormat = clampTimeFormat(prefs.getUChar(KEY_TIME_FORMAT, (uint8_t)TimeFormat::Hours24));
     settings.nightMode = clampNightMode(prefs.getUChar(KEY_NIGHT_MODE, (uint8_t)NightMode::Off));
+    settings.bigSeparator = clampSeparatorMode(prefs.getUChar(KEY_SEPARATOR_BIG, (uint8_t)SeparatorMode::Steady));
+    settings.secondsSeparator = clampSeparatorMode(prefs.getUChar(KEY_SEPARATOR_SECONDS, (uint8_t)SeparatorMode::Steady));
+    settings.decisecondsSeparator = clampSeparatorMode(prefs.getUChar(KEY_SEPARATOR_DECISECONDS, (uint8_t)SeparatorMode::Steady));
+    settings.dateSeparator = clampSeparatorMode(prefs.getUChar(KEY_SEPARATOR_DATE, (uint8_t)SeparatorMode::Steady));
+    settings.weekdaySeparator = clampSeparatorMode(prefs.getUChar(KEY_SEPARATOR_WEEKDAY, (uint8_t)SeparatorMode::Steady));
+    settings.driftSeparator = clampDriftSeparatorMode(prefs.getUChar(KEY_SEPARATOR_DRIFT, (uint8_t)DriftSeparatorMode::Track));
     settings.manualTime.enabled = prefs.getBool(KEY_MANUAL_TIME_ENABLED, false);
     settings.manualTime.epoch = prefs.getULong(KEY_MANUAL_EPOCH, 0);
     if (settings.network.ssid.length() == 0) {
@@ -76,6 +88,12 @@ bool SettingsStore::save(const AppSettings& settings) {
     prefs.putUChar(KEY_BELL_MODE, (uint8_t)settings.bellMode);
     prefs.putUChar(KEY_TIME_FORMAT, (uint8_t)settings.timeFormat);
     prefs.putUChar(KEY_NIGHT_MODE, (uint8_t)settings.nightMode);
+    prefs.putUChar(KEY_SEPARATOR_BIG, (uint8_t)settings.bigSeparator);
+    prefs.putUChar(KEY_SEPARATOR_SECONDS, (uint8_t)settings.secondsSeparator);
+    prefs.putUChar(KEY_SEPARATOR_DECISECONDS, (uint8_t)settings.decisecondsSeparator);
+    prefs.putUChar(KEY_SEPARATOR_DATE, (uint8_t)settings.dateSeparator);
+    prefs.putUChar(KEY_SEPARATOR_WEEKDAY, (uint8_t)settings.weekdaySeparator);
+    prefs.putUChar(KEY_SEPARATOR_DRIFT, (uint8_t)settings.driftSeparator);
     prefs.putBool(KEY_MANUAL_TIME_ENABLED, settings.manualTime.enabled);
     prefs.putULong(KEY_MANUAL_EPOCH, settings.manualTime.epoch);
 
@@ -240,6 +258,31 @@ bool SettingsStore::saveNightMode(NightMode mode) {
     }
 
     prefs.putUChar(KEY_NIGHT_MODE, (uint8_t)clampNightMode((int)mode));
+    prefs.end();
+    return true;
+}
+
+bool SettingsStore::saveSeparatorMode(DisplayMode displayMode, SeparatorMode mode) {
+    const char* key = nullptr;
+    switch (displayMode) {
+        case DisplayMode::LargeDigitsOnly: key = KEY_SEPARATOR_BIG; break;
+        case DisplayMode::TimeWithSeconds: key = KEY_SEPARATOR_SECONDS; break;
+        case DisplayMode::TimeWithDeciseconds: key = KEY_SEPARATOR_DECISECONDS; break;
+        case DisplayMode::TimeWithDate: key = KEY_SEPARATOR_DATE; break;
+        case DisplayMode::TimeWithWeekday: key = KEY_SEPARATOR_WEEKDAY; break;
+        default: return false;
+    }
+    Preferences prefs;
+    if (!prefs.begin(PREFS_NAMESPACE, false)) return false;
+    prefs.putUChar(key, (uint8_t)clampSeparatorMode((int)mode));
+    prefs.end();
+    return true;
+}
+
+bool SettingsStore::saveDriftSeparatorMode(DriftSeparatorMode mode) {
+    Preferences prefs;
+    if (!prefs.begin(PREFS_NAMESPACE, false)) return false;
+    prefs.putUChar(KEY_SEPARATOR_DRIFT, (uint8_t)clampDriftSeparatorMode((int)mode));
     prefs.end();
     return true;
 }

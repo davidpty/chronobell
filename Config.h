@@ -77,17 +77,16 @@
 
 #define LAST_STYLE_TIMEOUT_MINUTES                  360                                 // Reset remembered clock view to configured View after N idle min (0=off)
 #define LAST_DATEVIEW_TIMEOUT_MINUTES               5                                   // Reset remembered date view to configured after N idle min (0=off)
+#define RND_STYLE_INTERVAL_HOURS                    24                                  // RND changes on local-hour boundaries aligned to midnight (3 = 00,03,06...; valid 1-24)
 
 // ---------------------------------------------------------------------------
 // DRIFT display tuning
 // ---------------------------------------------------------------------------
 
-#define DRIFT_MAX_OFFSET_MINUTES                    12                                  // Maximum distance from real time in either direction, in minutes
+#define DRIFT_MAX_OFFSET_MINUTES                    60                                  // Maximum distance from real time in either direction, in minutes
 #define DRIFT_PATTERN                               0                                   // 0 = behind<->ahead, 1 = real->behind->real, 2 = real->ahead->real
-#define DRIFT_TIME_TO_MAX_OFFSET_MINUTES            60                                  // Minutes from real time to max offset; pattern 0 takes twice this between extremes; unsafe values are extended
+#define DRIFT_TIME_TO_MAX_OFFSET_MINUTES            120                                 // Minutes from real time to max offset; pattern 0 takes twice this between extremes; unsafe values are extended
 #define DRIFT_TEMPO_VARIATION_PERCENT               8                                   // Smooth zero-mean tempo variation, as +/- percent; reaches zero at phase boundaries
-#define DRIFT_SEPARATOR_STYLE                       2                                   // 0 = fixed, 1 = symmetric spread, 2 = directional spread (lower=behind, upper=ahead)
-#define DRIFT_SEPARATOR_BLINK                       1                                   // 0 = steady separator, 1 = toggle on each continuously modeled displayed second
 
 // ---------------------------------------------------------------------------
 // WiFi reconnection backoff (used by WiFiManagerLite)

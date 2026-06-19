@@ -49,6 +49,7 @@ public:
     // Display can read the live display mode without a global.
     void setMenuBindings(void* bindings);
     void setRuntimeMode(DisplayMode* displayMode);
+    void setAppSettings(AppSettings* settings);
     void setDriftTimeModel(DriftTimeModel* driftTimeModel);
     void setTimeFormat(TimeFormat* timeFormat);
     void setDateStyle(DateStyle* dateStyle);
@@ -122,6 +123,7 @@ private:
 
     void* _menuBindings = nullptr;
     DisplayMode* _displayMode = nullptr;
+    AppSettings* _appSettings = nullptr;
     DriftTimeModel* _driftTimeModel = nullptr;
     TimeFormat* _timeFormat = nullptr;
     DateStyle* _dateStyle = nullptr;

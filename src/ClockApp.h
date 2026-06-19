@@ -145,6 +145,7 @@ private:
     DisplayMode _lastDisplayModeSeen = DisplayMode::LargeDigitsOnly;
     DisplayMode _randomDisplayMode = DisplayMode::LargeDigitsOnly;
     ClockDate   _randomDisplayDate;
+    uint8_t     _randomDisplayHourSlot = 0;
     BellMode    _bellMode          = BellMode::Off;
     TimeFormat  _timeFormat        = TimeFormat::Hours24;
     NightMode   _nightMode         = NightMode::Off;
