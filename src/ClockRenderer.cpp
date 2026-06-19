@@ -462,11 +462,13 @@ void ClockRenderer::drawBigTimeInternal(int hours, int minutes, int seconds, boo
     hours = effectiveHours(hours);
     int digitWidth = 6;
     int spacing = 1;
+    int sepSpacingBefore = 3;
+    int sepSpacingAfter = 2;
     int sepWidth = 1;
 
     int numHourDigits = (hours >= 10) ? 2 : 1;
     int totalDigits = numHourDigits + 2;
-    int totalWidth = (digitWidth * totalDigits) + (spacing * (totalDigits - 1)) + sepWidth;
+    int totalWidth = (digitWidth * totalDigits) + (spacing * ((hours >= 10) ? 2 : 1)) + sepSpacingBefore + sepSpacingAfter + sepWidth;
     int startX = (COLS_PER_ROW - totalWidth) / 2;
     int startY = 0;
 
@@ -476,7 +478,7 @@ void ClockRenderer::drawBigTimeInternal(int hours, int minutes, int seconds, boo
         x += digitWidth + spacing;
     }
     drawBigTimeDigit(hours % 10, x, startY);
-    x += digitWidth + spacing;
+    x += digitWidth + sepSpacingBefore;
 
     int sepX = x;
     if (driftMode) {
@@ -484,7 +486,7 @@ void ClockRenderer::drawBigTimeInternal(int hours, int minutes, int seconds, boo
     } else {
         drawBigSeparator(sepX, startY, seconds);
     }
-    x += sepWidth + spacing;
+    x += sepWidth + sepSpacingAfter;
 
     drawBigTimeDigit(minutes / 10, x, startY);
     x += digitWidth + spacing;
@@ -500,7 +502,9 @@ void ClockRenderer::drawTime(int hours, int minutes, int seconds) {
     int digitWidth = 6;
     int numHourDigits = (hours >= 10) ? 2 : 1;
     int totalDigits = numHourDigits + 2;
-    int totalWidth = (digitWidth * totalDigits) + (TIME_FONT_SPACING * (totalDigits - 1)) + TIME_SEP_WIDTH;
+    int sepSpacingBefore = 3;
+    int sepSpacingAfter = 2;
+    int totalWidth = (digitWidth * totalDigits) + (TIME_FONT_SPACING * ((hours >= 10) ? 2 : 1)) + sepSpacingBefore + sepSpacingAfter + TIME_SEP_WIDTH;
     int startX = (COLS_PER_ROW - totalWidth) / 2;
     int startY = 0;
 
@@ -510,11 +514,11 @@ void ClockRenderer::drawTime(int hours, int minutes, int seconds) {
         x += digitWidth + TIME_FONT_SPACING;
     }
     drawTimeDigit(hours % 10, x, startY);
-    x += digitWidth + TIME_FONT_SPACING;
+    x += digitWidth + sepSpacingBefore;
 
     int sepX = x;
     drawSeparator(sepX, startY, seconds);
-    x += TIME_SEP_WIDTH + TIME_FONT_SPACING;
+    x += TIME_SEP_WIDTH + sepSpacingAfter;
 
     drawTimeDigit(minutes / 10, x, startY);
     x += digitWidth + TIME_FONT_SPACING;
@@ -1003,7 +1007,7 @@ const char* ClockRenderer::getChineseZodiacAnimalCode(int year) {
 }
 
 void ClockRenderer::drawDateStyleDate(const ClockDate& currentDate) {
-    static const char* const WEEKDAYS[] = {"SUNDAY", "MONDAY", "TUESDAY", "WED", "THU", "FRIDAY", "SAT"};
+    static const char* const WEEKDAYS[] = {"SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"};
 
     int day = currentDate.day;
     int date = currentDate.date;
