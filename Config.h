@@ -86,7 +86,6 @@
 #define DRIFT_MAX_OFFSET_MINUTES                    60                                  // Maximum distance from real time in either direction, in minutes
 #define DRIFT_PATTERN                               0                                   // 0 = behind<->ahead, 1 = real->behind->real, 2 = real->ahead->real
 #define DRIFT_TIME_TO_MAX_OFFSET_MINUTES            120                                 // Minutes from real time to max offset; pattern 0 takes twice this between extremes; unsafe values are extended
-#define DRIFT_TEMPO_VARIATION_PERCENT               8                                   // Smooth zero-mean tempo variation, as +/- percent; reaches zero at phase boundaries
 
 // ---------------------------------------------------------------------------
 // WiFi reconnection backoff (used by WiFiManagerLite)

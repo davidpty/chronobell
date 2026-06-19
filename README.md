@@ -206,7 +206,6 @@ Open `Config.h` to adjust these:
 | `DRIFT_MAX_OFFSET_MINUTES` | `8` | Maximum distance from real time in either direction |
 | `DRIFT_PATTERN` | `0` | 0=behind↔ahead, 1=real→behind→real, 2=real→ahead→real |
 | `DRIFT_TIME_TO_MAX_OFFSET_MINUTES` | `60` | Minutes from real time to maximum offset; pattern 0 takes twice this between extremes |
-| `DRIFT_TEMPO_VARIATION_PERCENT` | `8` | Smooth zero-mean tempo variation around the drift curve |
 
 ---
 

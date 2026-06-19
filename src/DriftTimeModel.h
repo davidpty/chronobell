@@ -38,7 +38,6 @@ private:
     static int maxOffsetSeconds();
     static int requestedPhaseSeconds();
     static int effectivePhaseSeconds();
-    static int tempoVariationPercent();
     static int directionMode();
     static int directionSign();
     static int clampInt(int value, int minValue, int maxValue);

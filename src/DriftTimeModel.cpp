@@ -119,14 +119,7 @@ double DriftTimeModel::phaseProgressSeconds(unsigned long elapsedMs) const {
             break;
     }
 
-    // These complete, zero-mean tempo waves integrate to zero at each phase
-    // boundary, so variation cannot move an endpoint or create a step.
-    double tempoVariation = (double)tempoVariationPercent() / 100.0;
-    double variationProgress = duration * tempoVariation *
-        (0.65 * (1.0 - cos(4.0 * DRIFT_PI * u)) / (4.0 * DRIFT_PI) +
-         0.35 * (1.0 - cos(8.0 * DRIFT_PI * u)) / (8.0 * DRIFT_PI));
-
-    return elapsedSeconds + offsetDelta + variationProgress;
+    return elapsedSeconds + offsetDelta;
 }
 
 unsigned long DriftTimeModel::currentPhaseDurationSeconds() const {
@@ -205,18 +198,12 @@ int DriftTimeModel::requestedPhaseSeconds() {
 }
 
 int DriftTimeModel::effectivePhaseSeconds() {
-    double tempoVariation = (double)tempoVariationPercent() / 100.0;
-    double availableRate = 1.0 - MINIMUM_DISPLAY_RATE - tempoVariation;
-    if (availableRate < 0.05) availableRate = 0.05;
+    double availableRate = 1.0 - MINIMUM_DISPLAY_RATE;
 
     int minimumSafe = (int)ceil((double)maxOffsetSeconds() * (DRIFT_PI * 0.5) /
                                 availableRate);
     int requested = requestedPhaseSeconds();
     return requested > minimumSafe ? requested : minimumSafe;
-}
-
-int DriftTimeModel::tempoVariationPercent() {
-    return clampInt(DRIFT_TEMPO_VARIATION_PERCENT, 0, 25);
 }
 
 int DriftTimeModel::directionMode() {
