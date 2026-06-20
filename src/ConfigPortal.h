@@ -5,9 +5,7 @@
 #include <Arduino.h>
 #include <DNSServer.h>
 #include <WebServer.h>
-#if ENABLE_OTA
 #include <Update.h>
-#endif
 #include "SettingsStore.h"
 
 class ConfigPortal {
@@ -23,6 +21,7 @@ public:
     typedef bool (*SaveCallback)(void* context, bool wifiChanged, bool tzChanged, bool manualTimeChanged,
                                  const String& ssid, const String& password);
     typedef void (*PreviewCallback)(void* context, const String& field);
+    typedef String (*TimerStatusCallback)(void* context);
     typedef bool (*HotspotStatusCallback)(void* context);
     typedef int16_t (*HotspotRemainingCallback)(void* context);
     typedef void (*HotspotToggleCallback)(void* context, bool on);
@@ -48,15 +47,14 @@ public:
     void setOtaDisplayCallback(OtaDisplayCallback cb, void* context);
     void setSaveCallback(SaveCallback cb, void* context);
     void setPreviewCallback(PreviewCallback cb, void* context);
+    void setTimerStatusCallback(TimerStatusCallback cb, void* context);
     void setHotspotCallbacks(HotspotStatusCallback status,
                              HotspotRemainingCallback remaining,
                              HotspotToggleCallback toggle,
                              void* context);
     void setScanPreflightCallback(ScanPreflightCallback cb, void* context);
 
-#if ENABLE_OTA
     void handleUpdateUpload();
-#endif
 
 private:
     SettingsStore& _settingsStore;
@@ -79,6 +77,8 @@ private:
     void* _saveContext;
     PreviewCallback _previewCb;
     void* _previewContext;
+    TimerStatusCallback _timerStatusCb = nullptr;
+    void* _timerStatusContext = nullptr;
     HotspotStatusCallback _hotspotStatusCb = nullptr;
     HotspotRemainingCallback _hotspotRemainingCb = nullptr;
     HotspotToggleCallback _hotspotToggleCb = nullptr;
@@ -97,6 +97,8 @@ private:
     void handleScan();
     void handleSave();
     void handleApply();
+    void handleTimer();
+    void handleTimerStatus();
     void handleStatus();
     void handleCaptivePortal();
     void handleNotFound();

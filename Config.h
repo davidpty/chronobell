@@ -27,9 +27,10 @@
 // ---------------------------------------------------------------------------
 // Set to 0 to disable and reclaim flash.
 
-#define ENABLE_OTA                                  0                                   // ArduinoOTA + mDNS-based OTA update
-#define ENABLE_MDNS                                 0                                   // mDNS / Bonjour hostname advertisement
-#define ENABLE_TRANSITIONS                          0                                   // enable support for transition animations
+#define ENABLE_OTA                                  1                                   // ArduinoOTA (IDE network OTA); web portal upload is always enabled
+#define ENABLE_MDNS                                 1                                   // mDNS / Bonjour hostname advertisement
+
+#define ENABLE_TRANSITIONS                          1                                   // enable support for transition animations
 
 // ---------------------------------------------------------------------------
 // Night mode

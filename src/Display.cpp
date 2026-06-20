@@ -330,6 +330,26 @@ void Display::renderBuffer() {
     _leds.update();
 }
 
+String Display::snapshotSvg() const {
+    String svg;
+    svg.reserve(4096);
+    svg = "<svg class=\"pixel-display\" viewBox=\"0 0 32 16\" preserveAspectRatio=\"none\" aria-label=\"ChronoBell display snapshot\">";
+    for (int y = 0; y < TOTAL_ROWS; ++y) {
+        for (int x = 0; x < COLS_PER_ROW; ++x) {
+            if (!pixelBuffer[x][y]) {
+                continue;
+            }
+            svg += "<circle class=\"pixel-dot\" cx=\"";
+            svg += String(x + 0.5f, 1);
+            svg += "\" cy=\"";
+            svg += String(y + 0.5f, 1);
+            svg += "\" r=\"0.42\"></circle>";
+        }
+    }
+    svg += "</svg>";
+    return svg;
+}
+
 // =============================================================================
 // Font helpers (used by all renderers)
 // =============================================================================

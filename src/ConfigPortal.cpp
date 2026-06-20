@@ -43,6 +43,8 @@ ConfigPortal::ConfigPortal(SettingsStore& settingsStore)
     , _saveContext(nullptr)
     , _previewCb(nullptr)
     , _previewContext(nullptr)
+    , _timerStatusCb(nullptr)
+    , _timerStatusContext(nullptr)
 {
 }
 
@@ -136,8 +138,9 @@ void ConfigPortal::configureWebServerRoutes() {
     _webServer.on("/scan", HTTP_GET, [this]() { handleScan(); });
     _webServer.on("/save", HTTP_GET, [this]() { handleSave(); });
     _webServer.on("/apply", HTTP_GET, [this]() { handleApply(); });
+    _webServer.on("/timer", HTTP_GET, [this]() { handleTimer(); });
+    _webServer.on("/timerstatus", HTTP_GET, [this]() { handleTimerStatus(); });
     _webServer.on("/status", HTTP_GET, [this]() { handleStatus(); });
-#if ENABLE_OTA
     _webServer.on("/update", HTTP_POST, [this]() {
         _webServer.send(200, "text/plain", "Update processing...");
         if (Update.hasError()) {
@@ -148,7 +151,6 @@ void ConfigPortal::configureWebServerRoutes() {
             ESP.restart();
         }
     }, [this]() { handleUpdateUpload(); });
-#endif
     _webServer.onNotFound([this]() { handleNotFound(); });
 }
 
@@ -170,7 +172,9 @@ void ConfigPortal::handleRoot() {
     String initialManualMode = _settings.manualTime.enabled ? "manual" : "auto";
     String initialHotspotRemaining = String(_hotspotRemainingCb ? _hotspotRemainingCb(_hotspotContext) : 0);
 
-    String html = R"rawliteral(
+    String html;
+    html.reserve(48000);
+    html = R"rawliteral(
 <!DOCTYPE html>
 <html>
 <head>
@@ -257,6 +261,16 @@ void ConfigPortal::handleRoot() {
         input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 1.2em; height: 1.2em; background: #ff0000; border-radius: 50%; cursor: pointer; box-shadow: 0 0 0.6em #ff0000; }
         input[type="range"]::-moz-range-thumb { width: 1.2em; height: 1.2em; background: #ff0000; border-radius: 50%; border: none; cursor: pointer; }
         .brightness-display { min-width: 2em; text-align: center; color: #ff3333; font-weight: bold; text-shadow: 0 0 0.4em #ff0000; }
+        .timer-card { width: 100%; margin-bottom: 0.35em; }
+        .timer-brand { margin: 0 0 0.35em; color: #aa2222; font-size: 0.72em; letter-spacing: 0.18em; text-transform: uppercase; text-shadow: none; opacity: 0.9; }
+        .timer-panel { display: grid; gap: 0.45em; width: 100%; justify-items: stretch; }
+        .timer-screen { background: rgba(10, 0, 0, 0.86); border: 1px solid #330000; border-radius: 0.25em; padding: 0.28em 0.32em 0.32em; box-shadow: inset 0 0 1em rgba(255, 0, 0, 0.08); width: 100%; display: flex; flex-direction: column; gap: 0.35em; }
+        .display-frame { border: 1px solid #4d0000; border-radius: 0.2em; padding: 0.12em 0.14em 0.14em; background: linear-gradient(rgba(255, 0, 0, 0.03), rgba(255, 0, 0, 0.01)), #060000; box-shadow: inset 0 0 1.2em rgba(255, 0, 0, 0.12); width: 100%; }
+        .pixel-display { display: block; width: 100%; height: auto; aspect-ratio: 32 / 16; background: transparent; shape-rendering: crispEdges; image-rendering: pixelated; }
+        .pixel-dot { fill: #ff3a3a; }
+        .button-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.45em; width: 100%; }
+        .button-card { appearance: none; min-width: 4.5em; padding: 0.4em 0.35em 0.5em; border-radius: 0.2em; border: 1px solid #6b0000; background: linear-gradient(180deg, rgba(60, 0, 0, 0.9), rgba(25, 0, 0, 0.95)); color: #ff5555; text-align: center; text-shadow: none; box-shadow: inset 0 0 0.8em rgba(255, 0, 0, 0.12); font-family: 'Courier New', Courier, monospace; cursor: pointer; font-size: 1.3em; line-height: 1; }
+        .button-card span { display: block; color: #ff8f8f; margin-bottom: 0; }
         @media (max-width: 520px) {
             html { font-size: 15px; }
             body { padding: 0.6em; }
@@ -268,7 +282,21 @@ void ConfigPortal::handleRoot() {
 </head>
 <body>
     <div class="container">
-        <h1>ChronoBell</h1>
+        <div class="card timer-card">
+            <div class="timer-brand">ChronoBell</div>
+            <div class="timer-panel">
+                <div class="timer-screen">
+                    <div class="display-frame">
+                        <svg class="pixel-display" id="timerDisplaySvg" viewBox="0 0 32 16" preserveAspectRatio="none" aria-label="ChronoBell timer display"></svg>
+                    </div>
+                    <div class="button-strip">
+                        <button class="button-card" id="timerPrevBtn" type="button" aria-label="Previous"><span>◄</span></button>
+                        <button class="button-card" id="timerModeBtn" type="button" aria-label="Mode"><span>◎</span></button>
+                        <button class="button-card" id="timerNextBtn" type="button" aria-label="Next"><span>►</span></button>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <div class="card">
             <div class="setting-row">
@@ -449,10 +477,63 @@ void ConfigPortal::handleRoot() {
         let wifiMode = 'auto';
         let pendingPollTimer = null;
         let statusPollTimer = null;
+        let timerPollTimer = null;
         let wifiFieldsDirty = false;
         let separatorSetting = 0;
         let driftSeparatorSetting = 0;
         let infoLineSetting = 0;
+        let timerState = {};
+        const timerDisplaySvg = document.getElementById('timerDisplaySvg');
+        const timerPrevBtn = document.getElementById('timerPrevBtn');
+        const timerModeBtn = document.getElementById('timerModeBtn');
+        const timerNextBtn = document.getElementById('timerNextBtn');
+        function updateTimerDisplay(data) {
+            timerState = data || {};
+            if (!timerDisplaySvg) return;
+            timerDisplaySvg.innerHTML = String(timerState.displaySvg || '');
+        }
+
+        function loadTimerStatus() {
+            return fetch('/timerstatus')
+                .then(function(r) { return r.json(); })
+                .then(function(data) { updateTimerDisplay(data.timer || {}); })
+                .catch(function() { updateTimerDisplay(timerState); });
+        }
+
+        function startTimerPoll() {
+            if (timerPollTimer) return;
+            timerPollTimer = setInterval(function() { loadTimerStatus(); }, 500);
+        }
+
+        function stopTimerPoll() {
+            if (timerPollTimer) {
+                clearInterval(timerPollTimer);
+                timerPollTimer = null;
+            }
+        }
+
+        function sendTimerAction(action) {
+            return fetch('/timer?action=' + encodeURIComponent(action))
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data && data.timer) {
+                        updateTimerDisplay(data.timer);
+                    } else {
+                        return loadTimerStatus();
+                    }
+                })
+                .catch(function() { return loadTimerStatus(); });
+        }
+
+        if (timerPrevBtn) {
+            timerPrevBtn.onclick = function() { sendTimerAction('prev'); };
+        }
+        if (timerModeBtn) {
+            timerModeBtn.onclick = function() { sendTimerAction('mode'); };
+        }
+        if (timerNextBtn) {
+            timerNextBtn.onclick = function() { sendTimerAction('next'); };
+        }
 
         function syncInfoLineRow() {
             const style = Number(document.getElementById('style').value);
@@ -722,6 +803,9 @@ void ConfigPortal::handleRoot() {
                 syncSeparatorRow();
 
                 updateHotspotFromStatus(data);
+                if (data.timer) {
+                    updateTimerDisplay(data.timer);
+                }
 
                 const now = new Date();
                 document.getElementById('manualDate').value = now.getFullYear() + '-' +
@@ -949,6 +1033,8 @@ void ConfigPortal::handleRoot() {
     window.onload = function() {
         loadSettings(false);
         startStatusPoll();
+        startTimerPoll();
+        loadTimerStatus();
     };
     </script>
 </body>
@@ -1157,6 +1243,35 @@ void ConfigPortal::handleSave() {
     _webServer.send(200, "application/json", json);
 }
 
+void ConfigPortal::handleTimer() {
+    String action = _webServer.arg("action");
+    if (action.length() == 0) {
+        action = _webServer.arg("value");
+    }
+
+    if (_previewCb) {
+        if (action == "prev" || action == "left") {
+            _previewCb(_previewContext, "timer:left");
+        } else if (action == "mode" || action == "middle") {
+            _previewCb(_previewContext, "timer:middle");
+        } else if (action == "next" || action == "right") {
+            _previewCb(_previewContext, "timer:right");
+        }
+    }
+
+    handleTimerStatus();
+}
+
+void ConfigPortal::handleTimerStatus() {
+    String json = "{\"success\":true";
+    if (_timerStatusCb) {
+        json += ",\"timer\":";
+        json += _timerStatusCb(_timerStatusContext);
+    }
+    json += "}";
+    _webServer.send(200, "application/json", json);
+}
+
 void ConfigPortal::handleApply() {
     String field = _webServer.arg("field");
     String value = _webServer.arg("value");
@@ -1331,6 +1446,11 @@ void ConfigPortal::handleStatus() {
     }
     json += "\"";
 
+    if (_timerStatusCb) {
+        json += ",\"timer\":";
+        json += _timerStatusCb(_timerStatusContext);
+    }
+
     json += "}";
     _webServer.send(200, "application/json", json);
 }
@@ -1446,6 +1566,11 @@ void ConfigPortal::setPreviewCallback(PreviewCallback cb, void* context) {
     _previewContext = context;
 }
 
+void ConfigPortal::setTimerStatusCallback(TimerStatusCallback cb, void* context) {
+    _timerStatusCb = cb;
+    _timerStatusContext = context;
+}
+
 void ConfigPortal::setHotspotCallbacks(HotspotStatusCallback status,
                                        HotspotRemainingCallback remaining,
                                        HotspotToggleCallback toggle,
@@ -1465,7 +1590,6 @@ bool ConfigPortal::isUpdating() {
     return _otaUpdate;
 }
 
-#if ENABLE_OTA
 void ConfigPortal::handleUpdateUpload() {
     HTTPUpload& upload = _webServer.upload();
 
@@ -1517,4 +1641,3 @@ void ConfigPortal::handleUpdateUpload() {
         LOGLN("Update aborted");
     }
 }
-#endif

@@ -305,12 +305,7 @@ void TimerController::onLeft() {
 
     if (_view == TimerView::Stopwatch) {
         if (_stopwatchRunning) {
-            time_t epoch = 0;
-            if (_stopwatchStartEpoch > 0 && currentEpoch(epoch) && epoch >= _stopwatchStartEpoch) {
-                _stopwatchElapsedMs += (uint64_t)(epoch - _stopwatchStartEpoch) * 1000ULL;
-            } else {
-                _stopwatchElapsedMs += (uint64_t)(millis() - _stopwatchStartedMs);
-            }
+            _stopwatchElapsedMs += (uint64_t)(millis() - _stopwatchStartedMs);
             _stopwatchRunning = false;
             _stopwatchStartEpoch = 0;
             if (_saveStopwatchElapsed) _saveStopwatchElapsed(_stopwatchElapsedMs);

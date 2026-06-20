@@ -117,6 +117,7 @@ public:
     void onTouchRightRepeat(uint8_t pad);
     bool onSettingsSaved(bool wifiChanged, bool tzChanged, bool manualTimeChanged, const String& wifiSsid, const String& wifiPassword);
     void onWebPreview(const String& field);
+    String timerStatusJson() const;
 
 private:
     // --- Owned controllers. Declaration order matters: dependent members
@@ -181,6 +182,7 @@ private:
                                     const String& wifiSsid, const String& wifiPassword);
     static void handleReconnectResult(void* context, bool success);
     static void handleWebPreview(void* context, const String& field);
+    static String handleTimerStatus(void* context);
 };
 
 #endif // CLOCK_APP_H

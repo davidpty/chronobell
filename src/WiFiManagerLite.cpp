@@ -947,6 +947,12 @@ void WiFiManagerLite::setPreviewCallback(PreviewCallback cb, void* context) {
     _portal.setPreviewCallback(cb, context);
 }
 
+void WiFiManagerLite::setTimerStatusCallback(TimerStatusCallback cb, void* context) {
+    _timerStatusCb = cb;
+    _timerStatusContext = context;
+    _portal.setTimerStatusCallback(cb, context);
+}
+
 void WiFiManagerLite::setHotspotCallbacks(HotspotStatusCallback status,
                                           HotspotRemainingCallback remaining,
                                           HotspotToggleCallback toggle,

@@ -44,6 +44,7 @@ public:
     typedef bool (*SaveCallback)(void* context, bool wifiChanged, bool tzChanged, bool manualTimeChanged,
                                  const String& ssid, const String& password);
     typedef void (*PreviewCallback)(void* context, const String& field);
+    typedef String (*TimerStatusCallback)(void* context);
     typedef bool (*HotspotStatusCallback)(void* context);
     typedef int16_t (*HotspotRemainingCallback)(void* context);
     typedef void (*HotspotToggleCallback)(void* context, bool on);
@@ -52,6 +53,7 @@ public:
     void setOtaDisplayCallback(OtaDisplayCallback cb, void* context);
     void setSaveCallback(SaveCallback cb, void* context);
     void setPreviewCallback(PreviewCallback cb, void* context);
+    void setTimerStatusCallback(TimerStatusCallback cb, void* context);
     void setHotspotCallbacks(HotspotStatusCallback status,
                              HotspotRemainingCallback remaining,
                              HotspotToggleCallback toggle,
@@ -98,6 +100,8 @@ private:
     void* _saveContext = nullptr;
     PreviewCallback _previewCb = nullptr;
     void* _previewContext = nullptr;
+    TimerStatusCallback _timerStatusCb = nullptr;
+    void* _timerStatusContext = nullptr;
     ReconnectResultCallback _reconnectResultCb = nullptr;
     void* _reconnectResultContext = nullptr;
 

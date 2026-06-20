@@ -78,6 +78,7 @@ public:
     void setPixel(uint8_t x, uint8_t y, bool value);
     void clearBuffer();
     void renderBuffer();
+    String snapshotSvg() const;
 
     // Tabular digit helpers for live time/timer displays. These keep every
     // digit in a fixed-width cell so changing values do not wobble.
