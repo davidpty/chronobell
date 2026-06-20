@@ -269,8 +269,9 @@ void ConfigPortal::handleRoot() {
         .pixel-display { display: block; width: 100%; height: auto; aspect-ratio: 32 / 16; background: transparent; shape-rendering: crispEdges; image-rendering: pixelated; }
         .pixel-dot { fill: #ff3a3a; }
         .button-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.45em; width: 100%; }
-        .button-card { appearance: none; min-width: 4.5em; padding: 0.46em 0.5em; border: 2px solid #cc0000; border-radius: 0.25em; background: transparent; color: #cc0000; font-family: 'Courier New', monospace; font-size: 1.1em; font-weight: bold; text-transform: uppercase; cursor: pointer; text-align: center; transition: all 0.2s; }
-        .button-card:hover { background: #cc0000; color: #000000; box-shadow: 0 0 1em #cc0000; }
+        .button-card { appearance: none; min-width: 4.5em; padding: 0.46em 0.5em; border: 2px solid #cc0000; border-radius: 0.25em; background: transparent; color: #cc0000; font-family: 'Courier New', monospace; font-size: 1.1em; font-weight: bold; text-transform: uppercase; cursor: pointer; text-align: center; transition: all 0.15s; }
+        .button-card:active { background: #cc0000; color: #000000; box-shadow: 0 0 1em #cc0000; }
+        @media (hover: hover) { .button-card:hover { background: #cc0000; color: #000000; box-shadow: 0 0 1em #cc0000; } }
         @media (max-width: 520px) {
             html { font-size: 15px; }
             body { padding: 0.6em; }
