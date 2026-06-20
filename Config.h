@@ -33,7 +33,7 @@
 #define DIGIT_TRANSITION_MS                         300                                 // per-digit morph duration in ms
 
 #define SCREEN_TRANSITION                           1                                   // 0=remove engine, 1=include screen retune engine
-#define SCREEN_TRANSITION_MS                        500                                 // whole-screen transition duration
+#define SCREEN_TRANSITION_MS                        450                                 // whole-screen transition duration
 
 // ---------------------------------------------------------------------------
 // Night mode
