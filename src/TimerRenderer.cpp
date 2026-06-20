@@ -43,7 +43,7 @@ void drawAnimatedGlyph(Display& display,
     digit_transition::render_digit_cell(
         [&](int px, int py, bool on) {
             if (on) {
-                display.setPixel(px, py, true);
+                display.setAnimationPixel(px, py, true);
             }
         },
         font,
@@ -53,6 +53,17 @@ void drawAnimatedGlyph(Display& display,
         x,
         y,
         nowMs);
+
+    digit_transition::draw_glyph(
+        [&](int px, int py, bool on) {
+            if (on) {
+                display.setSnapshotPixel(px, py, true);
+            }
+        },
+        font,
+        visible ? static_cast<int>(digit) : -1,
+        x,
+        y);
 }
 
 void resetTransitionDigits(digit_transition::DigitCellState* states, size_t count) {

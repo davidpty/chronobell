@@ -1,0 +1,156 @@
+#include "ScreenTransition.h"
+
+#include <string.h>
+
+namespace {
+struct PixelCoord {
+    int8_t x;
+    int8_t y;
+};
+
+static int absInt(int value) {
+    return value < 0 ? -value : value;
+}
+
+static uint16_t easeOutCubic(uint16_t t) {
+    const uint32_t inverse = 1024U - t;
+    const uint32_t cubic = (inverse * inverse * inverse) >> 20;
+    return (uint16_t)(1024U - cubic);
+}
+
+static int interpolate(int start, int end, uint16_t progress) {
+    int32_t scaled = (int32_t)(end - start) * progress;
+    if (scaled >= 0) scaled += 512;
+    else scaled -= 512;
+    return start + scaled / 1024;
+}
+}
+
+void ScreenTransition::clearFrame(uint32_t frame[16]) {
+    memset(frame, 0, sizeof(uint32_t) * 16);
+}
+
+void ScreenTransition::copyFrame(uint32_t destination[16], const uint32_t source[16]) {
+    memcpy(destination, source, sizeof(uint32_t) * 16);
+}
+
+bool ScreenTransition::getPixelFromFrame(const uint32_t frame[16], uint8_t x, uint8_t y) {
+    return x < 32 && y < 16 && (frame[y] & (1UL << x)) != 0;
+}
+
+void ScreenTransition::setPixelInFrame(uint32_t frame[16], int x, int y) {
+    if (x >= 0 && x < 32 && y >= 0 && y < 16) {
+        frame[y] |= 1UL << x;
+    }
+}
+
+void ScreenTransition::addParticle(int startX, int startY, int endX, int endY, uint8_t flags) {
+    if (_particleCount >= SCREEN_TRANSITION_PARTICLE_MAX) return;
+    TransitionParticle& particle = _particles[_particleCount];
+    particle.startX = (int8_t)startX;
+    particle.startY = (int8_t)startY;
+    particle.endX = (int8_t)endX;
+    particle.endY = (int8_t)endY;
+    particle.phaseOffset = (uint8_t)((_particleCount * 37U + startX * 11U + startY * 17U) & 31U);
+    particle.flags = flags;
+    _particleCount++;
+}
+
+void ScreenTransition::start(const uint32_t oldFrame[16], const uint32_t newFrame[16], uint32_t nowMs) {
+    copyFrame(_oldFrame, oldFrame);
+    copyFrame(_newFrame, newFrame);
+    _startMs = nowMs;
+    _durationMs = SCREEN_TRANSITION_DURATION_MS;
+    _type = ScreenTransitionType::ParticleDissolve;
+    _particleCount = 0;
+
+    PixelCoord moving[SCREEN_TRANSITION_PARTICLE_MAX];
+    bool assigned[SCREEN_TRANSITION_PARTICLE_MAX] = {};
+    uint16_t movingCount = 0;
+    for (int y = 0; y < 16; y++) {
+        for (int x = 0; x < 32; x++) {
+            if (getPixelFromFrame(oldFrame, x, y) && !getPixelFromFrame(newFrame, x, y) &&
+                movingCount < SCREEN_TRANSITION_PARTICLE_MAX) {
+                moving[movingCount++] = {(int8_t)x, (int8_t)y};
+            }
+        }
+    }
+
+    // Destination order is stable. Manhattan matching keeps migration local.
+    for (int y = 0; y < 16 && _particleCount < SCREEN_TRANSITION_PARTICLE_MAX; y++) {
+        for (int x = 0; x < 32 && _particleCount < SCREEN_TRANSITION_PARTICLE_MAX; x++) {
+            if (getPixelFromFrame(oldFrame, x, y) || !getPixelFromFrame(newFrame, x, y)) continue;
+            int best = -1;
+            int bestDistance = 1000;
+            for (uint16_t i = 0; i < movingCount; i++) {
+                if (assigned[i]) continue;
+                int distance = absInt(moving[i].x - x) + absInt(moving[i].y - y);
+                if (distance < bestDistance) {
+                    best = i;
+                    bestDistance = distance;
+                }
+            }
+            if (best >= 0) {
+                assigned[best] = true;
+                addParticle(moving[best].x, moving[best].y, x, y, HasDestination);
+            } else {
+                int spawnX = x + (((x * 3 + y) & 1) ? 1 : -1);
+                int spawnY = y + (((x + y * 5) & 1) ? 1 : 0);
+                addParticle(spawnX, spawnY, x, y, HasDestination | BirthParticle);
+            }
+        }
+    }
+
+    for (uint16_t i = 0; i < movingCount && _particleCount < SCREEN_TRANSITION_PARTICLE_MAX; i++) {
+        if (assigned[i]) continue;
+        int dx = (i % 3) - 1;
+        int dy = 1 + (i % 4);
+        addParticle(moving[i].x, moving[i].y, moving[i].x + dx, moving[i].y + dy, 0);
+    }
+    _active = true;
+}
+
+bool ScreenTransition::render(uint32_t nowMs, uint32_t outputFrame[16]) {
+    if (!_active) return false;
+    uint32_t elapsed = nowMs - _startMs;
+    if (elapsed >= _durationMs) {
+        copyFrame(outputFrame, _newFrame);
+        _active = false;
+        _type = ScreenTransitionType::None;
+        return true;
+    }
+
+    clearFrame(outputFrame);
+    uint16_t globalProgress = (uint16_t)((elapsed * 1024UL) / _durationMs);
+    uint16_t settleProgress = (uint16_t)(((uint32_t)SCREEN_TRANSITION_SETTLE_MS * 1024U) / _durationMs);
+    uint16_t motionEnd = settleProgress < 512 ? (uint16_t)(1024 - settleProgress) : 512;
+
+    // Matching pixels are structural anchors and never flicker.
+    for (int y = 0; y < 16; y++) {
+        outputFrame[y] = _oldFrame[y] & _newFrame[y];
+    }
+
+    for (uint16_t i = 0; i < _particleCount; i++) {
+        const TransitionParticle& particle = _particles[i];
+        bool birth = (particle.flags & BirthParticle) != 0;
+        bool destination = (particle.flags & HasDestination) != 0;
+        uint16_t delay = birth ? (uint16_t)(560 + particle.phaseOffset * 5) : (uint16_t)(particle.phaseOffset * 5);
+        if (globalProgress < delay) {
+            if (!birth) setPixelInFrame(outputFrame, particle.startX, particle.startY);
+            continue;
+        }
+        uint16_t span = motionEnd > delay ? (uint16_t)(motionEnd - delay) : 1;
+        uint16_t local = (uint16_t)(((uint32_t)(globalProgress - delay) * 1024U) / span);
+        if (local > 1024) local = 1024;
+
+        if (!destination && globalProgress > (uint16_t)(700 + particle.phaseOffset * 5)) continue;
+        uint16_t eased = easeOutCubic(local);
+        int x = interpolate(particle.startX, particle.endX, eased);
+        int y = interpolate(particle.startY, particle.endY, eased);
+        if (local < 600 && ((i + local / 120) & 3U) == 0) {
+            x += ((i >> 1) & 1U) ? 1 : -1;
+        }
+        setPixelInFrame(outputFrame, x, y);
+    }
+    return true;
+}

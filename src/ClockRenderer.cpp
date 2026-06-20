@@ -111,6 +111,33 @@ void drawGlyph(Display& display,
         y);
 }
 
+#if ENABLE_TRANSITIONS
+template <size_t GlyphCount, size_t Rows, size_t Cols>
+void drawAnimatedDigit(Display& display,
+                       const uint8_t (&font)[GlyphCount][Rows][Cols],
+                       digit_transition::DigitCellState& state,
+                       bool visible,
+                       uint8_t digit,
+                       int x,
+                       int y,
+                       unsigned long nowMs) {
+    digit_transition::render_digit_cell(
+        [&](int px, int py, bool on) {
+            if (on) display.setAnimationPixel(px, py, true);
+        },
+        font, state, visible, digit, x, y, nowMs);
+
+    digit_transition::draw_glyph(
+        [&](int px, int py, bool on) {
+            if (on) display.setSnapshotPixel(px, py, true);
+        },
+        font,
+        visible ? static_cast<int>(digit) : -1,
+        x,
+        y);
+}
+#endif
+
 static void appendRomanNumeral(int value, char* out, size_t outSize) {
     if (outSize == 0) {
         return;
@@ -488,38 +515,16 @@ void ClockRenderer::drawBigTimeInternal(int hours, int minutes, int seconds, boo
     int x = startX;
     if (hours >= 10) {
 #if ENABLE_TRANSITIONS
-        digit_transition::render_digit_cell(
-            [&](int px, int py, bool on) {
-                if (on) {
-                    _display->setPixel(px, py, true);
-                }
-            },
-            FONT_BIG,
-            _bigDigitStates[0],
-            true,
-            (uint8_t)(hours / 10),
-            x,
-            startY,
-            nowMs);
+        drawAnimatedDigit(*_display, FONT_BIG, _bigDigitStates[0], true,
+                          (uint8_t)(hours / 10), x, startY, nowMs);
 #else
         drawBigTimeDigit(hours / 10, x, startY);
 #endif
         x += digitWidth + spacing;
     }
 #if ENABLE_TRANSITIONS
-    digit_transition::render_digit_cell(
-        [&](int px, int py, bool on) {
-            if (on) {
-                _display->setPixel(px, py, true);
-            }
-        },
-        FONT_BIG,
-        _bigDigitStates[1],
-        true,
-        (uint8_t)(hours % 10),
-        x,
-        startY,
-        nowMs);
+    drawAnimatedDigit(*_display, FONT_BIG, _bigDigitStates[1], true,
+                      (uint8_t)(hours % 10), x, startY, nowMs);
 #else
     drawBigTimeDigit(hours % 10, x, startY);
 #endif
@@ -534,37 +539,15 @@ void ClockRenderer::drawBigTimeInternal(int hours, int minutes, int seconds, boo
     x += sepWidth + sepSpacingAfter;
 
 #if ENABLE_TRANSITIONS
-    digit_transition::render_digit_cell(
-        [&](int px, int py, bool on) {
-            if (on) {
-                _display->setPixel(px, py, true);
-            }
-        },
-        FONT_BIG,
-        _bigDigitStates[2],
-        true,
-        (uint8_t)(minutes / 10),
-        x,
-        startY,
-        nowMs);
+    drawAnimatedDigit(*_display, FONT_BIG, _bigDigitStates[2], true,
+                      (uint8_t)(minutes / 10), x, startY, nowMs);
 #else
     drawBigTimeDigit(minutes / 10, x, startY);
 #endif
     x += digitWidth + spacing;
 #if ENABLE_TRANSITIONS
-    digit_transition::render_digit_cell(
-        [&](int px, int py, bool on) {
-            if (on) {
-                _display->setPixel(px, py, true);
-            }
-        },
-        FONT_BIG,
-        _bigDigitStates[3],
-        true,
-        (uint8_t)(minutes % 10),
-        x,
-        startY,
-        nowMs);
+    drawAnimatedDigit(*_display, FONT_BIG, _bigDigitStates[3], true,
+                      (uint8_t)(minutes % 10), x, startY, nowMs);
 #else
     drawBigTimeDigit(minutes % 10, x, startY);
 #endif
@@ -589,38 +572,16 @@ void ClockRenderer::drawTime(int hours, int minutes, int seconds) {
     int x = startX;
     if (hours >= 10) {
 #if ENABLE_TRANSITIONS
-        digit_transition::render_digit_cell(
-            [&](int px, int py, bool on) {
-                if (on) {
-                    _display->setPixel(px, py, true);
-                }
-            },
-            FONT_MEDIUM,
-            _mediumDigitStates[0],
-            true,
-            (uint8_t)(hours / 10),
-            x,
-            startY,
-            nowMs);
+        drawAnimatedDigit(*_display, FONT_MEDIUM, _mediumDigitStates[0], true,
+                          (uint8_t)(hours / 10), x, startY, nowMs);
 #else
         drawTimeDigit(hours / 10, x, startY);
 #endif
         x += digitWidth + TIME_FONT_SPACING;
     }
 #if ENABLE_TRANSITIONS
-    digit_transition::render_digit_cell(
-        [&](int px, int py, bool on) {
-            if (on) {
-                _display->setPixel(px, py, true);
-            }
-        },
-        FONT_MEDIUM,
-        _mediumDigitStates[1],
-        true,
-        (uint8_t)(hours % 10),
-        x,
-        startY,
-        nowMs);
+    drawAnimatedDigit(*_display, FONT_MEDIUM, _mediumDigitStates[1], true,
+                      (uint8_t)(hours % 10), x, startY, nowMs);
 #else
     drawTimeDigit(hours % 10, x, startY);
 #endif
@@ -631,37 +592,15 @@ void ClockRenderer::drawTime(int hours, int minutes, int seconds) {
     x += TIME_SEP_WIDTH + sepSpacingAfter;
 
 #if ENABLE_TRANSITIONS
-    digit_transition::render_digit_cell(
-        [&](int px, int py, bool on) {
-            if (on) {
-                _display->setPixel(px, py, true);
-            }
-        },
-        FONT_MEDIUM,
-        _mediumDigitStates[2],
-        true,
-        (uint8_t)(minutes / 10),
-        x,
-        startY,
-        nowMs);
+    drawAnimatedDigit(*_display, FONT_MEDIUM, _mediumDigitStates[2], true,
+                      (uint8_t)(minutes / 10), x, startY, nowMs);
 #else
     drawTimeDigit(minutes / 10, x, startY);
 #endif
     x += digitWidth + TIME_FONT_SPACING;
 #if ENABLE_TRANSITIONS
-    digit_transition::render_digit_cell(
-        [&](int px, int py, bool on) {
-            if (on) {
-                _display->setPixel(px, py, true);
-            }
-        },
-        FONT_MEDIUM,
-        _mediumDigitStates[3],
-        true,
-        (uint8_t)(minutes % 10),
-        x,
-        startY,
-        nowMs);
+    drawAnimatedDigit(*_display, FONT_MEDIUM, _mediumDigitStates[3], true,
+                      (uint8_t)(minutes % 10), x, startY, nowMs);
 #else
     drawTimeDigit(minutes % 10, x, startY);
 #endif
@@ -909,32 +848,11 @@ void ClockRenderer::drawSeconds(int seconds) {
     unsigned long nowMs = millis();
 
 #if ENABLE_TRANSITIONS
-    digit_transition::render_digit_cell(
-        [&](int px, int py, bool on) {
-            if (on) {
-                _display->setPixel(px, py, true);
-            }
-        },
-        FONT_SMALL,
-        _smallDigitStates[0],
-        true,
-        (uint8_t)(seconds / 10),
-        startX,
-        startY,
-        nowMs);
-    digit_transition::render_digit_cell(
-        [&](int px, int py, bool on) {
-            if (on) {
-                _display->setPixel(px, py, true);
-            }
-        },
-        FONT_SMALL,
-        _smallDigitStates[1],
-        true,
-        (uint8_t)(seconds % 10),
-        startX + digitWidth + SEC_FONT_SPACING,
-        startY,
-        nowMs);
+    drawAnimatedDigit(*_display, FONT_SMALL, _smallDigitStates[0], true,
+                      (uint8_t)(seconds / 10), startX, startY, nowMs);
+    drawAnimatedDigit(*_display, FONT_SMALL, _smallDigitStates[1], true,
+                      (uint8_t)(seconds % 10),
+                      startX + digitWidth + SEC_FONT_SPACING, startY, nowMs);
 #else
     drawSecDigit(seconds / 10, startX, startY);
     drawSecDigit(seconds % 10, startX + digitWidth + SEC_FONT_SPACING, startY);
@@ -951,37 +869,15 @@ void ClockRenderer::drawDeciseconds(int seconds, uint8_t deciseconds) {
     unsigned long nowMs = millis();
 
 #if ENABLE_TRANSITIONS
-    digit_transition::render_digit_cell(
-        [&](int px, int py, bool on) {
-            if (on) {
-                _display->setPixel(px, py, true);
-            }
-        },
-        FONT_SMALL,
-        _smallDigitStates[0],
-        true,
-        (uint8_t)(seconds / 10),
-        x,
-        startY,
-        nowMs);
+    drawAnimatedDigit(*_display, FONT_SMALL, _smallDigitStates[0], true,
+                      (uint8_t)(seconds / 10), x, startY, nowMs);
 #else
     drawSecDigit(seconds / 10, x, startY);
 #endif
     x += digitWidth + SEC_FONT_SPACING;
 #if ENABLE_TRANSITIONS
-    digit_transition::render_digit_cell(
-        [&](int px, int py, bool on) {
-            if (on) {
-                _display->setPixel(px, py, true);
-            }
-        },
-        FONT_SMALL,
-        _smallDigitStates[1],
-        true,
-        (uint8_t)(seconds % 10),
-        x,
-        startY,
-        nowMs);
+    drawAnimatedDigit(*_display, FONT_SMALL, _smallDigitStates[1], true,
+                      (uint8_t)(seconds % 10), x, startY, nowMs);
 #else
     drawSecDigit(seconds % 10, x, startY);
 #endif

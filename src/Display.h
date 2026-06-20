@@ -8,6 +8,9 @@
 #include "AppSettings.h"
 #include "MenuController.h"
 #include "fonts.h"
+#if SCREEN_TRANSITION_ENABLED
+#include "ScreenTransition.h"
+#endif
 
 class ClockRenderer;
 class DriftTimeModel;
@@ -76,6 +79,8 @@ public:
 
     // --- Pixel buffer / font helpers exposed to the renderer classes ---
     void setPixel(uint8_t x, uint8_t y, bool value);
+    void setAnimationPixel(uint8_t x, uint8_t y, bool value);
+    void setSnapshotPixel(uint8_t x, uint8_t y, bool value);
     void clearBuffer();
     void renderBuffer();
     String snapshotSvg() const;
@@ -104,6 +109,10 @@ public:
     static int menuTextWidth(const char* s, int cellW, int spacing);
 
 private:
+    void noteScreenIdentity();
+    void bufferToFrame(uint32_t frame[16]) const;
+    void frameToBuffer(const uint32_t frame[16]);
+    void flushBufferToLeds();
     void drawMediumChar(char c, int x, int y);
     void drawSmallChar(char c, int x, int y);
     void drawBigChar(char c, int x, int y);
@@ -131,6 +140,15 @@ private:
     DateStyle* _dateStyle = nullptr;
 
     bool pixelBuffer[COLS_PER_ROW][TOTAL_ROWS];
+    uint32_t _snapshotFrame[16] = {};
+#if SCREEN_TRANSITION_ENABLED
+    ScreenTransition _screenTransition;
+    uint32_t _lastFrame[16] = {};
+    bool _hasLastFrame = false;
+    bool _screenTransitionPending = false;
+    uint16_t _screenIdentity = 0;
+    bool _hasScreenIdentity = false;
+#endif
     int8_t _userBrightness = 4;
     int8_t _brightness     = 4;
     bool   _enabled = true;

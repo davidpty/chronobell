@@ -30,7 +30,16 @@
 #define ENABLE_OTA                                  1                                   // ArduinoOTA (IDE network OTA); web portal upload is always enabled
 #define ENABLE_MDNS                                 1                                   // mDNS / Bonjour hostname advertisement
 
+#ifndef ENABLE_TRANSITIONS
 #define ENABLE_TRANSITIONS                          1                                   // enable support for transition animations
+#endif
+
+#ifndef SCREEN_TRANSITION_ENABLED
+#define SCREEN_TRANSITION_ENABLED                   1                                   // whole-screen particle migration transitions
+#endif
+#define SCREEN_TRANSITION_DURATION_MS               420                                 // whole-screen transition duration
+#define SCREEN_TRANSITION_PARTICLE_MAX              256                                 // fixed particle storage; no heap allocation
+#define SCREEN_TRANSITION_SETTLE_MS                  60                                  // final settling window
 
 // ---------------------------------------------------------------------------
 // Night mode

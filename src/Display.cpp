@@ -32,6 +32,7 @@ Display::Display(MD_MAX72XX& leds,
     , _wifiManager(wifiManager)
 {
     memset(pixelBuffer, 0, sizeof(pixelBuffer));
+    memset(_snapshotFrame, 0, sizeof(_snapshotFrame));
 }
 
 void Display::begin() {
@@ -129,7 +130,10 @@ void Display::loadBrightnessFromSettings() {
 // =============================================================================
 
 void Display::showTime() {
-    memset(pixelBuffer, 0, sizeof(pixelBuffer));
+    clearBuffer();
+#if SCREEN_TRANSITION_ENABLED
+    noteScreenIdentity();
+#endif
 #if ENABLE_TRANSITIONS
     digit_transition::set_transition_mode(_appSettings ? _appSettings->transitionMode : TransitionMode::Morph);
 #endif
@@ -154,7 +158,7 @@ void Display::showTime() {
     }
 
     if (_timer.isGuestWifiView()) {
-        memset(pixelBuffer, 0, sizeof(pixelBuffer));
+        clearBuffer();
         _wasGuestWifiView = true;
 
         if (!wasInGuestWifi) {
@@ -284,15 +288,54 @@ void Display::runTest(uint8_t seconds) {
 
 void Display::clearBuffer() {
     memset(pixelBuffer, 0, sizeof(pixelBuffer));
+    memset(_snapshotFrame, 0, sizeof(_snapshotFrame));
 }
 
 void Display::setPixel(uint8_t x, uint8_t y, bool value) {
     if (x < COLS_PER_ROW && y < TOTAL_ROWS) {
         pixelBuffer[x][y] = value;
+        setSnapshotPixel(x, y, value);
+    }
+}
+
+void Display::setAnimationPixel(uint8_t x, uint8_t y, bool value) {
+    if (x < COLS_PER_ROW && y < TOTAL_ROWS) {
+        pixelBuffer[x][y] = value;
+    }
+}
+
+void Display::setSnapshotPixel(uint8_t x, uint8_t y, bool value) {
+    if (x < COLS_PER_ROW && y < TOTAL_ROWS) {
+        uint32_t mask = 1UL << x;
+        if (value) {
+            _snapshotFrame[y] |= mask;
+        } else {
+            _snapshotFrame[y] &= ~mask;
+        }
     }
 }
 
 void Display::renderBuffer() {
+#if SCREEN_TRANSITION_ENABLED
+    uint32_t targetFrame[16];
+    uint32_t outputFrame[16];
+    bufferToFrame(targetFrame);
+    if (_screenTransitionPending && _hasLastFrame) {
+        _screenTransition.start(_lastFrame, targetFrame, millis());
+    }
+    _screenTransitionPending = false;
+    if (_screenTransition.render(millis(), outputFrame)) {
+        frameToBuffer(outputFrame);
+        ScreenTransition::copyFrame(_lastFrame, outputFrame);
+    } else {
+        ScreenTransition::copyFrame(_lastFrame, targetFrame);
+    }
+    _hasLastFrame = true;
+#endif
+    flushBufferToLeds();
+}
+
+void Display::flushBufferToLeds() {
 #if DISPLAY_FLIP == 0
     const bool flipBarOneX = true;
     const bool flipBarOneY = false;
@@ -337,13 +380,55 @@ void Display::renderBuffer() {
     _leds.update();
 }
 
+#if SCREEN_TRANSITION_ENABLED
+void Display::bufferToFrame(uint32_t frame[16]) const {
+    ScreenTransition::clearFrame(frame);
+    for (int y = 0; y < TOTAL_ROWS; y++) {
+        for (int x = 0; x < COLS_PER_ROW; x++) {
+            if (pixelBuffer[x][y]) ScreenTransition::setPixelInFrame(frame, x, y);
+        }
+    }
+}
+
+void Display::frameToBuffer(const uint32_t frame[16]) {
+    for (int y = 0; y < TOTAL_ROWS; y++) {
+        for (int x = 0; x < COLS_PER_ROW; x++) {
+            pixelBuffer[x][y] = ScreenTransition::getPixelFromFrame(frame, x, y);
+        }
+    }
+}
+
+void Display::noteScreenIdentity() {
+    uint16_t identity;
+    if (_menu.isActive()) {
+        identity = 0x100;
+    } else if (_timer.isDateView()) {
+        identity = 0x200 | (uint8_t)currentDateStyle();
+    } else if (_timer.isGuestWifiView()) {
+        identity = 0x300;
+    } else if (_timer.isStopwatchView()) {
+        identity = 0x400;
+    } else if (_timer.isCountdownView() || _timer.isCountdownExpired()) {
+        identity = 0x500;
+    } else {
+        identity = 0x600 | (uint8_t)(_displayMode ? *_displayMode : DisplayMode::LargeDigitsOnly);
+    }
+
+    if (_hasScreenIdentity && identity != _screenIdentity) {
+        _screenTransitionPending = true;
+    }
+    _screenIdentity = identity;
+    _hasScreenIdentity = true;
+}
+#endif
+
 String Display::snapshotSvg() const {
     String svg;
     svg.reserve(4096);
     svg = "<svg class=\"pixel-display\" viewBox=\"0 0 32 16\" preserveAspectRatio=\"none\" aria-label=\"ChronoBell display snapshot\">";
     for (int y = 0; y < TOTAL_ROWS; ++y) {
         for (int x = 0; x < COLS_PER_ROW; ++x) {
-            if (!pixelBuffer[x][y]) {
+            if ((_snapshotFrame[y] & (1UL << x)) == 0) {
                 continue;
             }
             svg += "<circle class=\"pixel-dot\" cx=\"";
@@ -617,7 +702,7 @@ void Display::drawCenteredBigText(const char* s, int y) {
 }
 
 void Display::showOtaUpdate(bool active, unsigned int progress, unsigned int total) {
-    memset(pixelBuffer, 0, sizeof(pixelBuffer));
+    clearBuffer();
     drawCenteredSmallText("UPDATE", 2);
     if (active && total > 0) {
         unsigned int pct = (progress * 100) / total;
