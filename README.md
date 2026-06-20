@@ -146,7 +146,7 @@ When night mode turns the display off, any touch wakes it for a minute.
 | SETTIME | AUTO / MANUAL | Time source - automatic (NTP + RTC) or manual entry |
 | HOTSPOT | OFF / ON | Turn the web config portal on or off |
 
-Hold center to enter the menu, left/right to browse, and tap center to edit. STYLE has a second step for clocks with a separator: BIG, INFO, and DRIFT offer SOLID or BLINK. INFO first opens a second-line chooser labeled INFO, then the separator step labeled COLON. Each style remembers its own separator choice. WORD, ROMA, BIN, and RND save immediately because they do not expose a separator choice.
+Hold center to enter the menu, left/right to browse, and tap center to edit. Each confirm saves the current step immediately. STYLE has a second step for clocks with a separator: BIG, INFO, and DRIFT offer SOLID or BLINK. INFO first opens a second-line chooser labeled INFO, then the separator step labeled COLON. Each style remembers its own separator choice. WORD, ROMA, BIN, and RND save immediately because they do not expose a separator choice. SETTIME also saves each confirmed step, so aborting mid-flow keeps the already confirmed values.
 
 ### Setting the time manually
 

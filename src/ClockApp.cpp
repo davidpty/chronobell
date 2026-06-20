@@ -415,7 +415,10 @@ void ClockApp::tickMenu() {
 void ClockApp::updateBellSchedule() {
     int h = 0, m = 0, s = 0;
     bool timeValid = getCurrentClockTime(h, m, s);
-    ClockTime time{h, m, s};
+    ClockTime time;
+    time.hours = h;
+    time.minutes = m;
+    time.seconds = s;
     if (timeValid && _displayMode == DisplayMode::Drift) {
         unsigned long nowMs = millis();
         _driftTimeModel.update(time, nowMs);
@@ -611,7 +614,10 @@ void ClockApp::applyEffectiveDisplayBrightness() {
         return;
     }
 
-    ClockTime now{h, m, s};
+    ClockTime now;
+    now.hours = h;
+    now.minutes = m;
+    now.seconds = s;
     int8_t effective = _nightModeController.tick(now, _display.getUserBrightness());
     bool enabled = !_nightModeController.isDisplaySuppressed();
     if (enabled != _display.isEnabled()) {

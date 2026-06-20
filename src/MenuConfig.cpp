@@ -2,6 +2,7 @@
 
 #include <time.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "Config.h"
 #include "AppSettings.h"
@@ -42,6 +43,7 @@ static void    commitSetTimeMenu(void* ctx, int16_t v);
 static bool    editCommitSetTimeMenu(void* ctx, int16_t v);
 static void    cancelSetTimeMenu(void* ctx);
 static void    previewBellForMode(void* ctx, int16_t mode);
+static void    resetStyleMenuRange();
 
 uint8_t  g_settimeStep = 0;
 uint8_t  g_setHour = 0;
@@ -56,8 +58,6 @@ static InfoLineMode g_stylePendingInfoLineMode = InfoLineMode::Seconds;
 static SeparatorMode g_stylePendingSeparatorMode = SeparatorMode::Steady;
 static DriftSeparatorMode g_stylePendingDriftSeparatorMode = DriftSeparatorMode::Steady;
 static bool g_styleEditing = false;
-static AppSettings g_styleOriginalSettings;
-static DisplayMode g_styleOriginalRuntimeMode = DisplayMode::LargeDigitsOnly;
 
 enum MenuIndex : uint8_t {
     MENU_STYLE = 0,
@@ -189,6 +189,34 @@ static const char* setTimeValueName(int16_t value) {
     return value == 0 ? "AUTO" : "MANUAL";
 }
 
+static void seedSetTimeGlobals(MenuBindings* b) {
+    ClockTime t;
+    ClockDate d;
+    if (b->timeProvider.currentTime(t)) {
+        g_setHour = (uint8_t)t.hours;
+        g_setMin = (uint8_t)t.minutes;
+        g_setSec = (uint8_t)t.seconds;
+    }
+    if (b->timeProvider.currentDate(d)) {
+        g_setDay = (uint8_t)d.date;
+        g_setMonth = (uint8_t)d.month;
+        g_setYear = (uint16_t)d.year;
+    }
+}
+
+static time_t manualTimeEpochFromGlobals() {
+    struct tm tm;
+    memset(&tm, 0, sizeof(tm));
+    tm.tm_year = g_setYear - 1900;
+    tm.tm_mon = g_setMonth - 1;
+    tm.tm_mday = g_setDay;
+    tm.tm_hour = g_setHour;
+    tm.tm_min = g_setMin;
+    tm.tm_sec = g_setSec;
+    tm.tm_isdst = -1;
+    return mktime(&tm);
+}
+
 const char* menuValueName(uint8_t index, int16_t value, void* ctx) {
     if (index == MENU_STYLE) {
         if (g_styleStep == 0) return styleValueName(value);
@@ -244,8 +272,6 @@ static void previewDisplayModeMenu(void* ctx, int16_t v) {
     MenuBindings* b = static_cast<MenuBindings*>(ctx);
     if (!g_styleEditing) {
         g_styleEditing = true;
-        g_styleOriginalSettings = b->appSettings;
-        g_styleOriginalRuntimeMode = b->displayMode;
         g_stylePendingInfoLineMode = b->appSettings.infoLineMode;
         g_stylePendingSeparatorMode = b->appSettings.bigSeparator;
         g_stylePendingDriftSeparatorMode = b->appSettings.driftSeparator;
@@ -264,15 +290,54 @@ static void previewDisplayModeMenu(void* ctx, int16_t v) {
     }
 }
 static void commitDisplayModeMenu(void* ctx, int16_t v) {
-    (void)ctx;
-    (void)v;
+    MenuBindings* b = static_cast<MenuBindings*>(ctx);
+    if (g_styleStep == 0) {
+        DisplayMode mode = clampDisplayMode((int)v);
+        g_stylePreviewMode = mode;
+        b->appSettings.displayMode = mode;
+        b->displayMode = mode;
+        b->settingsStore.saveDisplayMode(mode);
+        return;
+    }
+
+    if (g_stylePreviewMode == DisplayMode::Info && g_styleStep == 1) {
+        InfoLineMode info = clampInfoLineMode((int)v);
+        g_stylePendingInfoLineMode = info;
+        b->appSettings.infoLineMode = info;
+        b->settingsStore.saveInfoLineMode(info);
+        return;
+    }
+
+    if (g_stylePreviewMode == DisplayMode::Info && g_styleStep == 2) {
+        SeparatorMode separator = clampSeparatorMode((int)v);
+        g_stylePendingSeparatorMode = separator;
+        setSeparatorModeFor(b->appSettings, g_stylePreviewMode, separator);
+        b->settingsStore.saveSeparatorMode(DisplayMode::Info, separator);
+        return;
+    }
+
+    if (g_stylePreviewMode == DisplayMode::Drift && g_styleStep == 1) {
+        DriftSeparatorMode separator = clampDriftSeparatorMode((int)v);
+        g_stylePendingDriftSeparatorMode = separator;
+        b->appSettings.driftSeparator = separator;
+        b->settingsStore.saveDriftSeparatorMode(separator);
+        return;
+    }
+
+    if (g_styleStep == 1) {
+        SeparatorMode separator = clampSeparatorMode((int)v);
+        g_stylePendingSeparatorMode = separator;
+        setSeparatorModeFor(b->appSettings, g_stylePreviewMode, separator);
+        b->settingsStore.saveSeparatorMode(g_stylePreviewMode, separator);
+        return;
+    }
 }
 static void resetStyleMenuRange() {
     MENU_ITEMS[MENU_STYLE].minValue = (int16_t)DisplayMode::Rnd;
     MENU_ITEMS[MENU_STYLE].maxValue = (int16_t)DisplayMode::Drift;
 }
 static bool editCommitDisplayModeMenu(void* ctx, int16_t v) {
-    MenuBindings* b = static_cast<MenuBindings*>(ctx);
+    (void)ctx;
     if (g_styleStep == 0) {
         g_stylePreviewMode = clampDisplayMode((int)v);
         if (g_stylePreviewMode == DisplayMode::Info) {
@@ -287,6 +352,10 @@ static bool editCommitDisplayModeMenu(void* ctx, int16_t v) {
             MENU_ITEMS[MENU_STYLE].maxValue = (int16_t)SeparatorMode::Pulse;
             return true;
         }
+        g_styleStep = 0;
+        g_styleEditing = false;
+        resetStyleMenuRange();
+        return false;
     } else if (g_stylePreviewMode == DisplayMode::Info && g_styleStep == 1) {
         g_stylePendingInfoLineMode = clampInfoLineMode((int)v);
         g_styleStep = 2;
@@ -294,39 +363,27 @@ static bool editCommitDisplayModeMenu(void* ctx, int16_t v) {
         MENU_ITEMS[MENU_STYLE].maxValue = (int16_t)SeparatorMode::Pulse;
         return true;
     } else if (g_stylePreviewMode == DisplayMode::Info && g_styleStep == 2) {
-        SeparatorMode separator = g_stylePendingSeparatorMode;
-        b->appSettings.infoLineMode = g_stylePendingInfoLineMode;
-        b->settingsStore.saveInfoLineMode(b->appSettings.infoLineMode);
-        setSeparatorModeFor(b->appSettings, g_stylePreviewMode, separator);
-        b->settingsStore.saveSeparatorMode(DisplayMode::Info, separator);
+        g_styleStep = 0;
+        g_styleEditing = false;
+        resetStyleMenuRange();
     } else if (g_stylePreviewMode == DisplayMode::Drift && g_styleStep == 1) {
-        b->appSettings.driftSeparator = g_stylePendingDriftSeparatorMode;
-        b->settingsStore.saveDriftSeparatorMode(b->appSettings.driftSeparator);
+        g_styleStep = 0;
+        g_styleEditing = false;
+        resetStyleMenuRange();
     } else if (g_styleStep == 1) {
-        SeparatorMode separator = g_stylePendingSeparatorMode;
-        setSeparatorModeFor(b->appSettings, g_stylePreviewMode, separator);
-        b->settingsStore.saveSeparatorMode(g_stylePreviewMode, separator);
+        g_styleStep = 0;
+        g_styleEditing = false;
+        resetStyleMenuRange();
     }
-
-    b->appSettings.displayMode = g_stylePreviewMode;
-    b->displayMode = g_stylePreviewMode;
-    b->settingsStore.saveDisplayMode(g_stylePreviewMode);
-    g_styleStep = 0;
-    g_styleEditing = false;
-    resetStyleMenuRange();
     return false;
 }
 static void cancelDisplayModeMenu(void* ctx) {
     if (!g_styleEditing) return;
     MenuBindings* b = static_cast<MenuBindings*>(ctx);
-    b->appSettings.displayMode = g_styleOriginalSettings.displayMode;
-    b->appSettings.bigSeparator = g_styleOriginalSettings.bigSeparator;
-    b->appSettings.infoLineMode = g_styleOriginalSettings.infoLineMode;
-    b->appSettings.driftSeparator = g_styleOriginalSettings.driftSeparator;
-    b->displayMode = g_styleOriginalRuntimeMode;
-    g_stylePendingInfoLineMode = g_styleOriginalSettings.infoLineMode;
-    g_stylePendingSeparatorMode = g_styleOriginalSettings.bigSeparator;
-    g_stylePendingDriftSeparatorMode = g_styleOriginalSettings.driftSeparator;
+    b->displayMode = b->appSettings.displayMode;
+    g_stylePendingInfoLineMode = b->appSettings.infoLineMode;
+    g_stylePendingSeparatorMode = b->appSettings.bigSeparator;
+    g_stylePendingDriftSeparatorMode = b->appSettings.driftSeparator;
     g_styleStep = 0;
     g_styleEditing = false;
     resetStyleMenuRange();
@@ -431,10 +488,23 @@ static void commitSetTimeMenu(void* ctx, int16_t v) {
     if (g_settimeStep == 0) {
         bool manual = (v != 0);
         b->appSettings.manualTime.enabled = manual;
+        if (manual) {
+            seedSetTimeGlobals(b);
+            time_t epoch = manualTimeEpochFromGlobals();
+            if (epoch > 0) {
+                b->appSettings.manualTime.epoch = (unsigned long)epoch;
+            }
+        }
         b->settingsStore.save(b->appSettings);
         return;
     }
     previewSetTimeMenu(ctx, v);
+    b->appSettings.manualTime.enabled = true;
+    time_t epoch = manualTimeEpochFromGlobals();
+    if (epoch > 0) {
+        b->appSettings.manualTime.epoch = (unsigned long)epoch;
+    }
+    b->settingsStore.save(b->appSettings);
 }
 
 static void setSetTimeRange(uint8_t step) {
@@ -456,16 +526,6 @@ static bool editCommitSetTimeMenu(void* ctx, int16_t v) {
         return false;
     }
     if (g_settimeStep == 0) {
-        ClockTime t;
-        ClockDate d;
-        b->timeProvider.currentTime(t);
-        b->timeProvider.currentDate(d);
-        g_setHour  = (uint8_t)t.hours;
-        g_setMin   = (uint8_t)t.minutes;
-        g_setSec   = (uint8_t)t.seconds;
-        g_setDay   = (uint8_t)d.date;
-        g_setMonth = (uint8_t)d.month;
-        g_setYear  = (uint16_t)d.year;
         g_settimeStep = 1;
         setSetTimeRange(1);
         return true;
@@ -503,6 +563,9 @@ static void previewBellForMode(void* ctx, int16_t mode) {
     MenuBindings* b = static_cast<MenuBindings*>(ctx);
     int h = 0, m = 0, s = 0;
     bool timeValid = b->getCurrentClockTime(h, m, s);
-    ClockTime time{h, m, s};
+    ClockTime time;
+    time.hours = h;
+    time.minutes = m;
+    time.seconds = s;
     b->bellController.preview(clampBellMode((int)mode), time, timeValid);
 }
