@@ -14,6 +14,9 @@
 #include "WiFiManagerLite.h"
 #include "MenuConfig.h"
 #include "fonts.h"
+#if ENABLE_TRANSITIONS
+#include "DigitTransition.h"
+#endif
 
 Display::Display(MD_MAX72XX& leds,
                  MenuController& menu,
@@ -127,6 +130,9 @@ void Display::loadBrightnessFromSettings() {
 
 void Display::showTime() {
     memset(pixelBuffer, 0, sizeof(pixelBuffer));
+#if ENABLE_TRANSITIONS
+    digit_transition::set_transition_mode(_appSettings ? _appSettings->transitionMode : TransitionMode::Morph);
+#endif
 
     bool wasInGuestWifi = _wasGuestWifiView;
     _wasGuestWifiView = false;
@@ -224,10 +230,21 @@ void Display::showTime() {
 
 void Display::drawStylePreview(DisplayMode mode) {
     ClockTime time = _timeProvider.displayTime();
+#if ENABLE_TRANSITIONS
+    digit_transition::set_transition_mode(_appSettings ? _appSettings->transitionMode : TransitionMode::Morph);
+#endif
     SeparatorMode separatorMode = _appSettings ? separatorModeFor(*_appSettings, mode) : SeparatorMode::Steady;
     DriftSeparatorMode driftSeparatorMode = _appSettings ? _appSettings->driftSeparator : DriftSeparatorMode::Steady;
     _clockRenderer->setSeparatorModes(separatorMode, driftSeparatorMode);
     _clockRenderer->setDriftStyleActive(mode == DisplayMode::Drift);
+    if (mode == DisplayMode::Info && styleMenuInfoPreviewActive()) {
+        InfoLineMode pendingInfo = styleMenuPendingInfoLineMode();
+        InfoLineMode* restoreInfo = _appSettings ? &_appSettings->infoLineMode : nullptr;
+        _clockRenderer->setInfoLineMode(&pendingInfo);
+        _clockRenderer->drawPreview(mode, time);
+        _clockRenderer->setInfoLineMode(restoreInfo);
+        return;
+    }
     if (mode == DisplayMode::Drift && _driftTimeModel) {
         unsigned long nowMs = millis();
         _driftTimeModel->update(time, nowMs);

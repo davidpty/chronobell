@@ -13,7 +13,7 @@ enum class MenuState : uint8_t {
 
 enum class MenuBlinkPhase : uint8_t {
     // Value label (e.g. "TALL") is being shown to introduce a new selection.
-    // Blinks twice (on, off, on, off) over ~2 s, then transitions to ClockPreview.
+    // Blinks three times (on, off, on, off, on, off) over ~3 s, then transitions to ClockPreview.
     NameIntro = 0,
     // Live clock preview in the chosen style, blinking on/off continuously.
     // Only used by the STYLE menu item; other items stay in NameIntro

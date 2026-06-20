@@ -132,9 +132,9 @@ void MenuController::update() {
                 _blinkOn = false;
             } else {
                 // Count completed blank pulses; the value name is shown
-                // for two full on/off cycles before the preview takes over.
+                // for three full on/off cycles before the preview takes over.
                 _nameIntroBlanks++;
-                if (_nameIntroBlanks >= 2) {
+                if (_nameIntroBlanks >= 3) {
                     _blinkPhase = MenuBlinkPhase::ClockPreview;
                     _blinkOn = true;
                     _nameIntroBlanks = 0;

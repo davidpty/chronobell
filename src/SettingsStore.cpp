@@ -17,6 +17,9 @@ const char* SettingsStore::KEY_BELL_MODE = "bell";
 const char* SettingsStore::KEY_TIME_FORMAT = "time_fmt";
 const char* SettingsStore::KEY_NIGHT_MODE = "night";
 const char* SettingsStore::KEY_INFO_LINE_MODE = "info_line";
+#if ENABLE_TRANSITIONS
+const char* SettingsStore::KEY_TRANSITION_MODE = "anim";
+#endif
 const char* SettingsStore::KEY_SEPARATOR_BIG = "sep_big";
 const char* SettingsStore::KEY_SEPARATOR_SECONDS = "sep_sec";
 const char* SettingsStore::KEY_SEPARATOR_DECISECONDS = "sep_deci";
@@ -57,6 +60,9 @@ AppSettings SettingsStore::load() {
     settings.timeFormat = clampTimeFormat(prefs.getUChar(KEY_TIME_FORMAT, (uint8_t)TimeFormat::Hours24));
     settings.nightMode = clampNightMode(prefs.getUChar(KEY_NIGHT_MODE, (uint8_t)NightMode::Off));
     settings.infoLineMode = clampInfoLineMode(prefs.getUChar(KEY_INFO_LINE_MODE, (uint8_t)InfoLineMode::Seconds));
+#if ENABLE_TRANSITIONS
+    settings.transitionMode = clampTransitionMode(prefs.getUChar(KEY_TRANSITION_MODE, (uint8_t)TransitionMode::Morph));
+#endif
     settings.bigSeparator = clampSeparatorMode(prefs.getUChar(KEY_SEPARATOR_BIG, (uint8_t)SeparatorMode::Steady));
     settings.driftSeparator = clampDriftSeparatorMode(prefs.getUChar(KEY_SEPARATOR_DRIFT, (uint8_t)DriftSeparatorMode::Steady));
     settings.manualTime.enabled = prefs.getBool(KEY_MANUAL_TIME_ENABLED, false);
@@ -87,6 +93,9 @@ bool SettingsStore::save(const AppSettings& settings) {
     prefs.putUChar(KEY_TIME_FORMAT, (uint8_t)settings.timeFormat);
     prefs.putUChar(KEY_NIGHT_MODE, (uint8_t)settings.nightMode);
     prefs.putUChar(KEY_INFO_LINE_MODE, (uint8_t)settings.infoLineMode);
+#if ENABLE_TRANSITIONS
+    prefs.putUChar(KEY_TRANSITION_MODE, (uint8_t)settings.transitionMode);
+#endif
     prefs.putUChar(KEY_SEPARATOR_BIG, (uint8_t)settings.bigSeparator);
     prefs.putUChar(KEY_SEPARATOR_DRIFT, (uint8_t)settings.driftSeparator);
     prefs.putBool(KEY_MANUAL_TIME_ENABLED, settings.manualTime.enabled);
@@ -267,6 +276,19 @@ bool SettingsStore::saveInfoLineMode(InfoLineMode mode) {
     prefs.end();
     return true;
 }
+
+#if ENABLE_TRANSITIONS
+bool SettingsStore::saveTransitionMode(TransitionMode mode) {
+    Preferences prefs;
+    if (!prefs.begin(PREFS_NAMESPACE, false)) {
+        return false;
+    }
+
+    prefs.putUChar(KEY_TRANSITION_MODE, (uint8_t)clampTransitionMode((int)mode));
+    prefs.end();
+    return true;
+}
+#endif
 
 bool SettingsStore::saveSeparatorMode(DisplayMode displayMode, SeparatorMode mode) {
     const char* key = nullptr;

@@ -27,19 +27,9 @@
 // ---------------------------------------------------------------------------
 // Set to 0 to disable and reclaim flash.
 
-#define ENABLE_OTA                                  1                                   // ArduinoOTA + mDNS-based OTA update
-#define ENABLE_MDNS                                 1                                   // mDNS / Bonjour hostname advertisement
-
-// ---------------------------------------------------------------------------
-// Clock digit transitions
-// ---------------------------------------------------------------------------
-// Compile-time selector for the active digit transition.
-// 0 = off, 1 = morph.
-
-#define TRANSITION_OFF                              0
-#define TRANSITION_MORPH                            1
-#define TRANSITION                                  TRANSITION_MORPH
-#define TRANSITION_MS                               500                                 // Morph duration in milliseconds
+#define ENABLE_OTA                                  0                                   // ArduinoOTA + mDNS-based OTA update
+#define ENABLE_MDNS                                 0                                   // mDNS / Bonjour hostname advertisement
+#define ENABLE_TRANSITIONS                          0                                   // enable support for transition animations
 
 // ---------------------------------------------------------------------------
 // Night mode
@@ -62,8 +52,8 @@
 
 #define BELL_COIL_ON_MS                             100                                 // Minimum coil energize time for one strike
 #define BELL_COIL_OFF_MS                            100                                 // Minimum coil de-energize time between strikes
-#define BELL_STRIKE_GAP_MS                          250                                 // Additional pause within a group (added after COIL_OFF)
-#define BELL_GROUP_GAP_MS                           750                                 // Additional pause between groups / un-grouped strikes (added after COIL_OFF)
+#define BELL_STRIKE_GAP_MS                          200                                 // Additional pause within a group (added after COIL_OFF)
+#define BELL_GROUP_GAP_MS                           800                                 // Additional pause between groups / un-grouped strikes (added after COIL_OFF)
 
 // ---------------------------------------------------------------------------
 // Timer alerts
@@ -90,6 +80,8 @@
 #define LAST_DATEVIEW_TIMEOUT_MINUTES               5                                   // Reset remembered date view to configured after N idle min (0=off)
 #define RND_STYLE_INTERVAL_HOURS                    24                                  // RND changes on local-hour boundaries aligned to midnight (3 = 00,03,06...; valid 1-24)
 #define INFO_ALT_INTERVAL_SECONDS                   10                                  // ALT switches between DATE and WDAY every N seconds after entering ALT (valid 1-3600)
+
+#define TRANSITION_MS                               300                                 // Morph duration in milliseconds
 
 // ---------------------------------------------------------------------------
 // DRIFT display tuning

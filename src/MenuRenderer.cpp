@@ -44,8 +44,8 @@ void MenuRenderer::renderMenuEdit() {
     // to ClockPreview where the clock blinks on/off continuously.
     if (strcmp(it.name, "STYLE") == 0 &&
         _menu->blinkPhase() == MenuBlinkPhase::ClockPreview) {
-        if (g_styleStep > 0 || _menu->blinkOn()) {
-            DisplayMode previewMode = g_stylePreviewMode;
+        if (_menu->blinkOn()) {
+            DisplayMode previewMode = styleMenuPreviewMode();
             _display->drawStylePreview(previewMode);
         }
         return;
@@ -92,8 +92,8 @@ void MenuRenderer::drawMenuValue(const MenuItem& it, int16_t v, int y) {
 
 void MenuRenderer::drawMenuName(const MenuItem& it, int y) {
     const char* label = it.name;
-    if (strcmp(it.name, "STYLE") == 0 && g_styleStep > 0) {
-        label = (g_stylePreviewMode == DisplayMode::Info && g_styleStep == 1) ? "INFO" : "COLON";
+    if (strcmp(it.name, "STYLE") == 0 && styleMenuStep() > 0) {
+        label = styleMenuInfoPreviewActive() ? "DATA" : "COLON";
     }
     int w = _display->menuTextWidth(label, 4, 1);
     int x = (COLS_PER_ROW - w) / 2;

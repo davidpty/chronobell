@@ -8,7 +8,7 @@ ChronoBell is a compact ESP32 clock with a 32x16 LED display, touch controls, co
 
 **A bell that rings like a ship's clock** - Traditional 1-8 strike pattern from nautical tradition, plus six other modes: off, single ding, hour count, half-hour, pair, and triple. You can hear each one in the menu before you choose it.
 
-**7 display styles + 5 date views** - Big digits, a configurable INFO overlay, word clock, roman numerals, binary, drift, or a configurable random view. INFO can show seconds, deciseconds, date, WDAY, or alternate between date and WDAY every N seconds after entering ALT. Drift uses the big digital layout, but lets displayed time slowly move away from real time and return. Date views include day and month, year, moon phase, Western zodiac, and Chinese zodiac. Tap to peek at any view.
+**7 display styles + 5 date views** - Big digits, a configurable DATA overlay, word clock, roman numerals, binary, drift, or a configurable random view. DATA can show seconds, deciseconds, date, WDAY, or alternate between date and WDAY every N seconds after entering ALT. Drift uses the big digital layout, but lets displayed time slowly move away from real time and return. Date views include day and month, year, moon phase, Western zodiac, and Chinese zodiac. Tap to peek at any view.
 
 **Guest WiFi on screen** - Fetches a guest network password at boot and shows it on the clock. No phone needed. Good for lobbies, cafes, offices.
 
@@ -40,7 +40,7 @@ ChronoBell has seven clock display modes. The menu label is short because the sc
 |-------|------|---------------|
 | Random | RND | Changes at the configured hour interval using BIG, INFO, WORD, ROMA, or BIN |
 | Big | BIG | Large HH:MM digits, optimized for readability |
-| Info | INFO | Time on top with a selectable second line |
+| Info | DATA | Time on top with a selectable second line |
 | Word clock | WORD | A compact phrase-style clock such as "TWENTY TO THREE" |
 | Roman | ROMA | Roman-numeral-style hours and minutes |
 | Binary | BIN | Binary hour, minute, and second rows |
@@ -137,7 +137,8 @@ When night mode turns the display off, any touch wakes it for a minute.
 | Item | Choices | What it sets |
 |------|---------|-------------|
 | STYLE | RND / BIG / INFO / WORD / ROMA / BIN / DRIFT | Clock style; drift is the mode that makes now feel less fixed |
-| INFO | SEC / DECI / DATE / WDAY / ALT | Second-line choice for the INFO style |
+| ANIM | OFF / MORPH | Enable or disable clock transition animation |
+| INFO | SEC / DECI / DATE / WDAY / ALT | Second-line choice for the DATA style |
 | DATE | DATE / YEAR / MOON / ZOD / CZOD | Extra info shown in the date view |
 | FORMAT | 24H / 12H | 24-hour or AM/PM |
 | NIGHT | OFF / LOW / LOWM / DARK / DRKM / MUTE | Dim, mute, or turn off the display and bell on a schedule |
@@ -146,7 +147,7 @@ When night mode turns the display off, any touch wakes it for a minute.
 | SETTIME | AUTO / MANUAL | Time source - automatic (NTP + RTC) or manual entry |
 | HOTSPOT | OFF / ON | Turn the web config portal on or off |
 
-Hold center to enter the menu, left/right to browse, and tap center to edit. Each confirm saves the current step immediately. STYLE has a second step for clocks with a separator: BIG, INFO, and DRIFT offer SOLID or BLINK. INFO first opens a second-line chooser labeled INFO, then the separator step labeled COLON. Each style remembers its own separator choice. WORD, ROMA, BIN, and RND save immediately because they do not expose a separator choice. SETTIME also saves each confirmed step, so aborting mid-flow keeps the already confirmed values.
+Hold center to enter the menu, left/right to browse, and tap center to edit. Each confirm saves the current step immediately. STYLE has a second step for clocks with a separator: BIG, INFO, and DRIFT offer SOLID or BLINK. INFO first opens a second-line chooser labeled DATA, then the separator step labeled COLON. Each style remembers its own separator choice. ANIM toggles between OFF and MORPH. WORD, ROMA, BIN, and RND save immediately because they do not expose a separator choice. SETTIME also saves each confirmed step, so aborting mid-flow keeps the already confirmed values.
 
 ### Setting the time manually
 
@@ -201,7 +202,7 @@ Open `Config.h` to adjust these:
 | `TIME_SYNC_INTERVAL_MINUTES` | `60` | How often NTP re-syncs |
 | `RND_STYLE_INTERVAL_HOURS` | `24` | RND change interval aligned to local midnight (`3` = 00:00, 03:00, 06:00...) |
 | `HOTSPOT_TIMEOUT_MINUTES` | `0` | Auto-stop hotspot after N minutes (`0` = stays on) |
-| `TRANSITION` | `0` | Compile-time digit transition selector (`0` = off, `1` = morph) |
+| `ENABLE_TRANSITIONS` | `0` | Build-time support for transition code; runtime `ANIM` selects off or morph |
 | `DRIFT_MAX_OFFSET_MINUTES` | `8` | Maximum distance from real time in either direction |
 | `DRIFT_PATTERN` | `0` | 0=behind↔ahead, 1=real→behind→real, 2=real→ahead→real |
 | `DRIFT_TIME_TO_MAX_OFFSET_MINUTES` | `60` | Minutes from real time to maximum offset; pattern 0 takes twice this between extremes |

@@ -21,6 +21,9 @@ struct MenuBindings {
     DisplayMode&    displayMode;
     TimeFormat&     timeFormat;
     NightMode&      nightMode;
+#if ENABLE_TRANSITIONS
+    TransitionMode& transitionMode;
+#endif
 
     bool getCurrentClockTime(int& h, int& m, int& s) const;
 };

@@ -2,6 +2,7 @@
 #define APP_SETTINGS_H
 
 #include <Arduino.h>
+#include "Config.h"
 
 enum class DisplayMode : uint8_t {
     Rnd = 0,
@@ -63,6 +64,13 @@ enum class DriftSeparatorMode : uint8_t {
     Pulse = 1
 };
 
+#if ENABLE_TRANSITIONS
+enum class TransitionMode : uint8_t {
+    Off = 0,
+    Morph = 1
+};
+#endif
+
 struct NetworkCredentials {
     String ssid;
     String password;
@@ -89,6 +97,9 @@ struct AppSettings {
     SeparatorMode bigSeparator = SeparatorMode::Steady;
     InfoLineMode infoLineMode = InfoLineMode::Seconds;
     DriftSeparatorMode driftSeparator = DriftSeparatorMode::Steady;
+#if ENABLE_TRANSITIONS
+    TransitionMode transitionMode = TransitionMode::Morph;
+#endif
     ManualTimeSetting manualTime;
 };
 
@@ -158,6 +169,26 @@ inline DisplayMode clampDisplayMode(int mode) {
 inline bool isRandomDisplayMode(DisplayMode mode) {
     return mode == DisplayMode::Rnd;
 }
+
+#if ENABLE_TRANSITIONS
+inline const char* transitionModeLabel(TransitionMode mode) {
+    switch (mode) {
+        case TransitionMode::Off:   return "OFF";
+        case TransitionMode::Morph:  return "MORPH";
+        default:                     return "?";
+    }
+}
+
+inline TransitionMode clampTransitionMode(int mode) {
+    if (mode <= (int)TransitionMode::Off) {
+        return TransitionMode::Off;
+    }
+    if (mode >= (int)TransitionMode::Morph) {
+        return TransitionMode::Morph;
+    }
+    return TransitionMode::Morph;
+}
+#endif
 
 inline const char* infoLineLabel(InfoLineMode mode) {
     switch (mode) {

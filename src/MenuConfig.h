@@ -7,8 +7,7 @@
 
 extern MenuItem MENU_ITEMS[];
 extern const uint8_t MENU_ITEM_COUNT;
-extern uint8_t g_styleStep;
-extern DisplayMode g_stylePreviewMode;
+extern InfoLineMode g_stylePendingInfoLineMode;
 
 extern uint8_t g_settimeStep;
 extern uint8_t  g_setHour;
@@ -17,5 +16,10 @@ extern uint8_t  g_setSec;
 extern uint8_t  g_setDay;
 extern uint8_t  g_setMonth;
 extern uint16_t g_setYear;
+
+uint8_t styleMenuStep();
+DisplayMode styleMenuPreviewMode();
+InfoLineMode styleMenuPendingInfoLineMode();
+bool styleMenuInfoPreviewActive();
 
 #endif // MENU_CONFIG_H

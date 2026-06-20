@@ -9,6 +9,9 @@
 #include <vector>
 
 #include "Config.h"
+#if ENABLE_TRANSITIONS
+#include "AppSettings.h"
+#endif
 
 namespace digit_transition {
 
@@ -53,6 +56,21 @@ struct DigitCellFrame {
 };
 
 static const unsigned long kTransitionDurationMs = TRANSITION_MS;
+
+#if ENABLE_TRANSITIONS
+inline TransitionMode& active_transition_mode() {
+    static TransitionMode mode = TransitionMode::Morph;
+    return mode;
+}
+
+inline void set_transition_mode(TransitionMode mode) {
+    active_transition_mode() = clampTransitionMode((int)mode);
+}
+
+inline TransitionMode transition_mode() {
+    return active_transition_mode();
+}
+#endif
 
 template <typename T>
 T clamp_value(T value, T low, T high) {
@@ -208,10 +226,15 @@ void draw_transition_glyph(PixelWriter&& writePixel,
                            double t,
                            int x,
                            int y) {
-    if (TRANSITION != TRANSITION_MORPH) {
+#if ENABLE_TRANSITIONS
+    if (transition_mode() != TransitionMode::Morph) {
         draw_glyph(writePixel, font, toGlyph, x, y);
         return;
     }
+#else
+    draw_glyph(writePixel, font, toGlyph, x, y);
+    return;
+#endif
 
     GlyphSpans<Rows> from;
     GlyphSpans<Rows> to;
@@ -284,6 +307,18 @@ void render_digit_cell(PixelWriter&& writePixel,
                        int x,
                        int y,
                        unsigned long nowMs) {
+#if ENABLE_TRANSITIONS
+    if (transition_mode() != TransitionMode::Morph) {
+        state.reset();
+        draw_glyph(writePixel, font, visible ? static_cast<int>(digit) : -1, x, y);
+        return;
+    }
+#else
+    state.reset();
+    draw_glyph(writePixel, font, visible ? static_cast<int>(digit) : -1, x, y);
+    return;
+#endif
+
     const DigitCellFrame frame = advance_cell(state, visible, digit, nowMs);
     if (frame.transition) {
         draw_transition_glyph(writePixel,

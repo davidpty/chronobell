@@ -487,7 +487,7 @@ void ClockRenderer::drawBigTimeInternal(int hours, int minutes, int seconds, boo
 
     int x = startX;
     if (hours >= 10) {
-#if TRANSITION
+#if ENABLE_TRANSITIONS
         digit_transition::render_digit_cell(
             [&](int px, int py, bool on) {
                 if (on) {
@@ -506,7 +506,7 @@ void ClockRenderer::drawBigTimeInternal(int hours, int minutes, int seconds, boo
 #endif
         x += digitWidth + spacing;
     }
-#if TRANSITION
+#if ENABLE_TRANSITIONS
     digit_transition::render_digit_cell(
         [&](int px, int py, bool on) {
             if (on) {
@@ -533,7 +533,7 @@ void ClockRenderer::drawBigTimeInternal(int hours, int minutes, int seconds, boo
     }
     x += sepWidth + sepSpacingAfter;
 
-#if TRANSITION
+#if ENABLE_TRANSITIONS
     digit_transition::render_digit_cell(
         [&](int px, int py, bool on) {
             if (on) {
@@ -551,7 +551,7 @@ void ClockRenderer::drawBigTimeInternal(int hours, int minutes, int seconds, boo
     drawBigTimeDigit(minutes / 10, x, startY);
 #endif
     x += digitWidth + spacing;
-#if TRANSITION
+#if ENABLE_TRANSITIONS
     digit_transition::render_digit_cell(
         [&](int px, int py, bool on) {
             if (on) {
@@ -588,7 +588,7 @@ void ClockRenderer::drawTime(int hours, int minutes, int seconds) {
 
     int x = startX;
     if (hours >= 10) {
-#if TRANSITION
+#if ENABLE_TRANSITIONS
         digit_transition::render_digit_cell(
             [&](int px, int py, bool on) {
                 if (on) {
@@ -607,7 +607,7 @@ void ClockRenderer::drawTime(int hours, int minutes, int seconds) {
 #endif
         x += digitWidth + TIME_FONT_SPACING;
     }
-#if TRANSITION
+#if ENABLE_TRANSITIONS
     digit_transition::render_digit_cell(
         [&](int px, int py, bool on) {
             if (on) {
@@ -630,7 +630,7 @@ void ClockRenderer::drawTime(int hours, int minutes, int seconds) {
     drawSeparator(sepX, startY, seconds);
     x += TIME_SEP_WIDTH + sepSpacingAfter;
 
-#if TRANSITION
+#if ENABLE_TRANSITIONS
     digit_transition::render_digit_cell(
         [&](int px, int py, bool on) {
             if (on) {
@@ -648,7 +648,7 @@ void ClockRenderer::drawTime(int hours, int minutes, int seconds) {
     drawTimeDigit(minutes / 10, x, startY);
 #endif
     x += digitWidth + TIME_FONT_SPACING;
-#if TRANSITION
+#if ENABLE_TRANSITIONS
     digit_transition::render_digit_cell(
         [&](int px, int py, bool on) {
             if (on) {
@@ -908,7 +908,7 @@ void ClockRenderer::drawSeconds(int seconds) {
     int startY = 11;
     unsigned long nowMs = millis();
 
-#if TRANSITION
+#if ENABLE_TRANSITIONS
     digit_transition::render_digit_cell(
         [&](int px, int py, bool on) {
             if (on) {
@@ -950,7 +950,7 @@ void ClockRenderer::drawDeciseconds(int seconds, uint8_t deciseconds) {
     int x = startX;
     unsigned long nowMs = millis();
 
-#if TRANSITION
+#if ENABLE_TRANSITIONS
     digit_transition::render_digit_cell(
         [&](int px, int py, bool on) {
             if (on) {
@@ -968,7 +968,7 @@ void ClockRenderer::drawDeciseconds(int seconds, uint8_t deciseconds) {
     drawSecDigit(seconds / 10, x, startY);
 #endif
     x += digitWidth + SEC_FONT_SPACING;
-#if TRANSITION
+#if ENABLE_TRANSITIONS
     digit_transition::render_digit_cell(
         [&](int px, int py, bool on) {
             if (on) {

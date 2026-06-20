@@ -137,6 +137,7 @@ void ConfigPortal::configureWebServerRoutes() {
     _webServer.on("/save", HTTP_GET, [this]() { handleSave(); });
     _webServer.on("/apply", HTTP_GET, [this]() { handleApply(); });
     _webServer.on("/status", HTTP_GET, [this]() { handleStatus(); });
+#if ENABLE_OTA
     _webServer.on("/update", HTTP_POST, [this]() {
         _webServer.send(200, "text/plain", "Update processing...");
         if (Update.hasError()) {
@@ -147,6 +148,7 @@ void ConfigPortal::configureWebServerRoutes() {
             ESP.restart();
         }
     }, [this]() { handleUpdateUpload(); });
+#endif
     _webServer.onNotFound([this]() { handleNotFound(); });
 }
 
@@ -274,7 +276,7 @@ void ConfigPortal::handleRoot() {
                 <select id="style" onchange="onStyleChange(this.value)">
                     <option value="0" selected>RND - Daily random style</option>
                     <option value="1">BIG - Large HH:MM, no seconds</option>
-                    <option value="2">INFO - Seconds, date, wday, or alternate</option>
+                    <option value="2">DATA - Seconds, date, wday, or alternate</option>
                     <option value="3">WORD - Mixed-size word clock display</option>
                     <option value="4">ROMA - Roman numeral clock</option>
                     <option value="5">BIN - Binary clock</option>
@@ -283,7 +285,7 @@ void ConfigPortal::handleRoot() {
             </div>
 
             <div class="setting-row hidden" id="infoLineRow">
-                <div class="setting-label">INFO</div>
+                <div class="setting-label">DATA</div>
                 <select id="infoLine" onchange="applyInfoLine(this.value)"></select>
             </div>
 
@@ -291,6 +293,8 @@ void ConfigPortal::handleRoot() {
                 <div class="setting-label">Separator</div>
                 <select id="separator" onchange="applySeparator(this.value)"></select>
             </div>
+
+            __ANIM_ROW__
 
             <div class="setting-row">
                 <div class="setting-label">Date</div>
@@ -583,6 +587,7 @@ void ConfigPortal::handleRoot() {
             const initial = {
                 style: "__INITIAL_STYLE__",
                 infoLine: "__INITIAL_INFOLINE__",
+                anim: "__INITIAL_ANIM__",
                 datestyle: "__INITIAL_DATESTYLE__",
                 timefmt: "__INITIAL_TIMEFMT__",
                 nightmode: "__INITIAL_NIGHTMODE__",
@@ -595,6 +600,7 @@ void ConfigPortal::handleRoot() {
             const pairs = [
                 ['style', initial.style],
                 ['infoLine', initial.infoLine],
+                ['anim', initial.anim],
                 ['datestyle', initial.datestyle],
                 ['timefmt', initial.timefmt],
                 ['nightmode', initial.nightmode],
@@ -675,11 +681,12 @@ void ConfigPortal::handleRoot() {
                 const data = await response.json();
 
                 const selects = [
-                    ['style', data.style],
-                    ['infoLine', data.infoLineMode],
-                    ['datestyle', data.datestyle],
-                    ['timefmt', data.timefmt],
-                    ['nightmode', data.nightmode],
+                ['style', data.style],
+                ['infoLine', data.infoLineMode],
+                ['anim', data.anim],
+                ['datestyle', data.datestyle],
+                ['timefmt', data.timefmt],
+                ['nightmode', data.nightmode],
                     ['bellmode', data.bellmode],
                     ['timezone', data.timezone]
                 ];
@@ -966,8 +973,26 @@ void ConfigPortal::handleRoot() {
 #endif
     html.replace("__HOTSPOT_OFF_CLASS__", hotspotOffClass);
     html.replace("__HOTSPOT_ON_CLASS__", hotspotOnClass);
+#if ENABLE_TRANSITIONS
+    html.replace("__ANIM_ROW__", R"rawliteral(
+            <div class="setting-row">
+                <div class="setting-label">ANIM</div>
+                <select id="anim" onchange="applySetting('anim', this.value)">
+                    <option value="0" selected>OFF - No transition animation</option>
+                    <option value="1">MORPH - Line morph transitions</option>
+                </select>
+            </div>
+)rawliteral");
+#else
+    html.replace("__ANIM_ROW__", "");
+#endif
     html.replace("__INITIAL_STYLE__", initialStyle);
     html.replace("__INITIAL_INFOLINE__", String((int)_settings.infoLineMode));
+#if ENABLE_TRANSITIONS
+    html.replace("__INITIAL_ANIM__", String((int)_settings.transitionMode));
+#else
+    html.replace("__INITIAL_ANIM__", "0");
+#endif
     html.replace("__INITIAL_DATESTYLE__", initialDateStyle);
     html.replace("__INITIAL_TIMEFMT__", initialTimeFormat);
     html.replace("__INITIAL_NIGHTMODE__", initialNightMode);
@@ -1144,6 +1169,10 @@ void ConfigPortal::handleApply() {
         settings.displayMode = clampDisplayMode(value.toInt());
     } else if (field == "infoline") {
         settings.infoLineMode = clampInfoLineMode(value.toInt());
+#if ENABLE_TRANSITIONS
+    } else if (field == "anim") {
+        settings.transitionMode = clampTransitionMode(value.toInt());
+#endif
     } else if (field == "separator") {
         DisplayMode style = clampDisplayMode(_webServer.arg("style").toInt());
         if (style == DisplayMode::Drift) {
@@ -1211,7 +1240,11 @@ void ConfigPortal::handleApply() {
         (void)_saveCb(_saveContext, false, tzChanged, manualTimeChanged, "", "");
     }
 
-    if (_previewCb && (field == "style" || field == "infoline" || field == "separator" || field == "datestyle" || field == "timefmt" || field == "timezone" || field == "timeMode" || field == "manualtime" || field == "bellmode" || field == "brightness")) {
+    if (_previewCb && (field == "style" || field == "infoline"
+#if ENABLE_TRANSITIONS
+        || field == "anim"
+#endif
+        || field == "separator" || field == "datestyle" || field == "timefmt" || field == "timezone" || field == "timeMode" || field == "manualtime" || field == "bellmode" || field == "brightness")) {
         _previewCb(_previewContext, field);
     }
 
@@ -1238,6 +1271,10 @@ void ConfigPortal::handleStatus() {
     json += (int)_settings.displayMode;
     json += ",\"infoLineMode\":";
     json += (int)_settings.infoLineMode;
+#if ENABLE_TRANSITIONS
+    json += ",\"anim\":";
+    json += (int)_settings.transitionMode;
+#endif
     json += ",\"datestyle\":";
     json += (int)_settings.dateStyle;
     json += ",\"timefmt\":";
@@ -1428,7 +1465,7 @@ bool ConfigPortal::isUpdating() {
     return _otaUpdate;
 }
 
-
+#if ENABLE_OTA
 void ConfigPortal::handleUpdateUpload() {
     HTTPUpload& upload = _webServer.upload();
 
@@ -1480,3 +1517,4 @@ void ConfigPortal::handleUpdateUpload() {
         LOGLN("Update aborted");
     }
 }
+#endif

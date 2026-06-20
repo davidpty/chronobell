@@ -5,6 +5,9 @@
 #include <esp_system.h>
 
 #include "Config.h"
+#if ENABLE_TRANSITIONS
+#include "DigitTransition.h"
+#endif
 
 static const uint16_t COUNTDOWN_PRESET_MINUTES[] = {
     1, 3, 5, 10, 15, 20, 25, 30, 45, 60, 90
@@ -59,8 +62,14 @@ ClockApp::ClockApp()
     , _wifiManager(_settingsStore)
     , _wifiSync(_wifiManager, _timeProvider, _rtcClock, _settingsStore, _appSettings)
     , _display(_leds, _menuController, _timerController, _timeProvider, _settingsStore, _wifiManager)
+#if ENABLE_TRANSITIONS
+    , _menuBindings{_appSettings, _settingsStore, _display, _bellController,
+                    _timeProvider, _wifiManager, _bellMode, _savedDisplayMode, _timeFormat, _nightMode,
+                    _appSettings.transitionMode}
+#else
     , _menuBindings{_appSettings, _settingsStore, _display, _bellController,
                     _timeProvider, _wifiManager, _bellMode, _savedDisplayMode, _timeFormat, _nightMode}
+#endif
 {
 }
 
@@ -210,8 +219,15 @@ void ClockApp::loadSettings() {
     _nightMode        = _appSettings.nightMode;
     syncDisplayModeSelection();
     syncDateStyleSelection();
+#if ENABLE_TRANSITIONS
+    digit_transition::set_transition_mode(_appSettings.transitionMode);
+#endif
     LOG("Clock style loaded: ");
     LOGLN(displayModeLabel(_appSettings.displayMode));
+#if ENABLE_TRANSITIONS
+    LOG("Animation mode loaded: ");
+    LOGLN(transitionModeLabel(_appSettings.transitionMode));
+#endif
     LOG("Date style loaded: ");
     LOGLN(dateStyleLabel(_appSettings.dateStyle));
     LOG("Bell mode loaded: ");
@@ -267,8 +283,15 @@ void ClockApp::reloadSettings() {
     _nightMode        = _appSettings.nightMode;
     syncDisplayModeSelection();
     syncDateStyleSelection();
+#if ENABLE_TRANSITIONS
+    digit_transition::set_transition_mode(_appSettings.transitionMode);
+#endif
     LOG("Clock style loaded: ");
     LOGLN(displayModeLabel(_appSettings.displayMode));
+#if ENABLE_TRANSITIONS
+    LOG("Animation mode loaded: ");
+    LOGLN(transitionModeLabel(_appSettings.transitionMode));
+#endif
     LOG("Date style loaded: ");
     LOGLN(dateStyleLabel(_appSettings.dateStyle));
     LOG("Bell mode loaded: ");
@@ -881,6 +904,10 @@ void ClockApp::onWebPreview(const String& field) {
         if (getCurrentClockTime(now.hours, now.minutes, now.seconds)) {
             _bellController.preview(_appSettings.bellMode, now, true);
         }
+#if ENABLE_TRANSITIONS
+    } else if (field == "anim") {
+        digit_transition::set_transition_mode(_appSettings.transitionMode);
+#endif
     } else {
         _timerController.showClockPreview();
     }

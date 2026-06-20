@@ -22,6 +22,11 @@ static void    previewDisplayModeMenu(void* ctx, int16_t v);
 static void    commitDisplayModeMenu(void* ctx, int16_t v);
 static bool    editCommitDisplayModeMenu(void* ctx, int16_t v);
 static void    cancelDisplayModeMenu(void* ctx);
+#if ENABLE_TRANSITIONS
+static int16_t getAnimMenu(void* ctx);
+static void    previewAnimMenu(void* ctx, int16_t v);
+static void    commitAnimMenu(void* ctx, int16_t v);
+#endif
 static int16_t getDateStyleMenu(void* ctx);
 static void    previewDateStyleMenu(void* ctx, int16_t v);
 static void    commitDateStyleMenu(void* ctx, int16_t v);
@@ -54,13 +59,32 @@ uint8_t  g_setMonth = 1;
 uint16_t g_setYear = 2025;
 uint8_t g_styleStep = 0;
 DisplayMode g_stylePreviewMode = DisplayMode::LargeDigitsOnly;
-static InfoLineMode g_stylePendingInfoLineMode = InfoLineMode::Seconds;
+InfoLineMode g_stylePendingInfoLineMode = InfoLineMode::Seconds;
 static SeparatorMode g_stylePendingSeparatorMode = SeparatorMode::Steady;
 static DriftSeparatorMode g_stylePendingDriftSeparatorMode = DriftSeparatorMode::Steady;
 static bool g_styleEditing = false;
 
+uint8_t styleMenuStep() {
+    return g_styleStep;
+}
+
+DisplayMode styleMenuPreviewMode() {
+    return g_stylePreviewMode;
+}
+
+InfoLineMode styleMenuPendingInfoLineMode() {
+    return g_stylePendingInfoLineMode;
+}
+
+bool styleMenuInfoPreviewActive() {
+    return g_stylePreviewMode == DisplayMode::Info && g_styleStep == 1;
+}
+
 enum MenuIndex : uint8_t {
     MENU_STYLE = 0,
+#if ENABLE_TRANSITIONS
+    MENU_ANIM,
+#endif
     MENU_DATE,
     MENU_FORMAT,
     MENU_NIGHT,
@@ -74,6 +98,10 @@ MenuItem MENU_ITEMS[] = {
   {"STYLE",   (int16_t)DisplayMode::Rnd,  (int16_t)DisplayMode::Drift,
               getDisplayModeMenu, previewDisplayModeMenu, commitDisplayModeMenu, nullptr,
               editCommitDisplayModeMenu, cancelDisplayModeMenu},
+#if ENABLE_TRANSITIONS
+  {"ANIM",    (int16_t)TransitionMode::Off, (int16_t)TransitionMode::Morph,
+              getAnimMenu, previewAnimMenu, commitAnimMenu, nullptr},
+#endif
   {"DATE",    (int16_t)DateStyle::Date,    (int16_t)DateStyle::Czod,
               getDateStyleMenu, previewDateStyleMenu, commitDateStyleMenu, nullptr},
   {"FORMAT",  (int16_t)TimeFormat::Hours24, (int16_t)TimeFormat::AmPm,
@@ -103,13 +131,25 @@ const char* bellValueName(int16_t value) {
 
 const char* styleValueName(int16_t value) {
     static const char* const NAMES[] = {
-        "RND", "BIG", "INFO", "WORD", "ROMA", "BIN", "DRIFT", nullptr
+        "RND", "BIG", "DATA", "WORD", "ROMA", "BIN", "DRIFT", nullptr
     };
     for (uint8_t i = 0; NAMES[i]; i++) {
         if ((int16_t)i == value) return NAMES[i];
     }
     return "?";
 }
+
+#if ENABLE_TRANSITIONS
+static const char* animValueName(int16_t value) {
+    static const char* const NAMES[] = {
+        "OFF", "MORPH", nullptr
+    };
+    for (uint8_t i = 0; NAMES[i]; i++) {
+        if ((int16_t)i == value) return NAMES[i];
+    }
+    return "?";
+}
+#endif
 
 static const char* infoLineValueName(int16_t value) {
     static const char* const NAMES[] = {
@@ -225,6 +265,9 @@ const char* menuValueName(uint8_t index, int16_t value, void* ctx) {
         }
         return separatorValueName(value, g_stylePreviewMode == DisplayMode::Drift);
     }
+#if ENABLE_TRANSITIONS
+    if (index == MENU_ANIM) return animValueName(value);
+#endif
     if (index == MENU_DATE) return dateStyleValueName(value);
     if (index == MENU_FORMAT) return formatValueName(value);
     if (index == MENU_NIGHT) return nightValueName(value);
@@ -259,7 +302,7 @@ static void commitBellModeMenu(void* ctx, int16_t v) {
 }
 static int16_t getDisplayModeMenu(void* ctx) {
     if (g_styleStep == 1) {
-        if (g_stylePreviewMode == DisplayMode::Info) return (int16_t)g_stylePendingInfoLineMode;
+        if (styleMenuInfoPreviewActive()) return (int16_t)g_stylePendingInfoLineMode;
         if (g_stylePreviewMode == DisplayMode::Drift) return (int16_t)g_stylePendingDriftSeparatorMode;
         return (int16_t)g_stylePendingSeparatorMode;
     }
@@ -279,7 +322,7 @@ static void previewDisplayModeMenu(void* ctx, int16_t v) {
     if (g_styleStep == 0) {
         g_stylePreviewMode = clampDisplayMode((int)v);
         b->displayMode = g_stylePreviewMode;
-    } else if (g_stylePreviewMode == DisplayMode::Info && g_styleStep == 1) {
+    } else if (styleMenuInfoPreviewActive()) {
         g_stylePendingInfoLineMode = clampInfoLineMode((int)v);
     } else if (g_stylePreviewMode == DisplayMode::Info && g_styleStep == 2) {
         g_stylePendingSeparatorMode = clampSeparatorMode((int)v);
@@ -300,7 +343,7 @@ static void commitDisplayModeMenu(void* ctx, int16_t v) {
         return;
     }
 
-    if (g_stylePreviewMode == DisplayMode::Info && g_styleStep == 1) {
+    if (styleMenuInfoPreviewActive()) {
         InfoLineMode info = clampInfoLineMode((int)v);
         g_stylePendingInfoLineMode = info;
         b->appSettings.infoLineMode = info;
@@ -332,6 +375,25 @@ static void commitDisplayModeMenu(void* ctx, int16_t v) {
         return;
     }
 }
+
+#if ENABLE_TRANSITIONS
+static int16_t getAnimMenu(void* ctx) {
+    return (int16_t)static_cast<MenuBindings*>(ctx)->transitionMode;
+}
+static void previewAnimMenu(void* ctx, int16_t v) {
+    MenuBindings* b = static_cast<MenuBindings*>(ctx);
+    TransitionMode mode = clampTransitionMode((int)v);
+    b->appSettings.transitionMode = mode;
+    b->transitionMode = mode;
+}
+static void commitAnimMenu(void* ctx, int16_t v) {
+    MenuBindings* b = static_cast<MenuBindings*>(ctx);
+    TransitionMode mode = clampTransitionMode((int)v);
+    b->appSettings.transitionMode = mode;
+    b->transitionMode = mode;
+    b->settingsStore.saveTransitionMode(mode);
+}
+#endif
 static void resetStyleMenuRange() {
     MENU_ITEMS[MENU_STYLE].minValue = (int16_t)DisplayMode::Rnd;
     MENU_ITEMS[MENU_STYLE].maxValue = (int16_t)DisplayMode::Drift;
@@ -356,7 +418,7 @@ static bool editCommitDisplayModeMenu(void* ctx, int16_t v) {
         g_styleEditing = false;
         resetStyleMenuRange();
         return false;
-    } else if (g_stylePreviewMode == DisplayMode::Info && g_styleStep == 1) {
+    } else if (styleMenuInfoPreviewActive()) {
         g_stylePendingInfoLineMode = clampInfoLineMode((int)v);
         g_styleStep = 2;
         MENU_ITEMS[MENU_STYLE].minValue = 0;

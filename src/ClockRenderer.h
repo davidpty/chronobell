@@ -90,7 +90,7 @@ private:
     bool _driftStyleActive = false;
     SeparatorMode _separatorMode = SeparatorMode::Steady;
     DriftSeparatorMode _driftSeparatorMode = DriftSeparatorMode::Steady;
-#if TRANSITION
+#if ENABLE_TRANSITIONS
     digit_transition::DigitCellState _bigDigitStates[4];
     digit_transition::DigitCellState _mediumDigitStates[4];
     digit_transition::DigitCellState _smallDigitStates[2];

@@ -16,6 +16,9 @@ public:
     bool saveTimeFormat(TimeFormat format);
     bool saveNightMode(NightMode mode);
     bool saveInfoLineMode(InfoLineMode mode);
+#if ENABLE_TRANSITIONS
+    bool saveTransitionMode(TransitionMode mode);
+#endif
     bool saveSeparatorMode(DisplayMode displayMode, SeparatorMode mode);
     bool saveDriftSeparatorMode(DriftSeparatorMode mode);
     int8_t loadBrightness(int8_t defaultBrightness);
@@ -68,6 +71,9 @@ private:
     static const char* KEY_TIME_FORMAT;
     static const char* KEY_NIGHT_MODE;
     static const char* KEY_INFO_LINE_MODE;
+#if ENABLE_TRANSITIONS
+    static const char* KEY_TRANSITION_MODE;
+#endif
     static const char* KEY_SEPARATOR_BIG;
     static const char* KEY_SEPARATOR_SECONDS;
     static const char* KEY_SEPARATOR_DECISECONDS;
