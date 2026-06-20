@@ -137,7 +137,7 @@ When night mode turns the display off, any touch wakes it for a minute.
 | Item | Choices | What it sets |
 |------|---------|-------------|
 | STYLE | RND / BIG / INFO / WORD / ROMA / BIN / DRIFT | Clock style; drift is the mode that makes now feel less fixed |
-| ANIM | OFF / MORPH | Enable or disable clock transition animation |
+| ANIM | OFF / ON | Enable or disable clock transitions |
 | INFO | SEC / DECI / DATE / WDAY / ALT | Second-line choice for the DATA style |
 | DATE | DATE / YEAR / MOON / ZOD / CZOD | Extra info shown in the date view |
 | FORMAT | 24H / 12H | 24-hour or AM/PM |
@@ -147,7 +147,7 @@ When night mode turns the display off, any touch wakes it for a minute.
 | SETTIME | AUTO / MANUAL | Time source - automatic (NTP + RTC) or manual entry |
 | HOTSPOT | OFF / ON | Turn the web config portal on or off |
 
-Hold center to enter the menu, left/right to browse, and tap center to edit. Each confirm saves the current step immediately. STYLE has a second step for clocks with a separator: BIG, INFO, and DRIFT offer SOLID or BLINK. INFO first opens a second-line chooser labeled DATA, then the separator step labeled COLON. Each style remembers its own separator choice. ANIM toggles between OFF and MORPH. WORD, ROMA, BIN, and RND save immediately because they do not expose a separator choice. SETTIME also saves each confirmed step, so aborting mid-flow keeps the already confirmed values.
+Hold center to enter the menu, left/right to browse, and tap center to edit. Each confirm saves the current step immediately. STYLE has a second step for clocks with a separator: BIG, INFO, and DRIFT offer SOLID or BLINK. INFO first opens a second-line chooser labeled DATA, then the separator step labeled COLON. Each style remembers its own separator choice. ANIM toggles between OFF and ON. When ON, Animations transition smoothly between views (e.g., digit morphs, screen retune effect) as long as the engine is compiled in. WORD, ROMA, BIN, and RND save immediately because they do not expose a separator choice. SETTIME also saves each confirmed step, so aborting mid-flow keeps the already confirmed values.
 
 ### Setting the time manually
 
@@ -202,7 +202,8 @@ Open `Config.h` to adjust these:
 | `TIME_SYNC_INTERVAL_MINUTES` | `60` | How often NTP re-syncs |
 | `RND_STYLE_INTERVAL_HOURS` | `24` | RND change interval aligned to local midnight (`3` = 00:00, 03:00, 06:00...) |
 | `HOTSPOT_TIMEOUT_MINUTES` | `0` | Auto-stop hotspot after N minutes (`0` = stays on) |
-| `ENABLE_TRANSITIONS` | `0` | Build-time support for transition code; runtime `ANIM` selects off or morph |
+| `DIGIT_TRANSITIONS` | `1` | Set to `0` to remove per-digit morph engine (saves flash/RAM) |
+| `SCREEN_TRANSITION` | `1` | Set to `0` to remove screen retune engine (saves flash/RAM) |
 | `DRIFT_MAX_OFFSET_MINUTES` | `8` | Maximum distance from real time in either direction |
 | `DRIFT_PATTERN` | `0` | 0=behind↔ahead, 1=real→behind→real, 2=real→ahead→real |
 | `DRIFT_TIME_TO_MAX_OFFSET_MINUTES` | `60` | Minutes from real time to maximum offset; pattern 0 takes twice this between extremes |
