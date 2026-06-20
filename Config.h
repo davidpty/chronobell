@@ -25,7 +25,6 @@
 // ---------------------------------------------------------------------------
 // Feature flags
 // ---------------------------------------------------------------------------
-// Set to 0 to disable and reclaim flash.
 
 #define ENABLE_OTA                                  1                                   // ArduinoOTA (IDE network OTA); web portal upload is always enabled
 #define ENABLE_MDNS                                 1                                   // mDNS / Bonjour hostname advertisement
@@ -35,10 +34,6 @@
 
 #define SCREEN_TRANSITION                           1                                   // 0=remove engine, 1=include screen retune engine
 #define SCREEN_TRANSITION_MS                        500                                 // whole-screen transition duration
-//
-// The runtime ANIM toggle (menu/portal) controls all active engines:
-//   Off = no animations, Morph = enable whichever engines are compiled in.
-// The ANIM toggle is present whenever DIGIT_TRANSITIONS or SCREEN_TRANSITION is 1.
 
 // ---------------------------------------------------------------------------
 // Night mode
