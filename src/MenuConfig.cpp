@@ -76,6 +76,18 @@ InfoLineMode styleMenuPendingInfoLineMode() {
     return g_stylePendingInfoLineMode;
 }
 
+SeparatorMode styleMenuPendingSeparatorMode() {
+    return g_stylePendingSeparatorMode;
+}
+
+DriftSeparatorMode styleMenuPendingDriftSeparatorMode() {
+    return g_stylePendingDriftSeparatorMode;
+}
+
+bool styleMenuIsEditing() {
+    return g_styleEditing;
+}
+
 bool styleMenuInfoPreviewActive() {
     return g_stylePreviewMode == DisplayMode::Info && g_styleStep == 1;
 }

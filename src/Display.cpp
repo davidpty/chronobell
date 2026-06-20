@@ -233,8 +233,15 @@ void Display::drawStylePreview(DisplayMode mode) {
 #if ENABLE_TRANSITIONS
     digit_transition::set_transition_mode(_appSettings ? _appSettings->transitionMode : TransitionMode::Morph);
 #endif
-    SeparatorMode separatorMode = _appSettings ? separatorModeFor(*_appSettings, mode) : SeparatorMode::Steady;
-    DriftSeparatorMode driftSeparatorMode = _appSettings ? _appSettings->driftSeparator : DriftSeparatorMode::Steady;
+    SeparatorMode separatorMode;
+    DriftSeparatorMode driftSeparatorMode;
+    if (styleMenuIsEditing()) {
+        separatorMode = styleMenuPendingSeparatorMode();
+        driftSeparatorMode = styleMenuPendingDriftSeparatorMode();
+    } else {
+        separatorMode = _appSettings ? separatorModeFor(*_appSettings, mode) : SeparatorMode::Steady;
+        driftSeparatorMode = _appSettings ? _appSettings->driftSeparator : DriftSeparatorMode::Steady;
+    }
     _clockRenderer->setSeparatorModes(separatorMode, driftSeparatorMode);
     _clockRenderer->setDriftStyleActive(mode == DisplayMode::Drift);
     if (mode == DisplayMode::Info && styleMenuInfoPreviewActive()) {

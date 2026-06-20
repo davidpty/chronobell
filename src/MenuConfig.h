@@ -20,6 +20,9 @@ extern uint16_t g_setYear;
 uint8_t styleMenuStep();
 DisplayMode styleMenuPreviewMode();
 InfoLineMode styleMenuPendingInfoLineMode();
+SeparatorMode styleMenuPendingSeparatorMode();
+DriftSeparatorMode styleMenuPendingDriftSeparatorMode();
+bool styleMenuIsEditing();
 bool styleMenuInfoPreviewActive();
 
 #endif // MENU_CONFIG_H
