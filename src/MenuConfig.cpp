@@ -22,7 +22,7 @@ static void    previewDisplayModeMenu(void* ctx, int16_t v);
 static void    commitDisplayModeMenu(void* ctx, int16_t v);
 static bool    editCommitDisplayModeMenu(void* ctx, int16_t v);
 static void    cancelDisplayModeMenu(void* ctx);
-#if ENABLE_TRANSITIONS
+#if DIGIT_TRANSITIONS
 static int16_t getAnimMenu(void* ctx);
 static void    previewAnimMenu(void* ctx, int16_t v);
 static void    commitAnimMenu(void* ctx, int16_t v);
@@ -94,7 +94,7 @@ bool styleMenuInfoPreviewActive() {
 
 enum MenuIndex : uint8_t {
     MENU_STYLE = 0,
-#if ENABLE_TRANSITIONS
+#if DIGIT_TRANSITIONS
     MENU_ANIM,
 #endif
     MENU_DATE,
@@ -110,7 +110,7 @@ MenuItem MENU_ITEMS[] = {
   {"STYLE",   (int16_t)DisplayMode::Rnd,  (int16_t)DisplayMode::Drift,
               getDisplayModeMenu, previewDisplayModeMenu, commitDisplayModeMenu, nullptr,
               editCommitDisplayModeMenu, cancelDisplayModeMenu},
-#if ENABLE_TRANSITIONS
+#if DIGIT_TRANSITIONS
   {"ANIM",    (int16_t)TransitionMode::Off, (int16_t)TransitionMode::Morph,
               getAnimMenu, previewAnimMenu, commitAnimMenu, nullptr},
 #endif
@@ -151,7 +151,7 @@ const char* styleValueName(int16_t value) {
     return "?";
 }
 
-#if ENABLE_TRANSITIONS
+#if DIGIT_TRANSITIONS
 static const char* animValueName(int16_t value) {
     static const char* const NAMES[] = {
         "OFF", "MORPH", nullptr
@@ -277,7 +277,7 @@ const char* menuValueName(uint8_t index, int16_t value, void* ctx) {
         }
         return separatorValueName(value, g_stylePreviewMode == DisplayMode::Drift);
     }
-#if ENABLE_TRANSITIONS
+#if DIGIT_TRANSITIONS
     if (index == MENU_ANIM) return animValueName(value);
 #endif
     if (index == MENU_DATE) return dateStyleValueName(value);
@@ -388,7 +388,7 @@ static void commitDisplayModeMenu(void* ctx, int16_t v) {
     }
 }
 
-#if ENABLE_TRANSITIONS
+#if DIGIT_TRANSITIONS
 static int16_t getAnimMenu(void* ctx) {
     return (int16_t)static_cast<MenuBindings*>(ctx)->transitionMode;
 }

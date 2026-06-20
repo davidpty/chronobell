@@ -6,7 +6,8 @@
 
 enum class ScreenTransitionType : uint8_t {
     None,
-    ParticleDissolve
+    ParticleDissolve,
+    ShapeMorph
 };
 
 struct TransitionParticle {
@@ -23,6 +24,7 @@ public:
     void start(const uint32_t oldFrame[16], const uint32_t newFrame[16], uint32_t nowMs);
     bool render(uint32_t nowMs, uint32_t outputFrame[16]);
     bool active() const { return _active; }
+    void setType(ScreenTransitionType type) { _preferredType = type; }
 
     static void clearFrame(uint32_t frame[16]);
     static void copyFrame(uint32_t destination[16], const uint32_t source[16]);
@@ -36,6 +38,7 @@ private:
     };
 
     void addParticle(int startX, int startY, int endX, int endY, uint8_t flags);
+    bool renderShapeMorph(uint32_t nowMs, uint32_t outputFrame[16]);
 
     bool _active = false;
     uint32_t _oldFrame[16] = {};
@@ -43,8 +46,15 @@ private:
     uint32_t _startMs = 0;
     uint16_t _durationMs = SCREEN_TRANSITION_DURATION_MS;
     ScreenTransitionType _type = ScreenTransitionType::None;
+#if SCREEN_TRANSITION == 2
+    ScreenTransitionType _preferredType = ScreenTransitionType::ParticleDissolve;
+#else
+    ScreenTransitionType _preferredType = ScreenTransitionType::ShapeMorph;
+#endif
     TransitionParticle _particles[SCREEN_TRANSITION_PARTICLE_MAX] = {};
     uint16_t _particleCount = 0;
+    uint8_t _oldDist[16][32] = {};
+    uint8_t _newDist[16][32] = {};
 };
 
 #endif

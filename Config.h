@@ -30,16 +30,13 @@
 #define ENABLE_OTA                                  1                                   // ArduinoOTA (IDE network OTA); web portal upload is always enabled
 #define ENABLE_MDNS                                 1                                   // mDNS / Bonjour hostname advertisement
 
-#ifndef ENABLE_TRANSITIONS
-#define ENABLE_TRANSITIONS                          1                                   // enable support for transition animations
-#endif
+#define DIGIT_TRANSITIONS                           1                                   // 0=off, 1=on (per-digit morph)
+#define DIGIT_TRANSITION_MS                         300                                 // per-digit morph duration in ms
 
-#ifndef SCREEN_TRANSITION_ENABLED
-#define SCREEN_TRANSITION_ENABLED                   1                                   // whole-screen particle migration transitions
-#endif
+#define SCREEN_TRANSITION                           1                                   // 0=off, 1=ShapeMorph, 2=ParticleDissolve
 #define SCREEN_TRANSITION_DURATION_MS               420                                 // whole-screen transition duration
 #define SCREEN_TRANSITION_PARTICLE_MAX              256                                 // fixed particle storage; no heap allocation
-#define SCREEN_TRANSITION_SETTLE_MS                  60                                  // final settling window
+#define SCREEN_TRANSITION_SETTLE_MS                 60                                  // final settling window
 
 // ---------------------------------------------------------------------------
 // Night mode
@@ -91,8 +88,6 @@
 
 #define RND_STYLE_INTERVAL_HOURS                    6                                   // RND changes on local-hour boundaries aligned to midnight (3 = 00,03,06...; valid 1-24)
 #define INFO_ALT_INTERVAL_SECONDS                   10                                  // ALT switches between DATE and WDAY every N seconds after entering ALT (valid 1-3600)
-
-#define TRANSITION_MS                               300                                 // Morph duration in milliseconds
 
 // ---------------------------------------------------------------------------
 // DRIFT display tuning

@@ -111,7 +111,7 @@ void drawGlyph(Display& display,
         y);
 }
 
-#if ENABLE_TRANSITIONS
+#if DIGIT_TRANSITIONS
 template <size_t GlyphCount, size_t Rows, size_t Cols>
 void drawAnimatedDigit(Display& display,
                        const uint8_t (&font)[GlyphCount][Rows][Cols],
@@ -514,7 +514,7 @@ void ClockRenderer::drawBigTimeInternal(int hours, int minutes, int seconds, boo
 
     int x = startX;
     if (hours >= 10) {
-#if ENABLE_TRANSITIONS
+#if DIGIT_TRANSITIONS
         drawAnimatedDigit(*_display, FONT_BIG, _bigDigitStates[0], true,
                           (uint8_t)(hours / 10), x, startY, nowMs);
 #else
@@ -522,7 +522,7 @@ void ClockRenderer::drawBigTimeInternal(int hours, int minutes, int seconds, boo
 #endif
         x += digitWidth + spacing;
     }
-#if ENABLE_TRANSITIONS
+#if DIGIT_TRANSITIONS
     drawAnimatedDigit(*_display, FONT_BIG, _bigDigitStates[1], true,
                       (uint8_t)(hours % 10), x, startY, nowMs);
 #else
@@ -538,14 +538,14 @@ void ClockRenderer::drawBigTimeInternal(int hours, int minutes, int seconds, boo
     }
     x += sepWidth + sepSpacingAfter;
 
-#if ENABLE_TRANSITIONS
+#if DIGIT_TRANSITIONS
     drawAnimatedDigit(*_display, FONT_BIG, _bigDigitStates[2], true,
                       (uint8_t)(minutes / 10), x, startY, nowMs);
 #else
     drawBigTimeDigit(minutes / 10, x, startY);
 #endif
     x += digitWidth + spacing;
-#if ENABLE_TRANSITIONS
+#if DIGIT_TRANSITIONS
     drawAnimatedDigit(*_display, FONT_BIG, _bigDigitStates[3], true,
                       (uint8_t)(minutes % 10), x, startY, nowMs);
 #else
@@ -571,7 +571,7 @@ void ClockRenderer::drawTime(int hours, int minutes, int seconds) {
 
     int x = startX;
     if (hours >= 10) {
-#if ENABLE_TRANSITIONS
+#if DIGIT_TRANSITIONS
         drawAnimatedDigit(*_display, FONT_MEDIUM, _mediumDigitStates[0], true,
                           (uint8_t)(hours / 10), x, startY, nowMs);
 #else
@@ -579,7 +579,7 @@ void ClockRenderer::drawTime(int hours, int minutes, int seconds) {
 #endif
         x += digitWidth + TIME_FONT_SPACING;
     }
-#if ENABLE_TRANSITIONS
+#if DIGIT_TRANSITIONS
     drawAnimatedDigit(*_display, FONT_MEDIUM, _mediumDigitStates[1], true,
                       (uint8_t)(hours % 10), x, startY, nowMs);
 #else
@@ -591,14 +591,14 @@ void ClockRenderer::drawTime(int hours, int minutes, int seconds) {
     drawSeparator(sepX, startY, seconds);
     x += TIME_SEP_WIDTH + sepSpacingAfter;
 
-#if ENABLE_TRANSITIONS
+#if DIGIT_TRANSITIONS
     drawAnimatedDigit(*_display, FONT_MEDIUM, _mediumDigitStates[2], true,
                       (uint8_t)(minutes / 10), x, startY, nowMs);
 #else
     drawTimeDigit(minutes / 10, x, startY);
 #endif
     x += digitWidth + TIME_FONT_SPACING;
-#if ENABLE_TRANSITIONS
+#if DIGIT_TRANSITIONS
     drawAnimatedDigit(*_display, FONT_MEDIUM, _mediumDigitStates[3], true,
                       (uint8_t)(minutes % 10), x, startY, nowMs);
 #else
@@ -847,7 +847,7 @@ void ClockRenderer::drawSeconds(int seconds) {
     int startY = 11;
     unsigned long nowMs = millis();
 
-#if ENABLE_TRANSITIONS
+#if DIGIT_TRANSITIONS
     drawAnimatedDigit(*_display, FONT_SMALL, _smallDigitStates[0], true,
                       (uint8_t)(seconds / 10), startX, startY, nowMs);
     drawAnimatedDigit(*_display, FONT_SMALL, _smallDigitStates[1], true,
@@ -868,14 +868,14 @@ void ClockRenderer::drawDeciseconds(int seconds, uint8_t deciseconds) {
     int x = startX;
     unsigned long nowMs = millis();
 
-#if ENABLE_TRANSITIONS
+#if DIGIT_TRANSITIONS
     drawAnimatedDigit(*_display, FONT_SMALL, _smallDigitStates[0], true,
                       (uint8_t)(seconds / 10), x, startY, nowMs);
 #else
     drawSecDigit(seconds / 10, x, startY);
 #endif
     x += digitWidth + SEC_FONT_SPACING;
-#if ENABLE_TRANSITIONS
+#if DIGIT_TRANSITIONS
     drawAnimatedDigit(*_display, FONT_SMALL, _smallDigitStates[1], true,
                       (uint8_t)(seconds % 10), x, startY, nowMs);
 #else

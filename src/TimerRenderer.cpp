@@ -124,7 +124,7 @@ void TimerRenderer::drawStopwatchTime(uint64_t totalSec, uint8_t centisec, bool 
     const int dw = 6, sp = 1, sw = 1;
     unsigned long nowMs = millis();
 
-#if ENABLE_TRANSITIONS
+#if DIGIT_TRANSITIONS
     uint8_t layoutKey = 0;
     if (totalSec < 100) {
         layoutKey = 0;
@@ -153,7 +153,7 @@ void TimerRenderer::drawStopwatchTime(uint64_t totalSec, uint8_t centisec, bool 
         for (int i = 0; i < 4; i++) {
             uint8_t digit = (uint8_t)(buf[i] - '0');
             if (i < 2) {
-#if ENABLE_TRANSITIONS
+#if DIGIT_TRANSITIONS
                 drawAnimatedGlyph(*_display, FONT_MEDIUM, _digitStates[i], true, digit, x, y, nowMs);
 #else
                 drawGlyph(*_display, FONT_MEDIUM, digit, x, y);
@@ -176,7 +176,7 @@ void TimerRenderer::drawStopwatchTime(uint64_t totalSec, uint8_t centisec, bool 
         int totalW = dw * 4 + sp * 3 + sw * 2;
         int x = (COLS_PER_ROW - totalW) / 2;
         uint8_t d0 = (uint8_t)(buf[0] - '0');
-#if ENABLE_TRANSITIONS
+#if DIGIT_TRANSITIONS
         drawAnimatedGlyph(*_display, FONT_MEDIUM, _digitStates[0], true, d0, x, y, nowMs);
 #else
         drawGlyph(*_display, FONT_MEDIUM, d0, x, y);
@@ -185,14 +185,14 @@ void TimerRenderer::drawStopwatchTime(uint64_t totalSec, uint8_t centisec, bool 
         if (blink) _display->drawTimerColon(x, y);
         x += sw + sp;
         uint8_t d1 = (uint8_t)(buf[1] - '0');
-#if ENABLE_TRANSITIONS
+#if DIGIT_TRANSITIONS
         drawAnimatedGlyph(*_display, FONT_MEDIUM, _digitStates[1], true, d1, x, y, nowMs);
 #else
         drawGlyph(*_display, FONT_MEDIUM, d1, x, y);
 #endif
         x += dw + sp;
         uint8_t d2 = (uint8_t)(buf[2] - '0');
-#if ENABLE_TRANSITIONS
+#if DIGIT_TRANSITIONS
         drawAnimatedGlyph(*_display, FONT_MEDIUM, _digitStates[2], true, d2, x, y, nowMs);
 #else
         drawGlyph(*_display, FONT_MEDIUM, d2, x, y);
@@ -209,7 +209,7 @@ void TimerRenderer::drawStopwatchTime(uint64_t totalSec, uint8_t centisec, bool 
         int x = (COLS_PER_ROW - totalW) / 2;
         for (int i = 0; i < 4; i++) {
             uint8_t digit = (uint8_t)(buf[i] - '0');
-#if ENABLE_TRANSITIONS
+#if DIGIT_TRANSITIONS
             drawAnimatedGlyph(*_display, FONT_MEDIUM, _digitStates[i], true, digit, x, y, nowMs);
 #else
             drawGlyph(*_display, FONT_MEDIUM, digit, x, y);
@@ -229,7 +229,7 @@ void TimerRenderer::drawStopwatchTime(uint64_t totalSec, uint8_t centisec, bool 
         int x = (COLS_PER_ROW - totalW) / 2;
         for (int i = 0; i < 4; i++) {
             uint8_t digit = (uint8_t)(buf[i] - '0');
-#if ENABLE_TRANSITIONS
+#if DIGIT_TRANSITIONS
             drawAnimatedGlyph(*_display, FONT_MEDIUM, _digitStates[i], true, digit, x, y, nowMs);
 #else
             drawGlyph(*_display, FONT_MEDIUM, digit, x, y);
@@ -250,7 +250,7 @@ void TimerRenderer::drawStopwatchTime(uint64_t totalSec, uint8_t centisec, bool 
         int x = (COLS_PER_ROW - totalW) / 2;
         for (int i = 0; i < 4; i++) {
             uint8_t digit = (uint8_t)(buf[i] - '0');
-#if ENABLE_TRANSITIONS
+#if DIGIT_TRANSITIONS
             drawAnimatedGlyph(*_display, FONT_MEDIUM, _digitStates[i], true, digit, x, y, nowMs);
 #else
             drawGlyph(*_display, FONT_MEDIUM, digit, x, y);
@@ -306,7 +306,7 @@ void TimerRenderer::drawTimerDuration(uint32_t totalSeconds, bool blinkSeparator
     int x = startX;
     unsigned long nowMs = millis();
 
-#if ENABLE_TRANSITIONS
+#if DIGIT_TRANSITIONS
     prepareTransitionState(_transitionKind,
                            _transitionLayout,
                            _digitStates,
@@ -317,7 +317,7 @@ void TimerRenderer::drawTimerDuration(uint32_t totalSeconds, bool blinkSeparator
 
     for (uint8_t i = 0; i < digitCount; i++) {
         uint8_t d = (uint8_t)(buf[i] - '0');
-#if ENABLE_TRANSITIONS
+#if DIGIT_TRANSITIONS
         drawAnimatedGlyph(*_display, FONT_MEDIUM, _digitStates[i], true, d, x, startY, nowMs);
 #else
         drawGlyph(*_display, FONT_MEDIUM, d, x, startY);

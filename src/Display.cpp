@@ -14,7 +14,7 @@
 #include "WiFiManagerLite.h"
 #include "MenuConfig.h"
 #include "fonts.h"
-#if ENABLE_TRANSITIONS
+#if DIGIT_TRANSITIONS
 #include "DigitTransition.h"
 #endif
 
@@ -131,10 +131,10 @@ void Display::loadBrightnessFromSettings() {
 
 void Display::showTime() {
     clearBuffer();
-#if SCREEN_TRANSITION_ENABLED
+#if SCREEN_TRANSITION
     noteScreenIdentity();
 #endif
-#if ENABLE_TRANSITIONS
+#if DIGIT_TRANSITIONS
     digit_transition::set_transition_mode(_appSettings ? _appSettings->transitionMode : TransitionMode::Morph);
 #endif
 
@@ -234,7 +234,7 @@ void Display::showTime() {
 
 void Display::drawStylePreview(DisplayMode mode) {
     ClockTime time = _timeProvider.displayTime();
-#if ENABLE_TRANSITIONS
+#if DIGIT_TRANSITIONS
     digit_transition::set_transition_mode(_appSettings ? _appSettings->transitionMode : TransitionMode::Morph);
 #endif
     SeparatorMode separatorMode;
@@ -316,7 +316,7 @@ void Display::setSnapshotPixel(uint8_t x, uint8_t y, bool value) {
 }
 
 void Display::renderBuffer() {
-#if SCREEN_TRANSITION_ENABLED
+#if SCREEN_TRANSITION
     uint32_t targetFrame[16];
     uint32_t outputFrame[16];
     bufferToFrame(targetFrame);
@@ -380,7 +380,7 @@ void Display::flushBufferToLeds() {
     _leds.update();
 }
 
-#if SCREEN_TRANSITION_ENABLED
+#if SCREEN_TRANSITION
 void Display::bufferToFrame(uint32_t frame[16]) const {
     ScreenTransition::clearFrame(frame);
     for (int y = 0; y < TOTAL_ROWS; y++) {

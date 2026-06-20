@@ -1059,7 +1059,7 @@ void ConfigPortal::handleRoot() {
 #endif
     html.replace("__HOTSPOT_OFF_CLASS__", hotspotOffClass);
     html.replace("__HOTSPOT_ON_CLASS__", hotspotOnClass);
-#if ENABLE_TRANSITIONS
+#if DIGIT_TRANSITIONS
     html.replace("__ANIM_ROW__", R"rawliteral(
             <div class="setting-row">
                 <div class="setting-label">ANIM</div>
@@ -1074,7 +1074,7 @@ void ConfigPortal::handleRoot() {
 #endif
     html.replace("__INITIAL_STYLE__", initialStyle);
     html.replace("__INITIAL_INFOLINE__", String((int)_settings.infoLineMode));
-#if ENABLE_TRANSITIONS
+#if DIGIT_TRANSITIONS
     html.replace("__INITIAL_ANIM__", String((int)_settings.transitionMode));
 #else
     html.replace("__INITIAL_ANIM__", "0");
@@ -1284,7 +1284,7 @@ void ConfigPortal::handleApply() {
         settings.displayMode = clampDisplayMode(value.toInt());
     } else if (field == "infoline") {
         settings.infoLineMode = clampInfoLineMode(value.toInt());
-#if ENABLE_TRANSITIONS
+#if DIGIT_TRANSITIONS
     } else if (field == "anim") {
         settings.transitionMode = clampTransitionMode(value.toInt());
 #endif
@@ -1356,7 +1356,7 @@ void ConfigPortal::handleApply() {
     }
 
     if (_previewCb && (field == "style" || field == "infoline"
-#if ENABLE_TRANSITIONS
+#if DIGIT_TRANSITIONS
         || field == "anim"
 #endif
         || field == "separator" || field == "datestyle" || field == "timefmt" || field == "timezone" || field == "timeMode" || field == "manualtime" || field == "bellmode" || field == "brightness")) {
@@ -1386,7 +1386,7 @@ void ConfigPortal::handleStatus() {
     json += (int)_settings.displayMode;
     json += ",\"infoLineMode\":";
     json += (int)_settings.infoLineMode;
-#if ENABLE_TRANSITIONS
+#if DIGIT_TRANSITIONS
     json += ",\"anim\":";
     json += (int)_settings.transitionMode;
 #endif

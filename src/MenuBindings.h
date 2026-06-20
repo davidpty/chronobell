@@ -21,7 +21,7 @@ struct MenuBindings {
     DisplayMode&    displayMode;
     TimeFormat&     timeFormat;
     NightMode&      nightMode;
-#if ENABLE_TRANSITIONS
+#if DIGIT_TRANSITIONS
     TransitionMode& transitionMode;
 #endif
 

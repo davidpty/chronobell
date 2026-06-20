@@ -36,7 +36,7 @@ private:
     Display* _display = nullptr;
     TimerController* _timer = nullptr;
     ClockRenderer* _clockRenderer = nullptr;
-#if ENABLE_TRANSITIONS
+#if DIGIT_TRANSITIONS
     digit_transition::DigitCellState _digitStates[5];
     uint8_t _transitionKind = 0xFF;
     uint8_t _transitionLayout = 0xFF;

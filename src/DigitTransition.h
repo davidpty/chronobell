@@ -9,7 +9,7 @@
 #include <vector>
 
 #include "Config.h"
-#if ENABLE_TRANSITIONS
+#if DIGIT_TRANSITIONS
 #include "AppSettings.h"
 #endif
 
@@ -55,9 +55,9 @@ struct DigitCellFrame {
     double progress = 0.0;
 };
 
-static const unsigned long kTransitionDurationMs = TRANSITION_MS;
+static const unsigned long kTransitionDurationMs = DIGIT_TRANSITION_MS;
 
-#if ENABLE_TRANSITIONS
+#if DIGIT_TRANSITIONS
 inline TransitionMode& active_transition_mode() {
     static TransitionMode mode = TransitionMode::Morph;
     return mode;
@@ -226,7 +226,7 @@ void draw_transition_glyph(PixelWriter&& writePixel,
                            double t,
                            int x,
                            int y) {
-#if ENABLE_TRANSITIONS
+#if DIGIT_TRANSITIONS
     if (transition_mode() != TransitionMode::Morph) {
         draw_glyph(writePixel, font, toGlyph, x, y);
         return;
@@ -307,7 +307,7 @@ void render_digit_cell(PixelWriter&& writePixel,
                        int x,
                        int y,
                        unsigned long nowMs) {
-#if ENABLE_TRANSITIONS
+#if DIGIT_TRANSITIONS
     if (transition_mode() != TransitionMode::Morph) {
         state.reset();
         draw_glyph(writePixel, font, visible ? static_cast<int>(digit) : -1, x, y);

@@ -8,7 +8,7 @@
 #include "AppSettings.h"
 #include "MenuController.h"
 #include "fonts.h"
-#if SCREEN_TRANSITION_ENABLED
+#if SCREEN_TRANSITION
 #include "ScreenTransition.h"
 #endif
 
@@ -141,7 +141,7 @@ private:
 
     bool pixelBuffer[COLS_PER_ROW][TOTAL_ROWS];
     uint32_t _snapshotFrame[16] = {};
-#if SCREEN_TRANSITION_ENABLED
+#if SCREEN_TRANSITION
     ScreenTransition _screenTransition;
     uint32_t _lastFrame[16] = {};
     bool _hasLastFrame = false;

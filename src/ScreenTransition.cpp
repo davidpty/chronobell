@@ -24,6 +24,51 @@ static int interpolate(int start, int end, uint16_t progress) {
     else scaled -= 512;
     return start + scaled / 1024;
 }
+
+static uint16_t easeSmoothStep(uint16_t t) {
+    uint32_t t2 = ((uint32_t)t * t) >> 10;
+    uint32_t term = 3072U - 2U * t;
+    uint32_t result = (t2 * term) >> 10;
+    return result > 1024 ? 1024 : (uint16_t)result;
+}
+
+static uint16_t computeThreshold(uint16_t t) {
+    const uint16_t LOOSE_END = 256;
+    const uint16_t MORPH_END = 768;
+    const uint16_t THRESH_MAX = 1536;
+    if (t <= LOOSE_END) {
+        return (uint16_t)((uint32_t)t * THRESH_MAX / LOOSE_END);
+    } else if (t <= MORPH_END) {
+        return THRESH_MAX;
+    } else {
+        uint16_t phaseT = t - MORPH_END;
+        uint16_t phaseLen = 1024 - MORPH_END;
+        return (uint16_t)(THRESH_MAX - (uint32_t)phaseT * THRESH_MAX / phaseLen);
+    }
+}
+
+static void computeDistanceMap(const uint32_t frame[16], uint8_t dist[16][32], uint8_t maxDist) {
+    for (int y = 0; y < 16; y++) {
+        for (int x = 0; x < 32; x++) {
+            if (ScreenTransition::getPixelFromFrame(frame, x, y)) {
+                dist[y][x] = 0;
+            } else {
+                uint8_t best = maxDist;
+                if (x > 0 && dist[y][x - 1] + 1 < best) best = dist[y][x - 1] + 1;
+                if (y > 0 && dist[y - 1][x] + 1 < best) best = dist[y - 1][x] + 1;
+                dist[y][x] = best;
+            }
+        }
+    }
+    for (int y = 15; y >= 0; y--) {
+        for (int x = 31; x >= 0; x--) {
+            uint8_t best = dist[y][x];
+            if (x < 31 && dist[y][x + 1] + 1 < best) best = dist[y][x + 1] + 1;
+            if (y < 15 && dist[y + 1][x] + 1 < best) best = dist[y + 1][x] + 1;
+            dist[y][x] = best < maxDist ? best : maxDist;
+        }
+    }
+}
 }
 
 void ScreenTransition::clearFrame(uint32_t frame[16]) {
@@ -61,8 +106,16 @@ void ScreenTransition::start(const uint32_t oldFrame[16], const uint32_t newFram
     copyFrame(_newFrame, newFrame);
     _startMs = nowMs;
     _durationMs = SCREEN_TRANSITION_DURATION_MS;
-    _type = ScreenTransitionType::ParticleDissolve;
+    _type = _preferredType;
     _particleCount = 0;
+
+    if (_type == ScreenTransitionType::ShapeMorph) {
+        const uint8_t MAX_DIST = 7;
+        computeDistanceMap(oldFrame, _oldDist, MAX_DIST);
+        computeDistanceMap(newFrame, _newDist, MAX_DIST);
+        _active = true;
+        return;
+    }
 
     PixelCoord moving[SCREEN_TRANSITION_PARTICLE_MAX];
     bool assigned[SCREEN_TRANSITION_PARTICLE_MAX] = {};
@@ -112,6 +165,12 @@ void ScreenTransition::start(const uint32_t oldFrame[16], const uint32_t newFram
 
 bool ScreenTransition::render(uint32_t nowMs, uint32_t outputFrame[16]) {
     if (!_active) return false;
+
+    if (_type == ScreenTransitionType::ShapeMorph) {
+        return renderShapeMorph(nowMs, outputFrame);
+    }
+
+    // --- ParticleDissolve ---
     uint32_t elapsed = nowMs - _startMs;
     if (elapsed >= _durationMs) {
         copyFrame(outputFrame, _newFrame);
@@ -151,6 +210,47 @@ bool ScreenTransition::render(uint32_t nowMs, uint32_t outputFrame[16]) {
             x += ((i >> 1) & 1U) ? 1 : -1;
         }
         setPixelInFrame(outputFrame, x, y);
+    }
+    return true;
+}
+
+bool ScreenTransition::renderShapeMorph(uint32_t nowMs, uint32_t outputFrame[16]) {
+    uint32_t elapsed = nowMs - _startMs;
+    if (elapsed >= _durationMs) {
+        copyFrame(outputFrame, _newFrame);
+        _active = false;
+        _type = ScreenTransitionType::None;
+        return true;
+    }
+
+    uint16_t t = (uint16_t)((elapsed * 1024UL) / _durationMs);
+    uint16_t tEased = easeSmoothStep(t);
+    uint16_t threshold = computeThreshold(tEased);
+
+    clearFrame(outputFrame);
+
+    for (uint8_t y = 0; y < 16; y++) {
+        for (uint8_t x = 0; x < 32; x++) {
+            uint16_t d = ((uint16_t)_oldDist[y][x] * (1024U - tEased) +
+                          (uint16_t)_newDist[y][x] * tEased);
+
+            // Edge disturbance: deterministic wobble near boundary during morph phase
+            if (tEased > 256 && tEased < 768) {
+                int16_t diff = (int16_t)d - (int16_t)threshold;
+                if (diff > -768 && diff < 768) {
+                    uint8_t wobble = (uint8_t)(x * 17U + y * 43U + (tEased >> 3));
+                    if ((wobble & 3U) == 1U) {
+                        d += 1024;
+                    } else if ((wobble & 3U) == 2U) {
+                        d -= 512;
+                    }
+                }
+            }
+
+            if (d <= threshold) {
+                setPixelInFrame(outputFrame, x, y);
+            }
+        }
     }
     return true;
 }
