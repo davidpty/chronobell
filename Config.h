@@ -74,12 +74,13 @@
 #define MENU_TIMEOUT_SHORT_SECONDS                  15                                  // Auto-exit short-lived views after this much inactivity
 #define MENU_TIMEOUT_LONG_SECONDS                   30                                  // Auto-cancel longer edit flows after this much inactivity
 
-#define BLINK_ON_MS                                 750                                 // Blink visible duration (menu, timer alert, etc.)
-#define BLINK_OFF_MS                                250                                 // Blink blank duration (menu, timer alert, etc.)
+#define BLINK_ON_MS                                 800                                 // Blink visible duration (menu, timer alert, etc.)
+#define BLINK_OFF_MS                                200                                 // Blink blank duration (menu, timer alert, etc.)
 
 #define LAST_STYLE_TIMEOUT_MINUTES                  360                                 // Reset remembered clock view to configured View after N idle min (0=off)
 #define LAST_DATEVIEW_TIMEOUT_MINUTES               5                                   // Reset remembered date view to configured after N idle min (0=off)
-#define RND_STYLE_INTERVAL_HOURS                    24                                  // RND changes on local-hour boundaries aligned to midnight (3 = 00,03,06...; valid 1-24)
+
+#define RND_STYLE_INTERVAL_HOURS                    6                                   // RND changes on local-hour boundaries aligned to midnight (3 = 00,03,06...; valid 1-24)
 #define INFO_ALT_INTERVAL_SECONDS                   10                                  // ALT switches between DATE and WDAY every N seconds after entering ALT (valid 1-3600)
 
 #define TRANSITION_MS                               300                                 // Morph duration in milliseconds
