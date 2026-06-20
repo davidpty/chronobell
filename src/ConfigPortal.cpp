@@ -262,7 +262,7 @@ void ConfigPortal::handleRoot() {
         input[type="range"]::-moz-range-thumb { width: 1.2em; height: 1.2em; background: #ff0000; border-radius: 50%; border: none; cursor: pointer; }
         .brightness-display { min-width: 2em; text-align: center; color: #ff3333; font-weight: bold; text-shadow: 0 0 0.4em #ff0000; }
         .timer-card { width: 100%; margin-bottom: 0.35em; }
-        .timer-brand { margin: 0 0 0.35em; color: #aa2222; font-size: 0.72em; letter-spacing: 0.18em; text-transform: uppercase; text-shadow: none; opacity: 0.9; }
+        .timer-brand { margin: 0 0 0.35em; font-size: 0.95em; color: #ff0000; text-transform: uppercase; letter-spacing: 0.12em; text-shadow: none; white-space: nowrap; min-width: 6.7em; }
         .timer-panel { display: grid; gap: 0.45em; width: 100%; justify-items: stretch; }
         .timer-screen { background: rgba(10, 0, 0, 0.86); border: 1px solid #330000; border-radius: 0.25em; padding: 0.28em 0.32em 0.32em; box-shadow: inset 0 0 1em rgba(255, 0, 0, 0.08); width: 100%; display: flex; flex-direction: column; gap: 0.35em; }
         .display-frame { border: 1px solid #4d0000; border-radius: 0.2em; padding: 0.12em 0.14em 0.14em; background: linear-gradient(rgba(255, 0, 0, 0.03), rgba(255, 0, 0, 0.01)), #060000; box-shadow: inset 0 0 1.2em rgba(255, 0, 0, 0.12); width: 100%; }
