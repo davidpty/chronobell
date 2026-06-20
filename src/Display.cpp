@@ -14,7 +14,7 @@
 #include "WiFiManagerLite.h"
 #include "MenuConfig.h"
 #include "fonts.h"
-#if DIGIT_TRANSITIONS
+#if DIGIT_TRANSITIONS || SCREEN_TRANSITION
 #include "DigitTransition.h"
 #endif
 
@@ -400,24 +400,42 @@ void Display::frameToBuffer(const uint32_t frame[16]) {
 
 void Display::noteScreenIdentity() {
     uint16_t identity;
+    uint16_t contentHash = 0;
+
     if (_menu.isActive()) {
         identity = 0x100;
     } else if (_timer.isDateView()) {
         identity = 0x200 | (uint8_t)currentDateStyle();
     } else if (_timer.isGuestWifiView()) {
         identity = 0x300;
+        unsigned long period = (unsigned long)GUEST_WIFI_SSID_SHOW_SECONDS * 1000UL +
+                               (unsigned long)GUEST_WIFI_PASS_SHOW_SECONDS * 1000UL;
+        if (period > 0 && _guestWifi && _guestWifi->ssid()[0] != '\0') {
+            unsigned long elapsed = millis() - _guestWifiViewStartMs;
+            contentHash = (elapsed % period) < (unsigned long)GUEST_WIFI_SSID_SHOW_SECONDS * 1000UL ? 1U : 2U;
+        }
     } else if (_timer.isStopwatchView()) {
         identity = 0x400;
     } else if (_timer.isCountdownView() || _timer.isCountdownExpired()) {
         identity = 0x500;
     } else {
-        identity = 0x600 | (uint8_t)(_displayMode ? *_displayMode : DisplayMode::LargeDigitsOnly);
+        DisplayMode mode = _displayMode ? *_displayMode : DisplayMode::LargeDigitsOnly;
+        identity = 0x600 | (uint8_t)mode;
+        if (mode == DisplayMode::Word || mode == DisplayMode::Roma) {
+            ClockTime t = _timeProvider.displayTime();
+            contentHash = (uint16_t)(t.hours * 60U + t.minutes);
+        }
     }
 
+    bool animOn = (_appSettings && _appSettings->transitionMode == TransitionMode::Morph);
+
     if (_hasScreenIdentity && identity != _screenIdentity) {
-        _screenTransitionPending = true;
+        if (animOn) _screenTransitionPending = true;
+    } else if (_hasScreenIdentity && contentHash != 0 && contentHash != _lastContentHash) {
+        if (animOn) _screenTransitionPending = true;
     }
     _screenIdentity = identity;
+    _lastContentHash = contentHash;
     _hasScreenIdentity = true;
 }
 #endif

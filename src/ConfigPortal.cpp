@@ -269,8 +269,8 @@ void ConfigPortal::handleRoot() {
         .pixel-display { display: block; width: 100%; height: auto; aspect-ratio: 32 / 16; background: transparent; shape-rendering: crispEdges; image-rendering: pixelated; }
         .pixel-dot { fill: #ff3a3a; }
         .button-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.45em; width: 100%; }
-        .button-card { appearance: none; min-width: 4.5em; padding: 0.4em 0.35em 0.5em; border-radius: 0.2em; border: 1px solid #6b0000; background: linear-gradient(180deg, rgba(60, 0, 0, 0.9), rgba(25, 0, 0, 0.95)); color: #ff5555; text-align: center; text-shadow: none; box-shadow: inset 0 0 0.8em rgba(255, 0, 0, 0.12); font-family: 'Courier New', Courier, monospace; cursor: pointer; font-size: 1.3em; line-height: 1; }
-        .button-card span { display: block; color: #ff8f8f; margin-bottom: 0; }
+        .button-card { appearance: none; min-width: 4.5em; padding: 0.46em 0.5em; border: 2px solid #cc0000; border-radius: 0.25em; background: transparent; color: #cc0000; font-family: 'Courier New', monospace; font-size: 1.1em; font-weight: bold; text-transform: uppercase; cursor: pointer; text-align: center; transition: all 0.2s; }
+        .button-card:hover { background: #cc0000; color: #000000; box-shadow: 0 0 1em #cc0000; }
         @media (max-width: 520px) {
             html { font-size: 15px; }
             body { padding: 0.6em; }
@@ -291,7 +291,7 @@ void ConfigPortal::handleRoot() {
                     </div>
                     <div class="button-strip">
                         <button class="button-card" id="timerPrevBtn" type="button" aria-label="Previous"><span>◄</span></button>
-                        <button class="button-card" id="timerModeBtn" type="button" aria-label="Mode"><span>◎</span></button>
+                        <button class="button-card" id="timerModeBtn" type="button" aria-label="Mode"><span>●</span></button>
                         <button class="button-card" id="timerNextBtn" type="button" aria-label="Next"><span>►</span></button>
                     </div>
                 </div>
@@ -1059,13 +1059,13 @@ void ConfigPortal::handleRoot() {
 #endif
     html.replace("__HOTSPOT_OFF_CLASS__", hotspotOffClass);
     html.replace("__HOTSPOT_ON_CLASS__", hotspotOnClass);
-#if DIGIT_TRANSITIONS
+#if DIGIT_TRANSITIONS || SCREEN_TRANSITION
     html.replace("__ANIM_ROW__", R"rawliteral(
             <div class="setting-row">
                 <div class="setting-label">ANIM</div>
                 <select id="anim" onchange="applySetting('anim', this.value)">
-                    <option value="0" selected>OFF - No transition animation</option>
-                    <option value="1">MORPH - Line morph transitions</option>
+                    <option value="0" selected>OFF - Instant switching</option>
+                    <option value="1">ON - Enable transition animations</option>
                 </select>
             </div>
 )rawliteral");
@@ -1074,7 +1074,7 @@ void ConfigPortal::handleRoot() {
 #endif
     html.replace("__INITIAL_STYLE__", initialStyle);
     html.replace("__INITIAL_INFOLINE__", String((int)_settings.infoLineMode));
-#if DIGIT_TRANSITIONS
+#if DIGIT_TRANSITIONS || SCREEN_TRANSITION
     html.replace("__INITIAL_ANIM__", String((int)_settings.transitionMode));
 #else
     html.replace("__INITIAL_ANIM__", "0");
@@ -1284,7 +1284,7 @@ void ConfigPortal::handleApply() {
         settings.displayMode = clampDisplayMode(value.toInt());
     } else if (field == "infoline") {
         settings.infoLineMode = clampInfoLineMode(value.toInt());
-#if DIGIT_TRANSITIONS
+#if DIGIT_TRANSITIONS || SCREEN_TRANSITION
     } else if (field == "anim") {
         settings.transitionMode = clampTransitionMode(value.toInt());
 #endif
@@ -1356,7 +1356,7 @@ void ConfigPortal::handleApply() {
     }
 
     if (_previewCb && (field == "style" || field == "infoline"
-#if DIGIT_TRANSITIONS
+#if DIGIT_TRANSITIONS || SCREEN_TRANSITION
         || field == "anim"
 #endif
         || field == "separator" || field == "datestyle" || field == "timefmt" || field == "timezone" || field == "timeMode" || field == "manualtime" || field == "bellmode" || field == "brightness")) {
@@ -1386,7 +1386,7 @@ void ConfigPortal::handleStatus() {
     json += (int)_settings.displayMode;
     json += ",\"infoLineMode\":";
     json += (int)_settings.infoLineMode;
-#if DIGIT_TRANSITIONS
+#if DIGIT_TRANSITIONS || SCREEN_TRANSITION
     json += ",\"anim\":";
     json += (int)_settings.transitionMode;
 #endif

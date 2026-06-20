@@ -9,7 +9,7 @@
 
 #include "Config.h"
 #include "fonts.h"
-#if DIGIT_TRANSITIONS
+#if DIGIT_TRANSITIONS || SCREEN_TRANSITION
 #include "DigitTransition.h"
 #endif
 
@@ -582,7 +582,7 @@ ClockApp::ClockApp()
     , _wifiManager(_settingsStore)
     , _wifiSync(_wifiManager, _timeProvider, _rtcClock, _settingsStore, _appSettings)
     , _display(_leds, _menuController, _timerController, _timeProvider, _settingsStore, _wifiManager)
-#if DIGIT_TRANSITIONS
+#if DIGIT_TRANSITIONS || SCREEN_TRANSITION
     , _menuBindings{_appSettings, _settingsStore, _display, _bellController,
                     _timeProvider, _wifiManager, _bellMode, _savedDisplayMode, _timeFormat, _nightMode,
                     _appSettings.transitionMode}
@@ -745,7 +745,7 @@ void ClockApp::loadSettings() {
 #endif
     LOG("Clock style loaded: ");
     LOGLN(displayModeLabel(_appSettings.displayMode));
-#if DIGIT_TRANSITIONS
+#if DIGIT_TRANSITIONS || SCREEN_TRANSITION
     LOG("Animation mode loaded: ");
     LOGLN(transitionModeLabel(_appSettings.transitionMode));
 #endif
@@ -809,7 +809,7 @@ void ClockApp::reloadSettings() {
 #endif
     LOG("Clock style loaded: ");
     LOGLN(displayModeLabel(_appSettings.displayMode));
-#if DIGIT_TRANSITIONS
+#if DIGIT_TRANSITIONS || SCREEN_TRANSITION
     LOG("Animation mode loaded: ");
     LOGLN(transitionModeLabel(_appSettings.transitionMode));
 #endif

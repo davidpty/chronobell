@@ -64,7 +64,7 @@ enum class DriftSeparatorMode : uint8_t {
     Pulse = 1
 };
 
-#if DIGIT_TRANSITIONS
+#if DIGIT_TRANSITIONS || SCREEN_TRANSITION
 enum class TransitionMode : uint8_t {
     Off = 0,
     Morph = 1
@@ -97,7 +97,7 @@ struct AppSettings {
     SeparatorMode bigSeparator = SeparatorMode::Steady;
     InfoLineMode infoLineMode = InfoLineMode::Seconds;
     DriftSeparatorMode driftSeparator = DriftSeparatorMode::Steady;
-#if DIGIT_TRANSITIONS
+#if DIGIT_TRANSITIONS || SCREEN_TRANSITION
     TransitionMode transitionMode = TransitionMode::Morph;
 #endif
     ManualTimeSetting manualTime;
@@ -170,7 +170,7 @@ inline bool isRandomDisplayMode(DisplayMode mode) {
     return mode == DisplayMode::Rnd;
 }
 
-#if DIGIT_TRANSITIONS
+#if DIGIT_TRANSITIONS || SCREEN_TRANSITION
 inline const char* transitionModeLabel(TransitionMode mode) {
     switch (mode) {
         case TransitionMode::Off:   return "OFF";

@@ -148,6 +148,7 @@ private:
     bool _screenTransitionPending = false;
     uint16_t _screenIdentity = 0;
     bool _hasScreenIdentity = false;
+    uint16_t _lastContentHash = 0;
 #endif
     int8_t _userBrightness = 4;
     int8_t _brightness     = 4;

@@ -17,7 +17,7 @@ const char* SettingsStore::KEY_BELL_MODE = "bell";
 const char* SettingsStore::KEY_TIME_FORMAT = "time_fmt";
 const char* SettingsStore::KEY_NIGHT_MODE = "night";
 const char* SettingsStore::KEY_INFO_LINE_MODE = "info_line";
-#if DIGIT_TRANSITIONS
+#if DIGIT_TRANSITIONS || SCREEN_TRANSITION
 const char* SettingsStore::KEY_TRANSITION_MODE = "anim";
 #endif
 const char* SettingsStore::KEY_SEPARATOR_BIG = "sep_big";
@@ -60,7 +60,7 @@ AppSettings SettingsStore::load() {
     settings.timeFormat = clampTimeFormat(prefs.getUChar(KEY_TIME_FORMAT, (uint8_t)TimeFormat::Hours24));
     settings.nightMode = clampNightMode(prefs.getUChar(KEY_NIGHT_MODE, (uint8_t)NightMode::Off));
     settings.infoLineMode = clampInfoLineMode(prefs.getUChar(KEY_INFO_LINE_MODE, (uint8_t)InfoLineMode::Seconds));
-#if DIGIT_TRANSITIONS
+#if DIGIT_TRANSITIONS || SCREEN_TRANSITION
     settings.transitionMode = clampTransitionMode(prefs.getUChar(KEY_TRANSITION_MODE, (uint8_t)TransitionMode::Morph));
 #endif
     settings.bigSeparator = clampSeparatorMode(prefs.getUChar(KEY_SEPARATOR_BIG, (uint8_t)SeparatorMode::Steady));
@@ -93,7 +93,7 @@ bool SettingsStore::save(const AppSettings& settings) {
     prefs.putUChar(KEY_TIME_FORMAT, (uint8_t)settings.timeFormat);
     prefs.putUChar(KEY_NIGHT_MODE, (uint8_t)settings.nightMode);
     prefs.putUChar(KEY_INFO_LINE_MODE, (uint8_t)settings.infoLineMode);
-#if DIGIT_TRANSITIONS
+#if DIGIT_TRANSITIONS || SCREEN_TRANSITION
     prefs.putUChar(KEY_TRANSITION_MODE, (uint8_t)settings.transitionMode);
 #endif
     prefs.putUChar(KEY_SEPARATOR_BIG, (uint8_t)settings.bigSeparator);
@@ -277,7 +277,7 @@ bool SettingsStore::saveInfoLineMode(InfoLineMode mode) {
     return true;
 }
 
-#if DIGIT_TRANSITIONS
+#if DIGIT_TRANSITIONS || SCREEN_TRANSITION
 bool SettingsStore::saveTransitionMode(TransitionMode mode) {
     Preferences prefs;
     if (!prefs.begin(PREFS_NAMESPACE, false)) {

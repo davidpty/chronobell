@@ -16,7 +16,7 @@ public:
     bool saveTimeFormat(TimeFormat format);
     bool saveNightMode(NightMode mode);
     bool saveInfoLineMode(InfoLineMode mode);
-#if DIGIT_TRANSITIONS
+#if DIGIT_TRANSITIONS || SCREEN_TRANSITION
     bool saveTransitionMode(TransitionMode mode);
 #endif
     bool saveSeparatorMode(DisplayMode displayMode, SeparatorMode mode);
@@ -71,7 +71,7 @@ private:
     static const char* KEY_TIME_FORMAT;
     static const char* KEY_NIGHT_MODE;
     static const char* KEY_INFO_LINE_MODE;
-#if DIGIT_TRANSITIONS
+#if DIGIT_TRANSITIONS || SCREEN_TRANSITION
     static const char* KEY_TRANSITION_MODE;
 #endif
     static const char* KEY_SEPARATOR_BIG;

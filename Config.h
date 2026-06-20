@@ -30,13 +30,15 @@
 #define ENABLE_OTA                                  1                                   // ArduinoOTA (IDE network OTA); web portal upload is always enabled
 #define ENABLE_MDNS                                 1                                   // mDNS / Bonjour hostname advertisement
 
-#define DIGIT_TRANSITIONS                           1                                   // 0=off, 1=on (per-digit morph)
+#define DIGIT_TRANSITIONS                           1                                   // 0=remove engine, 1=include digit morph engine
 #define DIGIT_TRANSITION_MS                         300                                 // per-digit morph duration in ms
 
-#define SCREEN_TRANSITION                           1                                   // 0=off, 1=ShapeMorph, 2=ParticleDissolve
-#define SCREEN_TRANSITION_DURATION_MS               420                                 // whole-screen transition duration
-#define SCREEN_TRANSITION_PARTICLE_MAX              256                                 // fixed particle storage; no heap allocation
-#define SCREEN_TRANSITION_SETTLE_MS                 60                                  // final settling window
+#define SCREEN_TRANSITION                           1                                   // 0=remove engine, 1=include screen retune engine
+#define SCREEN_TRANSITION_MS                        500                                 // whole-screen transition duration
+//
+// The runtime ANIM toggle (menu/portal) controls all active engines:
+//   Off = no animations, Morph = enable whichever engines are compiled in.
+// The ANIM toggle is present whenever DIGIT_TRANSITIONS or SCREEN_TRANSITION is 1.
 
 // ---------------------------------------------------------------------------
 // Night mode
