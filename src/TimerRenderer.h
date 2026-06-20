@@ -29,13 +29,19 @@ public:
 private:
     void drawTimerDuration(uint32_t totalSeconds, bool blinkSeparator, uint8_t transitionKind);
     void drawStopwatchTime(uint64_t totalSec, uint8_t centisec, bool running);
+    void drawCountdownFinale(uint32_t totalSec, uint8_t centisec, bool running);
     void renderStopwatch();
     void renderCountdown();
     void renderCountdownAlert();
+    void resetDigitTransitions();
 
     Display* _display = nullptr;
     TimerController* _timer = nullptr;
     ClockRenderer* _clockRenderer = nullptr;
+    bool _lastStopwatchRunning = false;
+    bool _lastCountdownRunning = false;
+    uint64_t _lastStopwatchDisplayMs = 0;
+    uint32_t _lastCountdownDisplayMs = 0;
 #if DIGIT_TRANSITIONS
     digit_transition::DigitCellState _digitStates[5];
     uint8_t _transitionKind = 0xFF;

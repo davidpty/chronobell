@@ -161,20 +161,9 @@ void TimerController::update() {
     uint32_t now = millis();
 
     if (_countdownRunning) {
-        time_t epoch = 0;
-        if (_countdownTargetEpoch > 0 && currentEpoch(epoch)) {
-            if (epoch >= _countdownTargetEpoch) {
-                expireCountdown(now);
-            } else {
-                unsigned long remainingSeconds = (unsigned long)(_countdownTargetEpoch - epoch);
-                _countdownRemainingMs = remainingSeconds * 1000UL;
-                _countdownStartedMs = now;
-            }
-        } else {
-            uint32_t elapsed = now - _countdownStartedMs;
-            if (elapsed >= _countdownRemainingMs) {
-                expireCountdown(now);
-            }
+        uint32_t elapsed = now - _countdownStartedMs;
+        if (elapsed >= _countdownRemainingMs) {
+            expireCountdown(now);
         }
     }
 
@@ -474,25 +463,12 @@ uint64_t TimerController::stopwatchMs() const {
     if (!_stopwatchRunning) {
         return _stopwatchElapsedMs;
     }
-    time_t epoch = 0;
-    if (_stopwatchStartEpoch > 0 && currentEpoch(epoch) && epoch >= _stopwatchStartEpoch) {
-        uint64_t epochPart = (uint64_t)(epoch - _stopwatchStartEpoch) * 1000ULL;
-        uint64_t millisSub = (uint64_t)(millis() - _stopwatchStartedMs) % 1000ULL;
-        return _stopwatchElapsedMs + epochPart + millisSub;
-    }
     return _stopwatchElapsedMs + (uint64_t)(millis() - _stopwatchStartedMs);
 }
 
 uint32_t TimerController::countdownMs() const {
     if (!_countdownRunning) {
         return _countdownRemainingMs;
-    }
-    time_t epoch = 0;
-    if (_countdownTargetEpoch > 0 && currentEpoch(epoch)) {
-        if (epoch >= _countdownTargetEpoch) {
-            return 0;
-        }
-        return (uint32_t)(_countdownTargetEpoch - epoch) * 1000UL;
     }
     uint32_t elapsed = millis() - _countdownStartedMs;
     if (elapsed >= _countdownRemainingMs) {

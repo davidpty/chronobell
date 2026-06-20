@@ -113,9 +113,23 @@ void TimerRenderer::renderDateView() {
     _display->renderBuffer();
 }
 
+void TimerRenderer::resetDigitTransitions() {
+#if DIGIT_TRANSITIONS
+    resetTransitionDigits(_digitStates, 5);
+    _transitionKind = 0xFF;
+    _transitionLayout = 0xFF;
+#endif
+}
+
 void TimerRenderer::renderStopwatch() {
+    bool running = _timer->stopwatchRunning();
     uint64_t totalMs = _timer->stopwatchMs();
-    drawStopwatchTime(totalMs / 1000ULL, (uint8_t)((totalMs / 10ULL) % 100), _timer->stopwatchRunning());
+    if (running != _lastStopwatchRunning || totalMs < _lastStopwatchDisplayMs) {
+        resetDigitTransitions();
+    }
+    _lastStopwatchRunning = running;
+    _lastStopwatchDisplayMs = totalMs;
+    drawStopwatchTime(totalMs / 1000ULL, (uint8_t)((totalMs / 10ULL) % 100), running);
 }
 
 void TimerRenderer::drawStopwatchTime(uint64_t totalSec, uint8_t centisec, bool running) {
@@ -126,7 +140,7 @@ void TimerRenderer::drawStopwatchTime(uint64_t totalSec, uint8_t centisec, bool 
 
 #if DIGIT_TRANSITIONS
     uint8_t layoutKey = 0;
-    if (totalSec < 100) {
+    if (totalSec < 60) {
         layoutKey = 0;
     } else if (totalSec < 600) {
         layoutKey = 1;
@@ -145,7 +159,7 @@ void TimerRenderer::drawStopwatchTime(uint64_t totalSec, uint8_t centisec, bool 
                            layoutKey);
 #endif
 
-    if (totalSec < 100) {
+    if (totalSec < 60) {
         char buf[5];
         snprintf(buf, sizeof(buf), "%02u%02u", (unsigned)totalSec, (unsigned)centisec);
         int totalW = dw * 4 + sp * 3 + sw;
@@ -258,7 +272,7 @@ void TimerRenderer::drawStopwatchTime(uint64_t totalSec, uint8_t centisec, bool 
             x += dw + sp;
             if (i == 1) {
                 if (blink) {
-                    _display->setPixel(x, y + 4, true);
+                    _display->setPixel(x, y + 3, true);
                     _display->setPixel(x, y + 6, true);
                 }
                 x += sw + sp;
@@ -267,10 +281,62 @@ void TimerRenderer::drawStopwatchTime(uint64_t totalSec, uint8_t centisec, bool 
     }
 }
 
+void TimerRenderer::drawCountdownFinale(uint32_t totalSec, uint8_t centisec, bool running) {
+    (void)running;
+    const int y = 3;
+    const int dw = 6, sp = 1, sw = 1;
+    unsigned long nowMs = millis();
+
+#if DIGIT_TRANSITIONS
+    prepareTransitionState(_transitionKind,
+                           _transitionLayout,
+                           _digitStates,
+                           5,
+                           static_cast<uint8_t>(TimerTransitionKind::Countdown),
+                           0);
+#endif
+
+    char buf[5];
+    snprintf(buf, sizeof(buf), "%02u%02u", (unsigned)totalSec, (unsigned)centisec);
+    int totalW = dw * 4 + sp * 3 + sw;
+    int x = (COLS_PER_ROW - totalW) / 2;
+
+    for (int i = 0; i < 4; i++) {
+        uint8_t digit = (uint8_t)(buf[i] - '0');
+        if (i < 2) {
+#if DIGIT_TRANSITIONS
+            drawAnimatedGlyph(*_display, FONT_MEDIUM, _digitStates[i], true, digit, x, y, nowMs);
+#else
+            drawGlyph(*_display, FONT_MEDIUM, digit, x, y);
+#endif
+        } else {
+            drawGlyph(*_display, FONT_MEDIUM, digit, x, y);
+        }
+        x += dw + sp;
+        if (i == 1) {
+            _display->setPixel(x, y + 8, true);
+            x += sw + sp;
+        }
+    }
+}
+
 void TimerRenderer::renderCountdown() {
+    bool running = _timer->countdownRunning();
     uint32_t remainingMs = _timer->countdownMs();
-    uint32_t displaySeconds = (remainingMs + 999UL) / 1000UL;
-    drawTimerDuration(displaySeconds, _timer->countdownRunning(), static_cast<uint8_t>(TimerTransitionKind::Countdown));
+    if (running != _lastCountdownRunning ||
+        (!running && remainingMs != _lastCountdownDisplayMs)) {
+        resetDigitTransitions();
+    }
+    _lastCountdownRunning = running;
+    _lastCountdownDisplayMs = remainingMs;
+    if (remainingMs < 10000UL) {
+        uint32_t sec = remainingMs / 1000UL;
+        uint8_t centisec = (remainingMs / 10UL) % 100UL;
+        drawCountdownFinale(sec, centisec, running);
+    } else {
+        uint32_t displaySeconds = (remainingMs + 999UL) / 1000UL;
+        drawTimerDuration(displaySeconds, running, static_cast<uint8_t>(TimerTransitionKind::Countdown));
+    }
 }
 
 void TimerRenderer::renderCountdownAlert() {
@@ -325,7 +391,12 @@ void TimerRenderer::drawTimerDuration(uint32_t totalSeconds, bool blinkSeparator
         x += digitWidth + spacing;
         if (i == digitCount - 3) {
             if (blinkSeparator && ((millis() / 500UL) % 2UL) == 0) {
-                _display->drawTimerColon(x, startY);
+                if (transitionKind == static_cast<uint8_t>(TimerTransitionKind::Countdown)) {
+                    _display->setPixel(x, startY + 3, true);
+                    _display->setPixel(x, startY + 6, true);
+                } else {
+                    _display->drawTimerColon(x, startY);
+                }
             }
             x += sepWidth + spacing;
         }

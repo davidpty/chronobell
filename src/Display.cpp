@@ -615,7 +615,7 @@ void Display::drawBigChar(char c, int x, int y) {
 }
 
 void Display::drawTimerColon(int x, int y) {
-    setPixel(x, y + 4, true);
+    setPixel(x, y + 3, true);
     setPixel(x, y + 6, true);
 }
 
