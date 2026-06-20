@@ -74,8 +74,8 @@
 #define MENU_TIMEOUT_SHORT_SECONDS                  15                                  // Auto-exit short-lived views after this much inactivity
 #define MENU_TIMEOUT_LONG_SECONDS                   30                                  // Auto-cancel longer edit flows after this much inactivity
 
-#define BLINK_ON_MS                                 800                                 // Blink visible duration (menu, timer alert, etc.)
-#define BLINK_OFF_MS                                200                                 // Blink blank duration (menu, timer alert, etc.)
+#define BLINK_ON_MS                                 900                                 // Blink visible duration (menu, timer alert, etc.)
+#define BLINK_OFF_MS                                100                                 // Blink blank duration (menu, timer alert, etc.)
 
 #define LAST_STYLE_TIMEOUT_MINUTES                  360                                 // Reset remembered clock view to configured View after N idle min (0=off)
 #define LAST_DATEVIEW_TIMEOUT_MINUTES               5                                   // Reset remembered date view to configured after N idle min (0=off)
