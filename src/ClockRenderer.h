@@ -4,6 +4,7 @@
 #include <Arduino.h>
 
 #include "AppSettings.h"
+#include "DigitTransition.h"
 #include "RtcClock.h"
 
 class Display;
@@ -89,6 +90,11 @@ private:
     bool _driftStyleActive = false;
     SeparatorMode _separatorMode = SeparatorMode::Steady;
     DriftSeparatorMode _driftSeparatorMode = DriftSeparatorMode::Steady;
+#if TRANSITION
+    digit_transition::DigitCellState _bigDigitStates[4];
+    digit_transition::DigitCellState _mediumDigitStates[4];
+    digit_transition::DigitCellState _smallDigitStates[2];
+#endif
 };
 
 #endif // CLOCK_RENDERER_H

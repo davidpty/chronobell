@@ -31,6 +31,17 @@
 #define ENABLE_MDNS                                 1                                   // mDNS / Bonjour hostname advertisement
 
 // ---------------------------------------------------------------------------
+// Clock digit transitions
+// ---------------------------------------------------------------------------
+// Compile-time selector for the active digit transition.
+// 0 = off, 1 = morph.
+
+#define TRANSITION_OFF                              0
+#define TRANSITION_MORPH                            1
+#define TRANSITION                                  TRANSITION_MORPH
+#define TRANSITION_MS                               500                                 // Morph duration in milliseconds
+
+// ---------------------------------------------------------------------------
 // Night mode
 // ---------------------------------------------------------------------------
 

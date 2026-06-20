@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 
+#include "DigitTransition.h"
 #include "TimerController.h"
 
 class ClockRenderer;
@@ -26,7 +27,7 @@ public:
     void renderDateView();
 
 private:
-    void drawTimerDuration(uint32_t totalSeconds, bool blinkSeparator);
+    void drawTimerDuration(uint32_t totalSeconds, bool blinkSeparator, uint8_t transitionKind);
     void drawStopwatchTime(uint64_t totalSec, uint8_t centisec, bool running);
     void renderStopwatch();
     void renderCountdown();
@@ -35,6 +36,11 @@ private:
     Display* _display = nullptr;
     TimerController* _timer = nullptr;
     ClockRenderer* _clockRenderer = nullptr;
+#if TRANSITION
+    digit_transition::DigitCellState _digitStates[5];
+    uint8_t _transitionKind = 0xFF;
+    uint8_t _transitionLayout = 0xFF;
+#endif
 };
 
 #endif // TIMER_RENDERER_H

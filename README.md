@@ -201,6 +201,7 @@ Open `Config.h` to adjust these:
 | `TIME_SYNC_INTERVAL_MINUTES` | `60` | How often NTP re-syncs |
 | `RND_STYLE_INTERVAL_HOURS` | `24` | RND change interval aligned to local midnight (`3` = 00:00, 03:00, 06:00...) |
 | `HOTSPOT_TIMEOUT_MINUTES` | `0` | Auto-stop hotspot after N minutes (`0` = stays on) |
+| `TRANSITION` | `0` | Compile-time digit transition selector (`0` = off, `1` = morph) |
 | `DRIFT_MAX_OFFSET_MINUTES` | `8` | Maximum distance from real time in either direction |
 | `DRIFT_PATTERN` | `0` | 0=behind↔ahead, 1=real→behind→real, 2=real→ahead→real |
 | `DRIFT_TIME_TO_MAX_OFFSET_MINUTES` | `60` | Minutes from real time to maximum offset; pattern 0 takes twice this between extremes |

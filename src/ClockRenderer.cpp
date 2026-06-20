@@ -1,6 +1,7 @@
 #include "ClockRenderer.h"
 
 #include "Config.h"
+#include "DigitTransition.h"
 #include "Display.h"
 #include "RtcClock.h"
 #include "TimeProvider.h"
@@ -90,6 +91,24 @@ void drawCenteredTextWithSpacingFallback(Display& display,
     int width = Display::textWidth(text, small, 1, 2);
     int x = (COLS_PER_ROW - width) / 2;
     display.drawText(text, x, y, small, 1, 2);
+}
+
+template <size_t GlyphCount, size_t Rows, size_t Cols>
+void drawGlyph(Display& display,
+               const uint8_t (&font)[GlyphCount][Rows][Cols],
+               int glyphIndex,
+               int x,
+               int y) {
+    digit_transition::draw_glyph(
+        [&](int px, int py, bool on) {
+            if (on) {
+                display.setPixel(px, py, true);
+            }
+        },
+        font,
+        glyphIndex,
+        x,
+        y);
 }
 
 static void appendRomanNumeral(int value, char* out, size_t outSize) {
@@ -464,13 +483,46 @@ void ClockRenderer::drawBigTimeInternal(int hours, int minutes, int seconds, boo
     int totalWidth = (digitWidth * totalDigits) + (spacing * ((hours >= 10) ? 2 : 1)) + sepSpacingBefore + sepSpacingAfter + sepWidth;
     int startX = (COLS_PER_ROW - totalWidth) / 2;
     int startY = 0;
+    unsigned long nowMs = millis();
 
     int x = startX;
     if (hours >= 10) {
+#if TRANSITION
+        digit_transition::render_digit_cell(
+            [&](int px, int py, bool on) {
+                if (on) {
+                    _display->setPixel(px, py, true);
+                }
+            },
+            FONT_BIG,
+            _bigDigitStates[0],
+            true,
+            (uint8_t)(hours / 10),
+            x,
+            startY,
+            nowMs);
+#else
         drawBigTimeDigit(hours / 10, x, startY);
+#endif
         x += digitWidth + spacing;
     }
+#if TRANSITION
+    digit_transition::render_digit_cell(
+        [&](int px, int py, bool on) {
+            if (on) {
+                _display->setPixel(px, py, true);
+            }
+        },
+        FONT_BIG,
+        _bigDigitStates[1],
+        true,
+        (uint8_t)(hours % 10),
+        x,
+        startY,
+        nowMs);
+#else
     drawBigTimeDigit(hours % 10, x, startY);
+#endif
     x += digitWidth + sepSpacingBefore;
 
     int sepX = x;
@@ -481,9 +533,41 @@ void ClockRenderer::drawBigTimeInternal(int hours, int minutes, int seconds, boo
     }
     x += sepWidth + sepSpacingAfter;
 
+#if TRANSITION
+    digit_transition::render_digit_cell(
+        [&](int px, int py, bool on) {
+            if (on) {
+                _display->setPixel(px, py, true);
+            }
+        },
+        FONT_BIG,
+        _bigDigitStates[2],
+        true,
+        (uint8_t)(minutes / 10),
+        x,
+        startY,
+        nowMs);
+#else
     drawBigTimeDigit(minutes / 10, x, startY);
+#endif
     x += digitWidth + spacing;
+#if TRANSITION
+    digit_transition::render_digit_cell(
+        [&](int px, int py, bool on) {
+            if (on) {
+                _display->setPixel(px, py, true);
+            }
+        },
+        FONT_BIG,
+        _bigDigitStates[3],
+        true,
+        (uint8_t)(minutes % 10),
+        x,
+        startY,
+        nowMs);
+#else
     drawBigTimeDigit(minutes % 10, x, startY);
+#endif
 }
 
 void ClockRenderer::drawDriftTime(int hours, int minutes, int seconds, int offsetMinutes, bool freshChange, bool separatorVisible, int driftDirection) {
@@ -500,22 +584,87 @@ void ClockRenderer::drawTime(int hours, int minutes, int seconds) {
     int totalWidth = (digitWidth * totalDigits) + (TIME_FONT_SPACING * ((hours >= 10) ? 2 : 1)) + sepSpacingBefore + sepSpacingAfter + TIME_SEP_WIDTH;
     int startX = (COLS_PER_ROW - totalWidth) / 2;
     int startY = 0;
+    unsigned long nowMs = millis();
 
     int x = startX;
     if (hours >= 10) {
+#if TRANSITION
+        digit_transition::render_digit_cell(
+            [&](int px, int py, bool on) {
+                if (on) {
+                    _display->setPixel(px, py, true);
+                }
+            },
+            FONT_MEDIUM,
+            _mediumDigitStates[0],
+            true,
+            (uint8_t)(hours / 10),
+            x,
+            startY,
+            nowMs);
+#else
         drawTimeDigit(hours / 10, x, startY);
+#endif
         x += digitWidth + TIME_FONT_SPACING;
     }
+#if TRANSITION
+    digit_transition::render_digit_cell(
+        [&](int px, int py, bool on) {
+            if (on) {
+                _display->setPixel(px, py, true);
+            }
+        },
+        FONT_MEDIUM,
+        _mediumDigitStates[1],
+        true,
+        (uint8_t)(hours % 10),
+        x,
+        startY,
+        nowMs);
+#else
     drawTimeDigit(hours % 10, x, startY);
+#endif
     x += digitWidth + sepSpacingBefore;
 
     int sepX = x;
     drawSeparator(sepX, startY, seconds);
     x += TIME_SEP_WIDTH + sepSpacingAfter;
 
+#if TRANSITION
+    digit_transition::render_digit_cell(
+        [&](int px, int py, bool on) {
+            if (on) {
+                _display->setPixel(px, py, true);
+            }
+        },
+        FONT_MEDIUM,
+        _mediumDigitStates[2],
+        true,
+        (uint8_t)(minutes / 10),
+        x,
+        startY,
+        nowMs);
+#else
     drawTimeDigit(minutes / 10, x, startY);
+#endif
     x += digitWidth + TIME_FONT_SPACING;
+#if TRANSITION
+    digit_transition::render_digit_cell(
+        [&](int px, int py, bool on) {
+            if (on) {
+                _display->setPixel(px, py, true);
+            }
+        },
+        FONT_MEDIUM,
+        _mediumDigitStates[3],
+        true,
+        (uint8_t)(minutes % 10),
+        x,
+        startY,
+        nowMs);
+#else
     drawTimeDigit(minutes % 10, x, startY);
+#endif
 }
 
 void ClockRenderer::drawBigTime(int hours, int minutes, int seconds) {
@@ -716,27 +865,11 @@ void ClockRenderer::drawWeekdayTime(ClockTime time) {
 }
 
 void ClockRenderer::drawTimeDigit(uint8_t digit, int x, int y) {
-    if (digit > 9) return;
-
-    for (int row = 0; row < TIME_FONT_MEDIUM_HEIGHT; row++) {
-        for (int col = 0; col < 6; col++) {
-            if (FONT_MEDIUM[digit][row][col]) {
-                _display->setPixel(x + col, y + row, true);
-            }
-        }
-    }
+    drawGlyph(*_display, FONT_MEDIUM, digit, x, y);
 }
 
 void ClockRenderer::drawBigTimeDigit(uint8_t digit, int x, int y) {
-    if (digit > 9) return;
-
-    for (int row = 0; row < TIME_FONT_BIG_HEIGHT; row++) {
-        for (int col = 0; col < 6; col++) {
-            if (FONT_BIG[digit][row][col]) {
-                _display->setPixel(x + col, y + row, true);
-            }
-        }
-    }
+    drawGlyph(*_display, FONT_BIG, digit, x, y);
 }
 
 void ClockRenderer::drawBinaryRow(uint8_t value, int y) {
@@ -773,9 +906,39 @@ void ClockRenderer::drawSeconds(int seconds) {
     int totalWidth = (digitWidth * 2) + SEC_FONT_SPACING;
     int startX = (COLS_PER_ROW - totalWidth) / 2 + 1;
     int startY = 11;
+    unsigned long nowMs = millis();
 
+#if TRANSITION
+    digit_transition::render_digit_cell(
+        [&](int px, int py, bool on) {
+            if (on) {
+                _display->setPixel(px, py, true);
+            }
+        },
+        FONT_SMALL,
+        _smallDigitStates[0],
+        true,
+        (uint8_t)(seconds / 10),
+        startX,
+        startY,
+        nowMs);
+    digit_transition::render_digit_cell(
+        [&](int px, int py, bool on) {
+            if (on) {
+                _display->setPixel(px, py, true);
+            }
+        },
+        FONT_SMALL,
+        _smallDigitStates[1],
+        true,
+        (uint8_t)(seconds % 10),
+        startX + digitWidth + SEC_FONT_SPACING,
+        startY,
+        nowMs);
+#else
     drawSecDigit(seconds / 10, startX, startY);
     drawSecDigit(seconds % 10, startX + digitWidth + SEC_FONT_SPACING, startY);
+#endif
 }
 
 void ClockRenderer::drawDeciseconds(int seconds, uint8_t deciseconds) {
@@ -785,10 +948,43 @@ void ClockRenderer::drawDeciseconds(int seconds, uint8_t deciseconds) {
     int startX = (COLS_PER_ROW - totalWidth) / 2 + 1;
     int startY = 11;
     int x = startX;
+    unsigned long nowMs = millis();
 
+#if TRANSITION
+    digit_transition::render_digit_cell(
+        [&](int px, int py, bool on) {
+            if (on) {
+                _display->setPixel(px, py, true);
+            }
+        },
+        FONT_SMALL,
+        _smallDigitStates[0],
+        true,
+        (uint8_t)(seconds / 10),
+        x,
+        startY,
+        nowMs);
+#else
     drawSecDigit(seconds / 10, x, startY);
+#endif
     x += digitWidth + SEC_FONT_SPACING;
+#if TRANSITION
+    digit_transition::render_digit_cell(
+        [&](int px, int py, bool on) {
+            if (on) {
+                _display->setPixel(px, py, true);
+            }
+        },
+        FONT_SMALL,
+        _smallDigitStates[1],
+        true,
+        (uint8_t)(seconds % 10),
+        x,
+        startY,
+        nowMs);
+#else
     drawSecDigit(seconds % 10, x, startY);
+#endif
     x += digitWidth + SEC_FONT_SPACING;
 
     _display->setPixel(x, startY + SEC_FONT_HEIGHT - 1, true);
@@ -798,15 +994,7 @@ void ClockRenderer::drawDeciseconds(int seconds, uint8_t deciseconds) {
 }
 
 void ClockRenderer::drawSecDigit(uint8_t digit, int x, int y) {
-    if (digit > 9) return;
-
-    for (int row = 0; row < SEC_FONT_HEIGHT; row++) {
-        for (int col = 0; col < 4; col++) {
-            if (FONT_SMALL[digit][row][col]) {
-                _display->setPixel(x + col, y + row, true);
-            }
-        }
-    }
+    drawGlyph(*_display, FONT_SMALL, digit, x, y);
 }
 
 int ClockRenderer::textWidth(const char* s, int cellW, int letterSpacing, int wordGap) const {
