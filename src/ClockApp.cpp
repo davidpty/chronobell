@@ -612,6 +612,7 @@ void ClockApp::beginControllers() {
     _display.setTimeFormat(&_timeFormat);
     _display.setDateStyle(&_activeDateStyle);
     _display.setGuestWifiController(&_guestWifi);
+    _display.setNewYearController(&_newYearController);
 
     _wifiManager.setOtaDisplayCallback(handleOtaDisplay, this);
     _wifiManager.setTimeProvider(&_timeProvider);
@@ -841,6 +842,7 @@ void ClockApp::applyManualTime() {
 }
 
 void ClockApp::render() {
+    updateNewYearState();
     syncDisplayModeSelection();
     syncDateStyleSelection();
     applyEffectiveDisplayBrightness();
@@ -957,21 +959,53 @@ void ClockApp::tickMenu() {
 }
 
 void ClockApp::updateBellSchedule() {
-    int h = 0, m = 0, s = 0;
-    bool timeValid = getCurrentClockTime(h, m, s);
-    ClockTime time;
-    time.hours = h;
-    time.minutes = m;
-    time.seconds = s;
+    ClockTime realTime;
+    ClockDate realDate;
+    bool timeValid = updateNewYearState(&realTime, &realDate);
+    ClockTime time = realTime;
     if (timeValid && _displayMode == DisplayMode::Drift) {
         unsigned long nowMs = millis();
         _driftTimeModel.update(time, nowMs);
         time = _driftTimeModel.displayTime(time, nowMs);
     }
-    bool muteAutomatic = _nightModeController.shouldMuteAutomaticBell(time);
+    bool muteAutomatic = _nightModeController.shouldMuteAutomaticBell(realTime);
+
+    if (_newYearController.hasMidnightBellRequest()) {
+        bool bellPermitted = NEW_YEAR_FORCE_BELL ||
+                             (_bellMode != BellMode::Off && !muteAutomatic);
+        if (!bellPermitted) {
+            _newYearController.resolveMidnightBellRequest();
+        } else if (!_timerController.isCountdownExpired() && !_bellController.isBusy()) {
+            _bellController.queueNewYearAlert();
+            _newYearController.resolveMidnightBellRequest();
+        }
+    }
+
+    if (_newYearController.hasCountdownStartRequest()) {
+        if (!_bellController.isBusy()) {
+            _bellController.queueCountdownStartAlert();
+            _newYearController.resolveCountdownStartRequest();
+        }
+    }
+
+    bool suppressScheduledStrike = _newYearController.isCelebrating() &&
+                                   realTime.hours == 0 && realTime.minutes == 0 &&
+                                   realTime.seconds <= 1;
     _bellController.update(time, timeValid, _bellMode,
                            _timerController.isCountdownExpired(),
-                           muteAutomatic);
+                           muteAutomatic, suppressScheduledStrike);
+}
+
+bool ClockApp::updateNewYearState(ClockTime* timeOut, ClockDate* dateOut) {
+    ClockTime time;
+    ClockDate date;
+    bool valid = _timeProvider.currentTime(time) && _timeProvider.currentDate(date);
+    if (valid) {
+        _newYearController.update(date, time, _timeProvider.milliseconds());
+        if (timeOut) *timeOut = time;
+        if (dateOut) *dateOut = date;
+    }
+    return valid;
 }
 
 void ClockApp::syncDisplayModeSelection() {
@@ -1163,7 +1197,9 @@ void ClockApp::applyEffectiveDisplayBrightness() {
     now.minutes = m;
     now.seconds = s;
     int8_t effective = _nightModeController.tick(now, _display.getUserBrightness());
-    bool enabled = !_nightModeController.isDisplaySuppressed();
+    effective = _newYearController.boostedBrightness(effective, _display.getUserBrightness());
+    bool enabled = !_nightModeController.isDisplaySuppressed() ||
+                   _newYearController.shouldWakeDisplay();
     if (enabled != _display.isEnabled()) {
         _display.setEnabled(enabled);
     }

@@ -12,6 +12,7 @@
 #include "MenuController.h"
 #include "MenuConfig.h"
 #include "NightModeController.h"
+#include "NewYearController.h"
 #include "RtcClock.h"
 #include "SettingsStore.h"
 #include "TimeProvider.h"
@@ -136,6 +137,7 @@ private:
     WiFiSync         _wifiSync;
     GuestWifiController _guestWifi;
     DriftTimeModel  _driftTimeModel;
+    NewYearController _newYearController;
     Display          _display;
     NightModeController _nightModeController;
 
@@ -167,6 +169,7 @@ private:
 
     // --- Private helpers ---
     void applyEffectiveDisplayBrightness();
+    bool updateNewYearState(ClockTime* time = nullptr, ClockDate* date = nullptr);
     void updateBellSchedule();
     void syncDisplayModeSelection();
     void syncDateStyleSelection();

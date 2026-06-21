@@ -15,6 +15,8 @@
 class ClockRenderer;
 class DriftTimeModel;
 class MenuRenderer;
+class NewYearController;
+class NewYearRenderer;
 class SettingsStore;
 class TimeProvider;
 class TimerController;
@@ -79,10 +81,13 @@ public:
 
     // --- Pixel buffer / font helpers exposed to the renderer classes ---
     void setPixel(uint8_t x, uint8_t y, bool value);
+    bool getPixel(uint8_t x, uint8_t y) const;
+    void togglePixel(uint8_t x, uint8_t y);
     void setAnimationPixel(uint8_t x, uint8_t y, bool value);
     void setSnapshotPixel(uint8_t x, uint8_t y, bool value);
     void clearBuffer();
     void renderBuffer();
+    void applyBurstBoost(int8_t boost);
     String snapshotSvg() const;
 
     // Tabular digit helpers for live time/timer displays. These keep every
@@ -102,6 +107,7 @@ public:
 
     // Guest WiFi alternating SSID / password display
     void setGuestWifiController(GuestWifiController* c);
+    void setNewYearController(NewYearController* c);
     void drawGuestWifiText(bool showSsid);
 
     static int charWidth(char c, bool small);
@@ -123,6 +129,7 @@ private:
     ClockRenderer*  _clockRenderer  = nullptr;
     MenuRenderer*   _menuRenderer   = nullptr;
     TimerRenderer*  _timerRenderer  = nullptr;
+    NewYearRenderer* _newYearRenderer = nullptr;
 
     MD_MAX72XX& _leds;
     MenuController& _menu;
@@ -131,6 +138,7 @@ private:
     SettingsStore& _settings;
     WiFiManagerLite& _wifiManager;
     GuestWifiController* _guestWifi = nullptr;
+    NewYearController* _newYear = nullptr;
 
     void* _menuBindings = nullptr;
     DisplayMode* _displayMode = nullptr;

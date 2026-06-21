@@ -5,6 +5,8 @@
 #include "DriftTimeModel.h"
 #include "MenuBindings.h"
 #include "MenuRenderer.h"
+#include "NewYearController.h"
+#include "NewYearRenderer.h"
 #include "RtcClock.h"
 #include "SettingsStore.h"
 #include "TimeProvider.h"
@@ -47,12 +49,16 @@ void Display::begin() {
     _clockRenderer  = new ClockRenderer();
     _menuRenderer   = new MenuRenderer();
     _timerRenderer  = new TimerRenderer();
+    _newYearRenderer = new NewYearRenderer();
 
     _clockRenderer->init(*this, _timeProvider);
     _clockRenderer->setTimeFormat(_timeFormat);
     _clockRenderer->setInfoLineMode(_appSettings ? &_appSettings->infoLineMode : nullptr);
     _menuRenderer->init(*this, _menu);
     _timerRenderer->init(*this, _timer, *_clockRenderer);
+    if (_newYear) {
+        _newYearRenderer->init(*this, *_newYear);
+    }
 }
 
 void Display::setUserBrightness(int8_t v) {
@@ -67,6 +73,13 @@ void Display::setBrightness(int8_t v) {
     if (v < 0) v = 0;
     if (v > 15) v = 15;
     _brightness = v;
+    _leds.control(MD_MAX72XX::INTENSITY, v);
+}
+
+void Display::applyBurstBoost(int8_t boost) {
+    int8_t v = _brightness + boost;
+    if (v < 0) v = 0;
+    if (v > 15) v = 15;
     _leds.control(MD_MAX72XX::INTENSITY, v);
 }
 
@@ -113,6 +126,13 @@ void Display::setDateStyle(DateStyle* dateStyle) {
 
 void Display::setGuestWifiController(GuestWifiController* c) {
     _guestWifi = c;
+}
+
+void Display::setNewYearController(NewYearController* c) {
+    _newYear = c;
+    if (_newYearRenderer && _newYear) {
+        _newYearRenderer->init(*this, *_newYear);
+    }
 }
 
 DateStyle Display::currentDateStyle() const {
@@ -229,6 +249,14 @@ void Display::showTime() {
             break;
     }
 
+    if (_newYear && _newYear->isActive() && _newYearRenderer) {
+        if (_newYear->takesOverDisplay()) {
+            _newYearRenderer->renderTakeover();
+        } else {
+            _newYearRenderer->renderOverlay();
+        }
+    }
+
     renderBuffer();
 }
 
@@ -295,6 +323,18 @@ void Display::setPixel(uint8_t x, uint8_t y, bool value) {
     if (x < COLS_PER_ROW && y < TOTAL_ROWS) {
         pixelBuffer[x][y] = value;
         setSnapshotPixel(x, y, value);
+    }
+}
+
+bool Display::getPixel(uint8_t x, uint8_t y) const {
+    if (x >= COLS_PER_ROW || y >= TOTAL_ROWS) return false;
+    return pixelBuffer[x][y];
+}
+
+void Display::togglePixel(uint8_t x, uint8_t y) {
+    if (x < COLS_PER_ROW && y < TOTAL_ROWS) {
+        pixelBuffer[x][y] = !pixelBuffer[x][y];
+        setSnapshotPixel(x, y, pixelBuffer[x][y]);
     }
 }
 
@@ -418,6 +458,8 @@ void Display::noteScreenIdentity() {
         identity = 0x400;
     } else if (_timer.isCountdownView() || _timer.isCountdownExpired()) {
         identity = 0x500;
+    } else if (_newYear && _newYear->isActive() && _newYear->takesOverDisplay()) {
+        identity = 0x580 | (uint8_t)_newYear->phase();
     } else {
         DisplayMode mode = _displayMode ? *_displayMode : DisplayMode::LargeDigitsOnly;
         identity = 0x600 | (uint8_t)mode;

@@ -9,9 +9,12 @@ class BellController {
 public:
     void begin();
     void update(const ClockTime& currentTime, bool timeValid, BellMode mode,
-                bool countdownExpired, bool muteAutomatic = false);
+                bool countdownExpired, bool muteAutomatic = false,
+                bool suppressScheduledStrike = false);
     void preview(BellMode mode, const ClockTime& currentTime, bool timeValid);
     void queueCountdownAlert();
+    void queueNewYearAlert();
+    void queueCountdownStartAlert();
     void stop();
     bool isBusy() const;
 

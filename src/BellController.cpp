@@ -8,8 +8,10 @@ void BellController::begin() {
 }
 
 void BellController::update(const ClockTime& currentTime, bool timeValid, BellMode mode,
-                            bool countdownExpired, bool muteAutomatic) {
-    if (!countdownExpired && !muteAutomatic && mode != BellMode::Off && !_sequenceActive && timeValid) {
+                            bool countdownExpired, bool muteAutomatic,
+                            bool suppressScheduledStrike) {
+    if (!suppressScheduledStrike && !countdownExpired && !muteAutomatic &&
+        mode != BellMode::Off && !_sequenceActive && timeValid) {
         if ((currentTime.minutes == 0 || currentTime.minutes == 30) && currentTime.seconds <= 1) {
             int eventKey = (currentTime.hours * 60) + currentTime.minutes;
             if (eventKey != _lastEventKey) {
@@ -56,6 +58,17 @@ void BellController::queueCountdownAlert() {
     }
 
     queuePattern(totalStrikes, kCountdownAlertPattern, groupCount, true);
+}
+
+void BellController::queueNewYearAlert() {
+    // Twelve ungrouped strikes: recognizable as midnight and distinct from
+    // the countdown timer's 3-2-1 pattern.
+    queue(12, 0, true, "Queued New Year strikes: ");
+}
+
+void BellController::queueCountdownStartAlert() {
+    // Three grouped strikes at the start of the final 10-minute countdown.
+    queue(3, 3, true, "Countdown start: ");
 }
 
 void BellController::stop() {
