@@ -27,6 +27,7 @@ ChronoBell is a compact ESP32 clock with a 32x16 LED display, touch controls, co
 - **Night mode** - Dim the display, turn it off, mute the bell, or any combo - all on a schedule. Touch the clock to wake it for a minute.
 - **Manual time** - Switch from atomic (NTP + RTC) to manual and step through HH→MM→SS→Month→Day→Year. Persists across reboots.
 - **Config portal** - Scan WiFi networks, pick a timezone, tune display and bell settings, upload firmware - all from a browser.
+- **New Year's Eve easter egg** - On Dec 31 from 6 PM, tiny sparkles appear and grow more frequent through the evening. At midnight the display shows a countdown, rings 12 bell strikes, and cycles through "HAPPY NEW YEAR". Enable daily test mode to run it every day for testing.
 - **Timekeeping** - NTP syncs every 60 minutes when WiFi is available. The RTC keeps time when it's not. Manual mode bypasses both.
 - **OTA updates** - Push firmware over the air at `chronobell.local`.
 
@@ -207,6 +208,11 @@ Open `Config.h` to adjust these:
 | `DRIFT_MAX_OFFSET_MINUTES` | `8` | Maximum distance from real time in either direction |
 | `DRIFT_PATTERN` | `0` | 0=behind↔ahead, 1=real→behind→real, 2=real→ahead→real |
 | `DRIFT_TIME_TO_MAX_OFFSET_MINUTES` | `60` | Minutes from real time to maximum offset; pattern 0 takes twice this between extremes |
+| `ENABLE_NEW_YEAR_EASTER_EGG` | `1` | Set to `0` to remove the entire NYE sequence (saves ~2KB flash) |
+| `NEW_YEAR_DAILY_TEST` | `1` | Run the 6-hour sequence every day instead of only Dec 31 |
+| `NEW_YEAR_WAKE_DISPLAY` | `1` | Force the display on during the final 10 seconds and celebration |
+| `NEW_YEAR_FORCE_BELL` | `1` | Ring the bell at midnight even if bell mode is Off |
+| `NEW_YEAR_BRIGHTNESS_BOOST` | `1` | Gradually ramp brightness from night-mode dim to user level during the final 10 minutes |
 
 ---
 
