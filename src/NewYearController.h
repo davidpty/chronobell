@@ -27,8 +27,12 @@ public:
     bool shouldWakeDisplay() const;
     bool hasMidnightBellRequest() const { return _midnightBellPending; }
     void resolveMidnightBellRequest() { _midnightBellPending = false; }
-    bool hasCountdownStartRequest() const { return _countdownStartPending; }
-    void resolveCountdownStartRequest() { _countdownStartPending = false; }
+    bool hasCountdownTickRequest() const { return _countdownTickPending; }
+    void resolveCountdownTickRequest() { _countdownTickPending = false; }
+    bool hasCountdownSecondTickRequest() const { return _countdownSecondTickPending; }
+    void resolveCountdownSecondTickRequest() { _countdownSecondTickPending = false; }
+    bool hasCountdownTenSecRequest() const { return _countdownTenSecPending; }
+    void resolveCountdownTenSecRequest() { _countdownTenSecPending = false; }
 
     NewYearPhase phase() const { return _phase; }
     uint8_t particleCount() const;
@@ -52,7 +56,11 @@ private:
     int _incomingYear = 0;
     int _eventKey = 0;
     bool _midnightBellPending = false;
-    bool _countdownStartPending = false;
+    bool _countdownTickPending = false;
+    bool _countdownSecondTickPending = false;
+    bool _countdownTenSecPending = false;
+    int8_t _lastCountdownMinute = -1;
+    int8_t _lastCountdownSecond = -1;
 };
 
 #else
@@ -66,8 +74,12 @@ public:
     bool shouldWakeDisplay()      const { return false; }
     bool hasMidnightBellRequest() const { return false; }
     void resolveMidnightBellRequest() {}
-    bool hasCountdownStartRequest() const { return false; }
-    void resolveCountdownStartRequest() {}
+    bool hasCountdownTickRequest() const { return false; }
+    void resolveCountdownTickRequest() {}
+    bool hasCountdownSecondTickRequest() const { return false; }
+    void resolveCountdownSecondTickRequest() {}
+    bool hasCountdownTenSecRequest() const { return false; }
+    void resolveCountdownTenSecRequest() {}
     NewYearPhase phase()          const { return NewYearPhase::Inactive; }
     uint8_t particleCount()       const { return 0; }
     uint16_t accentPeriodMs()     const { return 0; }

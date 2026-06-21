@@ -71,6 +71,21 @@ void BellController::queueCountdownStartAlert() {
     queue(3, 3, true, "Countdown start: ");
 }
 
+void BellController::queueCountdownTickAlert() {
+    // Three grouped strikes every minute of the countdown.
+    queue(3, 3, true, "Countdown tick: ");
+}
+
+void BellController::queueCountdownSecondTickAlert() {
+    // Single strike each second of the final 10 seconds.
+    queue(1, 0, true, "Countdown second tick: ");
+}
+
+void BellController::queueCountdownTenSecAlert() {
+    // Single strike at each 10-second landmark of the final minute.
+    queue(1, 0, false, "Countdown 10s mark: ");
+}
+
 void BellController::stop() {
     _sequenceActive = false;
     _sequenceTotal = 0;

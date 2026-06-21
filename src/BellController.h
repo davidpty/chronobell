@@ -15,6 +15,9 @@ public:
     void queueCountdownAlert();
     void queueNewYearAlert();
     void queueCountdownStartAlert();
+    void queueCountdownTickAlert();
+    void queueCountdownSecondTickAlert();
+    void queueCountdownTenSecAlert();
     void stop();
     bool isBusy() const;
 

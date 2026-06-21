@@ -105,13 +105,18 @@ void NewYearRenderer::drawSparkles() {
         }
     }
 
-    // Burst fires once per quiet→active transition
+    // Burst extends/re-peaks when a new wave arrives before the previous fade finishes
     bool minimalPhase = _controller->phase() == NewYearPhase::Ambient
                      && _controller->phaseMilliseconds() < 7200000UL;
-    if (!minimalPhase && activeCount > 0 && _lastActiveCount == 0) {
-        _burstBoost = activeCount < 7 ? activeCount : 7;
-        _burstFrames = _burstBoost * 20;
-        _burstFramesMax = _burstFrames;
+    if (!minimalPhase && activeCount > _lastActiveCount) {
+        uint8_t boost = activeCount < 7 ? activeCount : 7;
+        if (boost < 3) boost = 3;
+        int newFrames = boost * 50;
+        if ((_burstFrames == 0 || _burstFrames < _burstFramesMax / 2) && newFrames > _burstFrames) {
+            _burstBoost = boost;
+            _burstFrames = newFrames;
+            _burstFramesMax = newFrames;
+        }
     }
     _lastActiveCount = activeCount;
 
@@ -147,12 +152,17 @@ void NewYearRenderer::drawCountdown() {
     }
 
     if (remainingSeconds <= 60) {
-        uint32_t minutes = remainingSeconds / 60UL;
-        uint32_t seconds = remainingSeconds % 60UL;
-        char text[12];
-        snprintf(text, sizeof(text), "%02lu:%02lu", (unsigned long)minutes, (unsigned long)seconds);
-        _display->drawCenteredMediumText(text, 3);
-        drawSparkles();
+        if (remainingSeconds % 10 == 0) {
+            char buf[4];
+            snprintf(buf, sizeof(buf), "%lu", (unsigned long)remainingSeconds);
+            _display->drawCenteredMediumText(buf, 3);
+        } else {
+            uint32_t minutes = remainingSeconds / 60UL;
+            uint32_t seconds = remainingSeconds % 60UL;
+            char text[12];
+            snprintf(text, sizeof(text), "T-%02lu:%02lu", (unsigned long)minutes, (unsigned long)seconds);
+            _display->drawCenteredSmallText(text, 5);
+        }
         return;
     }
 

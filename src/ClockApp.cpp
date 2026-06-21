@@ -977,10 +977,24 @@ void ClockApp::updateBellSchedule() {
         }
     }
 
-    if (_newYearController.hasCountdownStartRequest()) {
+    if (_newYearController.hasCountdownTickRequest()) {
         if (!_bellController.isBusy()) {
-            _bellController.queueCountdownStartAlert();
-            _newYearController.resolveCountdownStartRequest();
+            _bellController.queueCountdownTickAlert();
+            _newYearController.resolveCountdownTickRequest();
+        }
+    }
+
+    if (_newYearController.hasCountdownSecondTickRequest()) {
+        if (!_bellController.isBusy()) {
+            _bellController.queueCountdownSecondTickAlert();
+            _newYearController.resolveCountdownSecondTickRequest();
+        }
+    }
+
+    if (_newYearController.hasCountdownTenSecRequest()) {
+        if (!_bellController.isBusy()) {
+            _bellController.queueCountdownTenSecAlert();
+            _newYearController.resolveCountdownTenSecRequest();
         }
     }
 

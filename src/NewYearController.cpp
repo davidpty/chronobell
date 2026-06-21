@@ -51,6 +51,8 @@ void NewYearController::update(const ClockDate& date, const ClockTime& time, uin
     const bool afterMidnight = celebrationDate && secondOfDay < 120UL;
 
     if (!beforeMidnight && !afterMidnight) {
+        _lastCountdownMinute = -1;
+        _lastCountdownSecond = -1;
         _phase = NewYearPhase::Inactive;
         _phaseMs = 0;
         _remainingMs = 0;
@@ -71,18 +73,37 @@ void NewYearController::update(const ClockDate& date, const ClockTime& time, uin
             _phase = NewYearPhase::FinalMinute;
             _phaseMs = (secondOfDay - (23UL * 3600UL + 59UL * 60UL)) * 1000UL + milliseconds;
         } else if (secondOfDay >= 23UL * 3600UL + 50UL * 60UL) {
-            if (_phase != NewYearPhase::FinalTenMinutes) {
-                _countdownStartPending = true;
-            }
             _phase = NewYearPhase::FinalTenMinutes;
             _phaseMs = (secondOfDay - (23UL * 3600UL + 50UL * 60UL)) * 1000UL + milliseconds;
         } else {
             _phase = NewYearPhase::Ambient;
             _phaseMs = (secondOfDay - 21UL * 3600UL) * 1000UL + milliseconds;
         }
+
+        if (_phase >= NewYearPhase::FinalTenMinutes && _phase <= NewYearPhase::FinalTenSeconds) {
+            if (time.minutes != _lastCountdownMinute) {
+                _lastCountdownMinute = time.minutes;
+                _countdownTickPending = true;
+            }
+            if (_phase == NewYearPhase::FinalTenSeconds && time.seconds != _lastCountdownSecond) {
+                _lastCountdownSecond = time.seconds;
+                _countdownSecondTickPending = true;
+            }
+            if (_phase == NewYearPhase::FinalMinute && time.seconds != _lastCountdownSecond) {
+                _lastCountdownSecond = time.seconds;
+                if (time.seconds > 0 && time.seconds % 10 == 0) {
+                    _countdownTenSecPending = true;
+                }
+            }
+        } else {
+            _lastCountdownMinute = -1;
+            _lastCountdownSecond = -1;
+        }
         return;
     }
 
+    _lastCountdownMinute = -1;
+    _lastCountdownSecond = -1;
     _eventKey = previousDateKey(date);
     _incomingYear = date.year;
     _phase = NewYearPhase::Celebration;
@@ -124,7 +145,7 @@ uint8_t NewYearController::particleCount() const {
 
     if (_phaseMs < MINIMAL_DURATION) {
         uint32_t bucket = _phaseMs / 1800000UL;
-        static const uint8_t COUNTS[] = {1, 1, 2, 2};
+        static const uint8_t COUNTS[] = {2, 3, 4, 5};
         if (bucket > 3) bucket = 3;
         return COUNTS[bucket];
     }
@@ -132,7 +153,7 @@ uint8_t NewYearController::particleCount() const {
     // Heavy ramp: 10-minute buckets after 23:00
     uint32_t heavyMs = _phaseMs - MINIMAL_DURATION;
     uint32_t bucket = heavyMs / 600000UL;
-    static const uint8_t COUNTS[] = {3, 4, 6, 8, 10};
+    static const uint8_t COUNTS[] = {4, 5, 7, 9, 11};
     if (bucket > 4) bucket = 4;
     return COUNTS[bucket];
 }
@@ -145,7 +166,7 @@ uint16_t NewYearController::accentPeriodMs() const {
 
     if (_phaseMs < MINIMAL_DURATION) {
         uint32_t bucket = _phaseMs / 1800000UL;
-        static const uint16_t PERIODS[] = {25000, 20000, 15000, 12000};
+        static const uint16_t PERIODS[] = {12000, 10000, 8000, 6000};
         if (bucket > 3) bucket = 3;
         return PERIODS[bucket];
     }
@@ -153,7 +174,7 @@ uint16_t NewYearController::accentPeriodMs() const {
     // Heavy ramp: 10-minute buckets after 23:00
     uint32_t heavyMs = _phaseMs - MINIMAL_DURATION;
     uint32_t bucket = heavyMs / 600000UL;
-    static const uint16_t PERIODS[] = {12000, 10000, 8000, 6000, 4000};
+    static const uint16_t PERIODS[] = {10000, 8000, 6000, 5000, 4000};
     if (bucket > 4) bucket = 4;
     return PERIODS[bucket];
 }
