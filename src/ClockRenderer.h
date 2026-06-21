@@ -30,6 +30,7 @@ public:
     void drawRomanTime(int hours, int minutes);
     void drawDialTime(int hours, int minutes, bool showMarks);
     void drawBinaryTime(int hours, int minutes, int seconds);
+    void drawBarTime(int hours, int minutes);
     void drawInfoTime(ClockTime time);
     void drawDateTime(ClockTime time);
     void drawWeekdayTime(ClockTime time);

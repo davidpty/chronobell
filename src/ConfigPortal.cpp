@@ -310,8 +310,9 @@ void ConfigPortal::handleRoot() {
                     <option value="3">WORD - Mixed-size word clock display</option>
                     <option value="4">ROMA - Roman numeral clock</option>
                     <option value="5">DIAL - Minimal analog dial</option>
-                    <option value="6">BIN - Binary clock</option>
-                    <option value="7">DRIFT - Irregular BIG-style clock</option>
+                    <option value="6">BAR - Progress bar clock</option>
+                    <option value="7">BIN - Binary clock</option>
+                    <option value="8">DRIFT - Irregular BIG-style clock</option>
                 </select>
             </div>
 
@@ -333,8 +334,6 @@ void ConfigPortal::handleRoot() {
                 </select>
             </div>
 
-            __ANIM_ROW__
-
             <div class="setting-row">
                 <div class="setting-label">Date</div>
                 <select id="datestyle" onchange="applySetting('datestyle', this.value)">
@@ -353,6 +352,8 @@ void ConfigPortal::handleRoot() {
                     <option value="1">AM/PM - 12:00 to 11:59</option>
                 </select>
             </div>
+
+            __ANIM_ROW__
 
             <div class="setting-row">
                 <div class="setting-label">Night</div>
@@ -576,7 +577,7 @@ void ConfigPortal::handleRoot() {
             const style = Number(document.getElementById('style').value);
             const row = document.getElementById('separatorRow');
             const select = document.getElementById('separator');
-            const configurable = style === 1 || style === 2 || style === 7;
+            const configurable = style === 1 || style === 2 || style === 8;
             row.classList.toggle('hidden', !configurable);
             if (!configurable) return;
 
@@ -697,9 +698,9 @@ void ConfigPortal::handleRoot() {
             const initial = {
                 style: "__INITIAL_STYLE__",
                 infoLine: "__INITIAL_INFOLINE__",
-                anim: "__INITIAL_ANIM__",
                 datestyle: "__INITIAL_DATESTYLE__",
                 timefmt: "__INITIAL_TIMEFMT__",
+                anim: "__INITIAL_ANIM__",
                 nightmode: "__INITIAL_NIGHTMODE__",
                 bellmode: "__INITIAL_BELLMODE__",
                 brightness: "__INITIAL_BRIGHTNESS__",
@@ -710,9 +711,9 @@ void ConfigPortal::handleRoot() {
             const pairs = [
                 ['style', initial.style],
                 ['infoLine', initial.infoLine],
-                ['anim', initial.anim],
                 ['datestyle', initial.datestyle],
                 ['timefmt', initial.timefmt],
+                ['anim', initial.anim],
                 ['nightmode', initial.nightmode],
                 ['bellmode', initial.bellmode],
                 ['timezone', initial.timezone]

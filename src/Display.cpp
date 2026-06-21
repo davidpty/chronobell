@@ -234,6 +234,9 @@ void Display::showTime() {
             _clockRenderer->drawDialTime(hours, minutes,
                 !_appSettings || _appSettings->dialMarks == DialMarksMode::On);
             break;
+        case DisplayMode::Bar:
+            _clockRenderer->drawBarTime(hours, minutes);
+            break;
         case DisplayMode::Bin:
             _clockRenderer->drawBinaryTime(hours, minutes, seconds);
             break;

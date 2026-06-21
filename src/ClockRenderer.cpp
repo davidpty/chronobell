@@ -499,6 +499,9 @@ void ClockRenderer::drawPreview(DisplayMode mode, ClockTime time, bool dialMarks
         case DisplayMode::Dial:
             drawDialTime(time.hours, time.minutes, dialMarksVisible);
             break;
+        case DisplayMode::Bar:
+            drawBarTime(time.hours, time.minutes);
+            break;
         case DisplayMode::Bin:
             drawBinaryTime(time.hours, time.minutes, time.seconds);
             break;
@@ -838,6 +841,53 @@ void ClockRenderer::drawBinaryTime(int hours, int minutes, int seconds) {
     drawBinaryRow((uint8_t)hours, 0);
     drawBinaryRow((uint8_t)minutes, 6);
     drawBinaryRow((uint8_t)seconds, 12);
+}
+
+void ClockRenderer::drawBarTime(int hours, int minutes) {
+    bool is24h = (!_timeFormat) || (*_timeFormat == TimeFormat::Hours24);
+
+    int numTicks;
+    if (is24h) {
+        numTicks = hours;
+    } else {
+        numTicks = hours % 12;
+    }
+
+    if (is24h) {
+        static const int hourX[24] = {
+            0,1,2,3,4,5, 8,9,10,11,12,13,
+            16,17,18,19,20,21, 24,25,26,27,28,29
+        };
+        int limit = (numTicks < 24) ? numTicks : 24;
+        for (int i = 0; i < limit; i++) {
+            for (int dy = 0; dy < 7; dy++) {
+                _display->setPixel(hourX[i], dy, true);
+            }
+        }
+    } else {
+        static const int groupX[6] = {1, 6, 11, 16, 21, 26};
+        int limit = (numTicks < 12) ? numTicks : 12;
+        for (int i = 0; i < limit; i++) {
+            int x = groupX[i / 2] + (i % 2) * 2;
+            for (int dy = 0; dy < 7; dy++) {
+                _display->setPixel(x, dy, true);
+            }
+        }
+    }
+
+    int fullCols = minutes / 2;
+    bool odd = (minutes & 1);
+    if (fullCols > 30) fullCols = 30;
+
+    for (int col = 0; col < fullCols; col++) {
+        int x = 1 + col;
+        for (int dy = 0; dy < 7; dy++) {
+            _display->setPixel(x, 9 + dy, true);
+        }
+    }
+    if (odd && fullCols < 30) {
+        _display->setPixel(1 + fullCols, 12, true);
+    }
 }
 
 void ClockRenderer::drawDateTime(ClockTime time) {

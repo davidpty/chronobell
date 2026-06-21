@@ -99,11 +99,11 @@ bool styleMenuInfoPreviewActive() {
 
 enum MenuIndex : uint8_t {
     MENU_STYLE = 0,
+    MENU_DATE,
+    MENU_FORMAT,
 #if DIGIT_TRANSITIONS || SCREEN_TRANSITION
     MENU_ANIM,
 #endif
-    MENU_DATE,
-    MENU_FORMAT,
     MENU_NIGHT,
     MENU_BRIGHT,
     MENU_BELL,
@@ -115,14 +115,14 @@ MenuItem MENU_ITEMS[] = {
   {"STYLE",   (int16_t)DisplayMode::Rnd,  (int16_t)DisplayMode::Drift,
               getDisplayModeMenu, previewDisplayModeMenu, commitDisplayModeMenu, nullptr,
               editCommitDisplayModeMenu, cancelDisplayModeMenu},
-#if DIGIT_TRANSITIONS || SCREEN_TRANSITION
-  {"ANIM",    (int16_t)TransitionMode::Off, (int16_t)TransitionMode::Morph,
-              getAnimMenu, previewAnimMenu, commitAnimMenu, nullptr},
-#endif
   {"DATE",    (int16_t)DateStyle::Date,    (int16_t)DateStyle::Czod,
               getDateStyleMenu, previewDateStyleMenu, commitDateStyleMenu, nullptr},
   {"FORMAT",  (int16_t)TimeFormat::Hours24, (int16_t)TimeFormat::AmPm,
              getTimeFormatMenu, previewTimeFormatMenu, commitTimeFormatMenu, nullptr},
+#if DIGIT_TRANSITIONS || SCREEN_TRANSITION
+  {"ANIM",    (int16_t)TransitionMode::Off, (int16_t)TransitionMode::Morph,
+              getAnimMenu, previewAnimMenu, commitAnimMenu, nullptr},
+#endif
   {"NIGHT",   (int16_t)NightMode::Off,     (int16_t)NightMode::Mute,
               getNightModeMenu, previewNightModeMenu, commitNightModeMenu, nullptr},
   {"BRIGHT",  0, 15,
@@ -148,7 +148,7 @@ const char* bellValueName(int16_t value) {
 
 const char* styleValueName(int16_t value) {
     static const char* const NAMES[] = {
-        "RND", "BIG", "DATA", "WORD", "ROMA", "DIAL", "BIN", "DRIFT", nullptr
+        "RND", "BIG", "DATA", "WORD", "ROMA", "DIAL", "BAR", "BIN", "DRIFT", nullptr
     };
     for (uint8_t i = 0; NAMES[i]; i++) {
         if ((int16_t)i == value) return NAMES[i];

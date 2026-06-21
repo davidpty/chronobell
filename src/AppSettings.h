@@ -11,8 +11,9 @@ enum class DisplayMode : uint8_t {
     Word = 3,
     Roma = 4,
     Dial = 5,
-    Bin = 6,
-    Drift = 7
+    Bar = 6,
+    Bin = 7,
+    Drift = 8
 };
 
 enum class InfoLineMode : uint8_t {
@@ -160,6 +161,8 @@ inline const char* displayModeLabel(DisplayMode mode) {
             return "ROMA";
         case DisplayMode::Dial:
             return "DIAL";
+        case DisplayMode::Bar:
+            return "BAR";
         case DisplayMode::Bin:
             return "BIN";
         case DisplayMode::Drift:
