@@ -808,13 +808,15 @@ void ConfigPortal::handleRoot() {
                     updateTimerDisplay(data.timer);
                 }
 
-                const now = new Date();
-                document.getElementById('manualDate').value = now.getFullYear() + '-' +
-                    String(now.getMonth() + 1).padStart(2, '0') + '-' +
-                    String(now.getDate()).padStart(2, '0');
-                document.getElementById('manualTime').value = String(now.getHours()).padStart(2, '0') + ':' +
-                    String(now.getMinutes()).padStart(2, '0');
-                document.getElementById('manualSec').value = String(now.getSeconds()).padStart(2, '0');
+                if (!data.manualTime) {
+                    const now = new Date();
+                    document.getElementById('manualDate').value = now.getFullYear() + '-' +
+                        String(now.getMonth() + 1).padStart(2, '0') + '-' +
+                        String(now.getDate()).padStart(2, '0');
+                    document.getElementById('manualTime').value = String(now.getHours()).padStart(2, '0') + ':' +
+                        String(now.getMinutes()).padStart(2, '0');
+                    document.getElementById('manualSec').value = String(now.getSeconds()).padStart(2, '0');
+                }
 
                 activeSSID = data.storedSsid || '';
                 activePassword = data.storedPassword || '';

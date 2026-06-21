@@ -180,6 +180,11 @@ void WiFiSync::tickWifi() {
 }
 
 void WiFiSync::tickNtp() {
+    if (_appSettings->manualTime.enabled) {
+        LOGLN("tickNtp: manual mode active, ignoring NTP");
+        finishSync(true);
+        return;
+    }
     _timeClient.update();
     if (_timeClient.isTimeSet()) {
         LOGLN("NTP time received");
@@ -227,6 +232,11 @@ void WiFiSync::finishSync(bool succeeded) {
 }
 
 void WiFiSync::applySyncedTime() {
+    if (_appSettings->manualTime.enabled) {
+        LOGLN("applySyncedTime: manual mode active, ignoring NTP");
+        return;
+    }
+
     LOG("Current time: ");
     LOGLN(_timeClient.getFormattedTime());
 
