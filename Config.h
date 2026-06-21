@@ -92,12 +92,16 @@
 // BAR clock tuning
 // ---------------------------------------------------------------------------
 
-#define BAR_HOUR_TOP_Y                              1                                   // Top row for the hour bar
-#define BAR_HOUR_THICKNESS_NO_SECONDS               5                                   // Hour bar thickness when seconds are hidden
-#define BAR_MINUTE_TOP_Y_NO_SECONDS                 11                                  // Top row for the minute bar when seconds are hidden
-#define BAR_HOUR_THICKNESS_WITH_SECONDS             5                                   // Hour bar thickness when seconds are shown
-#define BAR_MINUTE_TOP_Y_WITH_SECONDS               8                                   // Top row for the minute bar when seconds are shown
-#define BAR_SECOND_TOP_Y                            12                                  // Top row for the seconds bar
+#define BAR_ALIGNMENT                               1                                   // 0 = left aligned, 1 = centered layout
+
+#define BAR_HOUR_TOP_Y                              0                                   // Top row for the hour bar
+
+#define BAR_HOUR_THICKNESS_NO_SECONDS               9                                   // Hour bar thickness when seconds are hidden
+#define BAR_MINUTE_TOP_Y_NO_SECONDS                 13                                  // Top row for the minute bar when seconds are hidden
+
+#define BAR_HOUR_THICKNESS_WITH_SECONDS             6                                   // Hour bar thickness when seconds are shown
+#define BAR_MINUTE_TOP_Y_WITH_SECONDS               10                                  // Top row for the minute bar when seconds are shown
+#define BAR_SECOND_TOP_Y                            14                                  // Top row for the seconds bar
 
 // ---------------------------------------------------------------------------
 // DRIFT display tuning

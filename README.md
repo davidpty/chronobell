@@ -209,6 +209,7 @@ Open `Config.h` to adjust these:
 | `DIGIT_TRANSITIONS` | `1` | Set to `0` to remove per-digit morph engine (saves flash/RAM) |
 | `SCREEN_TRANSITION` | `1` | Set to `0` to remove screen retune engine (saves flash/RAM) |
 | `BAR_HOUR_TOP_Y` | `1` | Top row for BAR hour bars |
+| `BAR_ALIGNMENT` | `0` | `0` keeps the current BAR layout, `1` centers the bar layout |
 | `BAR_HOUR_THICKNESS_NO_SECONDS` | `5` | Hour bar thickness in BAR mode when seconds are hidden |
 | `BAR_HOUR_THICKNESS_WITH_SECONDS` | `5` | Hour bar thickness in BAR mode when seconds are shown |
 | `BAR_MINUTE_TOP_Y_NO_SECONDS` | `11` | Top row for BAR minute bars when seconds are hidden |

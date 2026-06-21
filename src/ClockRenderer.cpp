@@ -851,6 +851,12 @@ void ClockRenderer::drawBarTime(int hours, int minutes, int seconds) {
     bool is24h = (!_timeFormat) || (*_timeFormat == TimeFormat::Hours24);
     bool showSeconds = _barSeconds == BarSecondsMode::On;
     int hourThickness = showSeconds ? BAR_HOUR_THICKNESS_WITH_SECONDS : BAR_HOUR_THICKNESS_NO_SECONDS;
+    constexpr int hourXOffset = 1;
+    auto centeredShift = [](int minX, int maxX) -> int {
+        int contentWidth = maxX - minX + 1;
+        int centeredLeftX = (COLS_PER_ROW - contentWidth) / 2;
+        return centeredLeftX - minX;
+    };
 
     int numTicks;
     if (is24h) {
@@ -869,16 +875,26 @@ void ClockRenderer::drawBarTime(int hours, int minutes, int seconds) {
             16,17,18,19,20,21, 24,25,26,27,28,29
         };
         int limit = (numTicks < 24) ? numTicks : 24;
+        int hourShift = 0;
+        if (BAR_ALIGNMENT == 1 && limit > 0) {
+            hourShift = centeredShift(hourX[0] + hourXOffset, hourX[limit - 1] + hourXOffset);
+        }
         for (int i = 0; i < limit; i++) {
             for (int dy = 0; dy < hourThickness; dy++) {
-                _display->setPixel(hourX[i], BAR_HOUR_TOP_Y + dy, true);
+                _display->setPixel(hourX[i] + hourXOffset + hourShift, BAR_HOUR_TOP_Y + dy, true);
             }
         }
     } else {
         static const int groupX[6] = {1, 6, 11, 16, 21, 26};
         int limit = (numTicks < 12) ? numTicks : 12;
+        int hourShift = 0;
+        if (BAR_ALIGNMENT == 1 && limit > 0) {
+            int firstX = groupX[0] + hourXOffset;
+            int lastX = groupX[(limit - 1) / 2] + ((limit - 1) % 2) * 2 + hourXOffset;
+            hourShift = centeredShift(firstX, lastX);
+        }
         for (int i = 0; i < limit; i++) {
-            int x = groupX[i / 2] + (i % 2) * 2;
+            int x = groupX[i / 2] + (i % 2) * 2 + hourXOffset + hourShift;
             for (int dy = 0; dy < hourThickness; dy++) {
                 _display->setPixel(x, BAR_HOUR_TOP_Y + dy, true);
             }
@@ -886,16 +902,26 @@ void ClockRenderer::drawBarTime(int hours, int minutes, int seconds) {
     }
 
     int mlim = (minutes < 60) ? minutes : 60;
+    int minuteShift = 0;
+    if (BAR_ALIGNMENT == 1 && mlim > 0) {
+        int minuteMaxX = 1 + (mlim - 1) / 2;
+        minuteShift = centeredShift(1, minuteMaxX);
+    }
     for (int i = 0; i < mlim; i++) {
-        int x = 1 + i / 2;
+        int x = 1 + i / 2 + minuteShift;
         int y = (i & 1) ? minY + 1 : minY;
         _display->setPixel(x, y, true);
     }
 
     if (_barSeconds == BarSecondsMode::On) {
         int slim = (seconds < 60) ? seconds : 60;
+        int secondShift = 0;
+        if (BAR_ALIGNMENT == 1 && slim > 0) {
+            int secondMaxX = 1 + (slim - 1) / 2;
+            secondShift = centeredShift(1, secondMaxX);
+        }
         for (int i = 0; i < slim; i++) {
-            int x = 1 + i / 2;
+            int x = 1 + i / 2 + secondShift;
             int y = BAR_SECOND_TOP_Y + (i & 1);
             _display->setPixel(x, y, true);
         }
