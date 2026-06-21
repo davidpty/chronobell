@@ -799,8 +799,6 @@ void ClockRenderer::drawRomanTime(int hours, int minutes) {
 void ClockRenderer::drawDialTime(int hours, int minutes, bool showMarks) {
     static constexpr int CENTER_X = 15;
     static constexpr int CENTER_Y = 7;
-    static constexpr double GEOMETRIC_CENTER_X = 15.5;
-    static constexpr double GEOMETRIC_CENTER_Y = 7.5;
     static constexpr double DIAL_TWO_PI = 6.28318530717958647692;
 
     if (showMarks) {
@@ -811,15 +809,15 @@ void ClockRenderer::drawDialTime(int hours, int minutes, bool showMarks) {
     }
 
     double minuteAngle = DIAL_TWO_PI * (minutes / 60.0);
-    double minuteRadiusX = showMarks ? 13.5 : 15.5;
-    double minuteRadiusY = showMarks ? 5.5 : 7.5;
-    int minuteX = (int)lround(GEOMETRIC_CENTER_X + minuteRadiusX * sin(minuteAngle));
-    int minuteY = (int)lround(GEOMETRIC_CENTER_Y - minuteRadiusY * cos(minuteAngle));
+    double minuteRadiusX = showMarks ? 14.0 : 15.0;
+    double minuteRadiusY = showMarks ? 6.0 : 7.0;
+    int minuteX = CENTER_X + (int)lround(minuteRadiusX * sin(minuteAngle));
+    int minuteY = CENTER_Y - (int)lround(minuteRadiusY * cos(minuteAngle));
     int minuteLength = max(abs(minuteX - CENTER_X), abs(minuteY - CENTER_Y));
 
     double hourAngle = DIAL_TWO_PI * (((hours % 12) * 60.0 + minutes) / 720.0);
-    int hourX = (int)lround(GEOMETRIC_CENTER_X + 7.0 * sin(hourAngle));
-    int hourY = (int)lround(GEOMETRIC_CENTER_Y - 3.0 * cos(hourAngle));
+    int hourX = CENTER_X + (int)lround(7.0 * sin(hourAngle));
+    int hourY = CENTER_Y - (int)lround(3.0 * cos(hourAngle));
     int hourDx = hourX - CENTER_X;
     int hourDy = hourY - CENTER_Y;
     int hourLength = max(abs(hourDx), abs(hourDy));
