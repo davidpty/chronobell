@@ -348,11 +348,11 @@ void ConfigPortal::handleRoot() {
                 <div class="setting-label">Night</div>
                 <select id="nightmode" onchange="applySetting('nightmode', this.value)">
                     <option value="0" selected>OFF - No night mode</option>
-                    <option value="1">LOW - Dim display 18:00-06:00</option>
-                    <option value="2">LOW+MUTE - Dim display 18:00-06:00, bell muted 22:00-06:00</option>
-                    <option value="3">DARK - Dim 18:00-22:00, off 22:00-06:00</option>
-                    <option value="4">DARK+MUTE - Dim 18:00-22:00, off + bell muted 22:00-06:00</option>
-                    <option value="5">MUTE - Bell muted 22:00-06:00 only</option>
+                    <option value="1">LOW - Dim display __NIGHT_DIM_START__-__NIGHT_DIM_END__</option>
+                    <option value="2">LOW+MUTE - Dim display __NIGHT_DIM_START__-__NIGHT_DIM_END__, bell muted __NIGHT_MUTE_START__-__NIGHT_MUTE_END__</option>
+                    <option value="3">DARK - Dim __NIGHT_DIM_START__-__NIGHT_DARK_START__, off __NIGHT_DARK_START__-__NIGHT_DARK_END__</option>
+                    <option value="4">DARK+MUTE - Dim __NIGHT_DIM_START__-__NIGHT_DARK_START__, off + bell muted __NIGHT_MUTE_START__-__NIGHT_MUTE_END__</option>
+                    <option value="5">MUTE - Bell muted __NIGHT_MUTE_START__-__NIGHT_MUTE_END__ only</option>
                 </select>
             </div>
 
@@ -1087,6 +1087,22 @@ void ConfigPortal::handleRoot() {
     html.replace("__INITIAL_BRIGHTNESS__", initialBrightness);
     html.replace("__INITIAL_TIMEZONE__", initialTimezone);
     html.replace("__INITIAL_MANUAL_MODE__", initialManualMode);
+
+    {
+        char buf[6];
+        snprintf(buf, sizeof(buf), "%02d:00", NIGHT_DIM_START_HOUR);
+        html.replace("__NIGHT_DIM_START__", buf);
+        snprintf(buf, sizeof(buf), "%02d:00", NIGHT_DIM_END_HOUR);
+        html.replace("__NIGHT_DIM_END__", buf);
+        snprintf(buf, sizeof(buf), "%02d:00", NIGHT_DARK_START_HOUR);
+        html.replace("__NIGHT_DARK_START__", buf);
+        snprintf(buf, sizeof(buf), "%02d:00", NIGHT_DARK_END_HOUR);
+        html.replace("__NIGHT_DARK_END__", buf);
+        snprintf(buf, sizeof(buf), "%02d:00", NIGHT_MUTE_START_HOUR);
+        html.replace("__NIGHT_MUTE_START__", buf);
+        snprintf(buf, sizeof(buf), "%02d:00", NIGHT_MUTE_END_HOUR);
+        html.replace("__NIGHT_MUTE_END__", buf);
+    }
 
     _webServer.send(200, "text/html", html);
 }
