@@ -43,8 +43,8 @@ enum class BellMode : uint8_t {
 };
 
 enum class TimeFormat : uint8_t {
-    Hours24 = 0,
-    AmPm = 1
+    AmPm = 0,
+    Hours24 = 1
 };
 
 enum class NightMode : uint8_t {
@@ -67,6 +67,11 @@ enum class DriftSeparatorMode : uint8_t {
 };
 
 enum class DialMarksMode : uint8_t {
+    Off = 0,
+    On = 1
+};
+
+enum class BarSecondsMode : uint8_t {
     Off = 0,
     On = 1
 };
@@ -105,6 +110,7 @@ struct AppSettings {
     InfoLineMode infoLineMode = InfoLineMode::Seconds;
     DriftSeparatorMode driftSeparator = DriftSeparatorMode::Steady;
     DialMarksMode dialMarks = DialMarksMode::On;
+    BarSecondsMode barSeconds = BarSecondsMode::Off;
 #if DIGIT_TRANSITIONS || SCREEN_TRANSITION
     TransitionMode transitionMode = TransitionMode::Morph;
 #endif
@@ -129,6 +135,10 @@ inline DriftSeparatorMode clampDriftSeparatorMode(int mode) {
 
 inline DialMarksMode clampDialMarksMode(int mode) {
     return mode <= (int)DialMarksMode::Off ? DialMarksMode::Off : DialMarksMode::On;
+}
+
+inline BarSecondsMode clampBarSecondsMode(int mode) {
+    return mode <= (int)BarSecondsMode::Off ? BarSecondsMode::Off : BarSecondsMode::On;
 }
 
 inline SeparatorMode separatorModeFor(const AppSettings& settings, DisplayMode mode) {
@@ -269,11 +279,11 @@ inline const char* timeFormatLabel(TimeFormat format) {
 }
 
 inline TimeFormat clampTimeFormat(int format) {
-    if (format < (int)TimeFormat::Hours24) {
-        return TimeFormat::Hours24;
-    }
-    if (format > (int)TimeFormat::AmPm) {
+    if (format < (int)TimeFormat::AmPm) {
         return TimeFormat::AmPm;
+    }
+    if (format > (int)TimeFormat::Hours24) {
+        return TimeFormat::Hours24;
     }
     return static_cast<TimeFormat>(format);
 }

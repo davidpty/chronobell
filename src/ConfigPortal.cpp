@@ -165,6 +165,7 @@ void ConfigPortal::handleRoot() {
     String initialBellMode = String((int)_settings.bellMode);
     String initialStyle = String((int)_settings.displayMode);
     String initialDialMarks = String((int)_settings.dialMarks);
+    String initialBarSeconds = String((int)_settings.barSeconds);
     String initialDateStyle = String((int)_settings.dateStyle);
     String initialTimeFormat = String((int)_settings.timeFormat);
     String initialNightMode = String((int)_settings.nightMode);
@@ -268,7 +269,8 @@ void ConfigPortal::handleRoot() {
         .timer-screen { background: rgba(10, 0, 0, 0.86); border: 1px solid #330000; border-radius: 0.25em; padding: 0.28em 0.32em 0.32em; box-shadow: inset 0 0 1em rgba(255, 0, 0, 0.08); width: 100%; display: flex; flex-direction: column; gap: 0.35em; }
         .display-frame { border: 1px solid #4d0000; border-radius: 0.2em; padding: 0.12em 0.14em 0.14em; background: linear-gradient(rgba(255, 0, 0, 0.03), rgba(255, 0, 0, 0.01)), #060000; box-shadow: inset 0 0 1.2em rgba(255, 0, 0, 0.12); width: 100%; }
         .pixel-display { display: block; width: 100%; height: auto; aspect-ratio: 32 / 16; background: transparent; shape-rendering: crispEdges; image-rendering: pixelated; }
-        .pixel-dot { fill: #ff3a3a; }
+        .pixel-dot.off { fill: #ff3a3a; fill-opacity: 0.08; }
+        .pixel-dot.on { fill: #ff3a3a; fill-opacity: 1; }
         .button-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.45em; width: 100%; }
         .button-card { appearance: none; min-width: 4.5em; padding: 0.46em 0.5em; border: 2px solid #cc0000; border-radius: 0.25em; background: transparent; color: #cc0000; font-family: 'Courier New', monospace; font-size: 1.1em; font-weight: bold; text-transform: uppercase; cursor: pointer; text-align: center; transition: all 0.15s; }
         .button-card:active { background: #cc0000; color: #000000; box-shadow: 0 0 1em #cc0000; }
@@ -334,6 +336,14 @@ void ConfigPortal::handleRoot() {
                 </select>
             </div>
 
+            <div class="setting-row hidden" id="barSecondsRow">
+                <div class="setting-label">SECOND</div>
+                <select id="barSeconds" onchange="applyBarSeconds(this.value)">
+                    <option value="0">OFF</option>
+                    <option value="1">ON</option>
+                </select>
+            </div>
+
             <div class="setting-row">
                 <div class="setting-label">Date</div>
                 <select id="datestyle" onchange="applySetting('datestyle', this.value)">
@@ -348,8 +358,8 @@ void ConfigPortal::handleRoot() {
             <div class="setting-row">
                 <div class="setting-label">Format</div>
                 <select id="timefmt" onchange="applySetting('timefmt', this.value)">
-                    <option value="0" selected>24-HOUR - 00:00 to 23:59</option>
-                    <option value="1">AM/PM - 12:00 to 11:59</option>
+                    <option value="0" selected>AM/PM - 12:00 to 11:59</option>
+                    <option value="1">24-HOUR - 00:00 to 23:59</option>
                 </select>
             </div>
 
@@ -494,6 +504,7 @@ void ConfigPortal::handleRoot() {
         let separatorSetting = 0;
         let driftSeparatorSetting = 0;
         let dialMarksSetting = Number("__INITIAL_DIALMARKS__");
+        let barSecondsSetting = Number("__INITIAL_BARSECONDS__");
         let infoLineSetting = 0;
         let timerState = {};
         const timerDisplaySvg = document.getElementById('timerDisplaySvg');
@@ -604,20 +615,32 @@ void ConfigPortal::handleRoot() {
             select.value = String(dialMarksSetting);
         }
 
+        function syncBarSecondsRow() {
+            const style = Number(document.getElementById('style').value);
+            const row = document.getElementById('barSecondsRow');
+            const select = document.getElementById('barSeconds');
+            row.classList.toggle('hidden', style !== 6);
+            select.value = String(barSecondsSetting);
+        }
+
         function onStyleChange(value) {
             syncInfoLineRow();
             syncSeparatorRow();
             syncDialMarksRow();
+            syncBarSecondsRow();
             const infoLine = document.getElementById('infoLine');
             const separator = document.getElementById('separator');
             const dialMarks = document.getElementById('dialMarks');
+            const barSeconds = document.getElementById('barSeconds');
             if (infoLine) infoLine.disabled = true;
             separator.disabled = true;
             dialMarks.disabled = true;
+            if (barSeconds) barSeconds.disabled = true;
             applySetting('style', value).finally(function() {
                 if (infoLine) infoLine.disabled = false;
                 separator.disabled = false;
                 dialMarks.disabled = false;
+                if (barSeconds) barSeconds.disabled = false;
             });
         }
 
@@ -641,6 +664,11 @@ void ConfigPortal::handleRoot() {
         function applyDialMarks(value) {
             dialMarksSetting = Number(value);
             return applySetting('dialmarks', value);
+        }
+
+        function applyBarSeconds(value) {
+            barSecondsSetting = Number(value);
+            return applySetting('barseconds', value);
         }
 
         function htmlEscape(value) {
@@ -737,6 +765,7 @@ void ConfigPortal::handleRoot() {
             syncInfoLineRow();
             syncSeparatorRow();
             syncDialMarksRow();
+            syncBarSecondsRow();
         }
 
         function stopPendingPoll() {
@@ -1111,6 +1140,7 @@ void ConfigPortal::handleRoot() {
 #endif
     html.replace("__INITIAL_STYLE__", initialStyle);
     html.replace("__INITIAL_DIALMARKS__", initialDialMarks);
+    html.replace("__INITIAL_BARSECONDS__", initialBarSeconds);
     html.replace("__INITIAL_INFOLINE__", String((int)_settings.infoLineMode));
 #if DIGIT_TRANSITIONS || SCREEN_TRANSITION
     html.replace("__INITIAL_ANIM__", String((int)_settings.transitionMode));
@@ -1354,6 +1384,8 @@ void ConfigPortal::handleApply() {
         }
     } else if (field == "dialmarks") {
         settings.dialMarks = clampDialMarksMode(value.toInt());
+    } else if (field == "barseconds") {
+        settings.barSeconds = clampBarSecondsMode(value.toInt());
     } else if (field == "datestyle") {
         settings.dateStyle = clampDateStyle(value.toInt());
     } else if (field == "timefmt") {
@@ -1415,7 +1447,7 @@ void ConfigPortal::handleApply() {
 #if DIGIT_TRANSITIONS || SCREEN_TRANSITION
         || field == "anim"
 #endif
-        || field == "separator" || field == "dialmarks" || field == "datestyle" || field == "timefmt" || field == "timezone" || field == "timeMode" || field == "manualtime" || field == "bellmode" || field == "brightness")) {
+        || field == "separator" || field == "dialmarks" || field == "barseconds" || field == "datestyle" || field == "timefmt" || field == "timezone" || field == "timeMode" || field == "manualtime" || field == "bellmode" || field == "brightness")) {
         _previewCb(_previewContext, field);
     }
 
@@ -1462,6 +1494,8 @@ void ConfigPortal::handleStatus() {
     json += (int)_settings.driftSeparator;
     json += ",\"dialMarks\":";
     json += (int)_settings.dialMarks;
+    json += ",\"barSeconds\":";
+    json += (int)_settings.barSeconds;
     json += ",\"hotspotActive\":";
     json += hotspotActive ? "true" : "false";
     json += ",\"hotspotRemaining\":";

@@ -500,7 +500,7 @@ void ClockRenderer::drawPreview(DisplayMode mode, ClockTime time, bool dialMarks
             drawDialTime(time.hours, time.minutes, dialMarksVisible);
             break;
         case DisplayMode::Bar:
-            drawBarTime(time.hours, time.minutes);
+            drawBarTime(time.hours, time.minutes, time.seconds);
             break;
         case DisplayMode::Bin:
             drawBinaryTime(time.hours, time.minutes, time.seconds);
@@ -525,6 +525,10 @@ void ClockRenderer::setDriftStyleActive(bool active) {
 void ClockRenderer::setSeparatorModes(SeparatorMode separatorMode, DriftSeparatorMode driftSeparatorMode) {
     _separatorMode = separatorMode;
     _driftSeparatorMode = driftSeparatorMode;
+}
+
+void ClockRenderer::setBarSecondsMode(BarSecondsMode mode) {
+    _barSeconds = mode;
 }
 
 void ClockRenderer::drawBigTimeInternal(int hours, int minutes, int seconds, bool driftMode, int offsetMinutes, bool freshChange, bool separatorVisible, int driftDirection) {
@@ -843,8 +847,10 @@ void ClockRenderer::drawBinaryTime(int hours, int minutes, int seconds) {
     drawBinaryRow((uint8_t)seconds, 12);
 }
 
-void ClockRenderer::drawBarTime(int hours, int minutes) {
+void ClockRenderer::drawBarTime(int hours, int minutes, int seconds) {
     bool is24h = (!_timeFormat) || (*_timeFormat == TimeFormat::Hours24);
+    bool showSeconds = _barSeconds == BarSecondsMode::On;
+    int hourThickness = showSeconds ? BAR_HOUR_THICKNESS_WITH_SECONDS : BAR_HOUR_THICKNESS_NO_SECONDS;
 
     int numTicks;
     if (is24h) {
@@ -853,6 +859,10 @@ void ClockRenderer::drawBarTime(int hours, int minutes) {
         numTicks = hours % 12;
     }
 
+    int minY = showSeconds
+        ? BAR_MINUTE_TOP_Y_WITH_SECONDS
+        : BAR_MINUTE_TOP_Y_NO_SECONDS;
+
     if (is24h) {
         static const int hourX[24] = {
             0,1,2,3,4,5, 8,9,10,11,12,13,
@@ -860,8 +870,8 @@ void ClockRenderer::drawBarTime(int hours, int minutes) {
         };
         int limit = (numTicks < 24) ? numTicks : 24;
         for (int i = 0; i < limit; i++) {
-            for (int dy = 0; dy < 7; dy++) {
-                _display->setPixel(hourX[i], dy, true);
+            for (int dy = 0; dy < hourThickness; dy++) {
+                _display->setPixel(hourX[i], BAR_HOUR_TOP_Y + dy, true);
             }
         }
     } else {
@@ -869,24 +879,26 @@ void ClockRenderer::drawBarTime(int hours, int minutes) {
         int limit = (numTicks < 12) ? numTicks : 12;
         for (int i = 0; i < limit; i++) {
             int x = groupX[i / 2] + (i % 2) * 2;
-            for (int dy = 0; dy < 7; dy++) {
-                _display->setPixel(x, dy, true);
+            for (int dy = 0; dy < hourThickness; dy++) {
+                _display->setPixel(x, BAR_HOUR_TOP_Y + dy, true);
             }
         }
     }
 
-    int fullCols = minutes / 2;
-    bool odd = (minutes & 1);
-    if (fullCols > 30) fullCols = 30;
-
-    for (int col = 0; col < fullCols; col++) {
-        int x = 1 + col;
-        for (int dy = 0; dy < 7; dy++) {
-            _display->setPixel(x, 9 + dy, true);
-        }
+    int mlim = (minutes < 60) ? minutes : 60;
+    for (int i = 0; i < mlim; i++) {
+        int x = 1 + i / 2;
+        int y = (i & 1) ? minY + 1 : minY;
+        _display->setPixel(x, y, true);
     }
-    if (odd && fullCols < 30) {
-        _display->setPixel(1 + fullCols, 12, true);
+
+    if (_barSeconds == BarSecondsMode::On) {
+        int slim = (seconds < 60) ? seconds : 60;
+        for (int i = 0; i < slim; i++) {
+            int x = 1 + i / 2;
+            int y = BAR_SECOND_TOP_Y + (i & 1);
+            _display->setPixel(x, y, true);
+        }
     }
 }
 

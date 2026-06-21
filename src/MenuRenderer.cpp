@@ -95,6 +95,8 @@ void MenuRenderer::drawMenuName(const MenuItem& it, int y) {
     if (strcmp(it.name, "STYLE") == 0 && styleMenuStep() > 0) {
         if (styleMenuPreviewMode() == DisplayMode::Dial) {
             label = "MARKS";
+        } else if (styleMenuPreviewMode() == DisplayMode::Bar) {
+            label = "BAR";
         } else {
             label = styleMenuInfoPreviewActive() ? "DATA" : "COLON";
         }

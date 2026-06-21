@@ -220,6 +220,7 @@ void Display::showTime() {
     DriftSeparatorMode driftSeparatorMode = _appSettings ? _appSettings->driftSeparator : DriftSeparatorMode::Steady;
     _clockRenderer->setSeparatorModes(separatorMode, driftSeparatorMode);
     _clockRenderer->setDriftStyleActive(mode == DisplayMode::Drift);
+    _clockRenderer->setBarSecondsMode(_appSettings ? _appSettings->barSeconds : BarSecondsMode::Off);
     switch (mode) {
         case DisplayMode::Info:
             _clockRenderer->drawInfoTime(time);
@@ -235,7 +236,7 @@ void Display::showTime() {
                 !_appSettings || _appSettings->dialMarks == DialMarksMode::On);
             break;
         case DisplayMode::Bar:
-            _clockRenderer->drawBarTime(hours, minutes);
+            _clockRenderer->drawBarTime(hours, minutes, seconds);
             break;
         case DisplayMode::Bin:
             _clockRenderer->drawBinaryTime(hours, minutes, seconds);
@@ -283,17 +284,21 @@ void Display::drawStylePreview(DisplayMode mode) {
     SeparatorMode separatorMode;
     DriftSeparatorMode driftSeparatorMode;
     DialMarksMode dialMarksMode;
+    BarSecondsMode barSeconds;
     if (styleMenuIsEditing()) {
         separatorMode = styleMenuPendingSeparatorMode();
         driftSeparatorMode = styleMenuPendingDriftSeparatorMode();
         dialMarksMode = styleMenuPendingDialMarksMode();
+        barSeconds = styleMenuPendingBarSeconds();
     } else {
         separatorMode = _appSettings ? separatorModeFor(*_appSettings, mode) : SeparatorMode::Steady;
         driftSeparatorMode = _appSettings ? _appSettings->driftSeparator : DriftSeparatorMode::Steady;
         dialMarksMode = _appSettings ? _appSettings->dialMarks : DialMarksMode::On;
+        barSeconds = _appSettings ? _appSettings->barSeconds : BarSecondsMode::Off;
     }
     _clockRenderer->setSeparatorModes(separatorMode, driftSeparatorMode);
     _clockRenderer->setDriftStyleActive(mode == DisplayMode::Drift);
+    _clockRenderer->setBarSecondsMode(barSeconds);
     if (mode == DisplayMode::Info && styleMenuInfoPreviewActive()) {
         InfoLineMode pendingInfo = styleMenuPendingInfoLineMode();
         InfoLineMode* restoreInfo = _appSettings ? &_appSettings->infoLineMode : nullptr;
@@ -504,12 +509,16 @@ String Display::snapshotSvg() const {
     String svg;
     svg.reserve(4096);
     svg = "<svg class=\"pixel-display\" viewBox=\"0 0 32 16\" preserveAspectRatio=\"none\" aria-label=\"ChronoBell display snapshot\">";
+    svg += "<defs><pattern id=\"pixel-off-pattern\" patternUnits=\"userSpaceOnUse\" width=\"1\" height=\"1\">";
+    svg += "<circle class=\"pixel-dot off\" cx=\"0.5\" cy=\"0.5\" r=\"0.42\"></circle>";
+    svg += "</pattern></defs>";
+    svg += "<rect x=\"0\" y=\"0\" width=\"32\" height=\"16\" fill=\"url(#pixel-off-pattern)\"></rect>";
     for (int y = 0; y < TOTAL_ROWS; ++y) {
         for (int x = 0; x < COLS_PER_ROW; ++x) {
             if ((_snapshotFrame[y] & (1UL << x)) == 0) {
                 continue;
             }
-            svg += "<circle class=\"pixel-dot\" cx=\"";
+            svg += "<circle class=\"pixel-dot on\" cx=\"";
             svg += String(x + 0.5f, 1);
             svg += "\" cy=\"";
             svg += String(y + 0.5f, 1);

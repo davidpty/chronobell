@@ -89,6 +89,17 @@
 #define INFO_ALT_INTERVAL_SECONDS                   10                                  // ALT switches between DATE and WDAY every N seconds after entering ALT (valid 1-3600)
 
 // ---------------------------------------------------------------------------
+// BAR clock tuning
+// ---------------------------------------------------------------------------
+
+#define BAR_HOUR_TOP_Y                              1                                   // Top row for the hour bar
+#define BAR_HOUR_THICKNESS_NO_SECONDS               5                                   // Hour bar thickness when seconds are hidden
+#define BAR_MINUTE_TOP_Y_NO_SECONDS                 11                                  // Top row for the minute bar when seconds are hidden
+#define BAR_HOUR_THICKNESS_WITH_SECONDS             5                                   // Hour bar thickness when seconds are shown
+#define BAR_MINUTE_TOP_Y_WITH_SECONDS               8                                   // Top row for the minute bar when seconds are shown
+#define BAR_SECOND_TOP_Y                            12                                  // Top row for the seconds bar
+
+// ---------------------------------------------------------------------------
 // DRIFT display tuning
 // ---------------------------------------------------------------------------
 

@@ -27,6 +27,7 @@ const char* SettingsStore::KEY_SEPARATOR_DATE = "sep_date";
 const char* SettingsStore::KEY_SEPARATOR_WEEKDAY = "sep_weekday";
 const char* SettingsStore::KEY_SEPARATOR_DRIFT = "sep_drift";
 const char* SettingsStore::KEY_DIAL_MARKS = "dial_marks";
+const char* SettingsStore::KEY_BAR_SECONDS = "bar_secs";
 const char* SettingsStore::KEY_MANUAL_TIME_ENABLED = "manual_enabled";
 const char* SettingsStore::KEY_MANUAL_EPOCH = "manual_epoch";
 const char* SettingsStore::MENU_PREFS_NAMESPACE = "menu";
@@ -67,6 +68,7 @@ AppSettings SettingsStore::load() {
     settings.bigSeparator = clampSeparatorMode(prefs.getUChar(KEY_SEPARATOR_BIG, (uint8_t)SeparatorMode::Steady));
     settings.driftSeparator = clampDriftSeparatorMode(prefs.getUChar(KEY_SEPARATOR_DRIFT, (uint8_t)DriftSeparatorMode::Steady));
     settings.dialMarks = clampDialMarksMode(prefs.getUChar(KEY_DIAL_MARKS, (uint8_t)DialMarksMode::On));
+    settings.barSeconds = clampBarSecondsMode(prefs.getUChar(KEY_BAR_SECONDS, (uint8_t)BarSecondsMode::Off));
     settings.manualTime.enabled = prefs.getBool(KEY_MANUAL_TIME_ENABLED, false);
     settings.manualTime.epoch = prefs.getULong(KEY_MANUAL_EPOCH, 0);
     if (settings.network.ssid.length() == 0) {
@@ -101,6 +103,7 @@ bool SettingsStore::save(const AppSettings& settings) {
     prefs.putUChar(KEY_SEPARATOR_BIG, (uint8_t)settings.bigSeparator);
     prefs.putUChar(KEY_SEPARATOR_DRIFT, (uint8_t)settings.driftSeparator);
     prefs.putUChar(KEY_DIAL_MARKS, (uint8_t)settings.dialMarks);
+    prefs.putUChar(KEY_BAR_SECONDS, (uint8_t)settings.barSeconds);
     prefs.putBool(KEY_MANUAL_TIME_ENABLED, settings.manualTime.enabled);
     prefs.putULong(KEY_MANUAL_EPOCH, settings.manualTime.epoch);
 
@@ -319,6 +322,14 @@ bool SettingsStore::saveDialMarksMode(DialMarksMode mode) {
     Preferences prefs;
     if (!prefs.begin(PREFS_NAMESPACE, false)) return false;
     prefs.putUChar(KEY_DIAL_MARKS, (uint8_t)clampDialMarksMode((int)mode));
+    prefs.end();
+    return true;
+}
+
+bool SettingsStore::saveBarSeconds(BarSecondsMode mode) {
+    Preferences prefs;
+    if (!prefs.begin(PREFS_NAMESPACE, false)) return false;
+    prefs.putUChar(KEY_BAR_SECONDS, (uint8_t)clampBarSecondsMode((int)mode));
     prefs.end();
     return true;
 }

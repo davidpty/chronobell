@@ -21,6 +21,7 @@ public:
     void setTimeFormat(TimeFormat* timeFormat);
     void setInfoLineMode(InfoLineMode* infoLineMode);
     void setSeparatorModes(SeparatorMode separatorMode, DriftSeparatorMode driftSeparatorMode);
+    void setBarSecondsMode(BarSecondsMode mode);
 
     // Top-level time-rendering entry points used by Display::showTime().
     void drawTime(int hours, int minutes, int seconds);
@@ -30,7 +31,7 @@ public:
     void drawRomanTime(int hours, int minutes);
     void drawDialTime(int hours, int minutes, bool showMarks);
     void drawBinaryTime(int hours, int minutes, int seconds);
-    void drawBarTime(int hours, int minutes);
+    void drawBarTime(int hours, int minutes, int seconds);
     void drawInfoTime(ClockTime time);
     void drawDateTime(ClockTime time);
     void drawWeekdayTime(ClockTime time);
@@ -90,6 +91,7 @@ private:
     unsigned long _infoAltStartMs = 0;
     bool _infoAltStartValid = false;
     bool _driftStyleActive = false;
+    BarSecondsMode _barSeconds = BarSecondsMode::Off;
     SeparatorMode _separatorMode = SeparatorMode::Steady;
     DriftSeparatorMode _driftSeparatorMode = DriftSeparatorMode::Steady;
 #if DIGIT_TRANSITIONS
