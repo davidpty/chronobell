@@ -27,7 +27,7 @@ ChronoBell is a compact ESP32 clock with a 32x16 LED display, touch controls, co
 - **Night mode** - Dim the display, turn it off, mute the bell, or any combo - all on a schedule. Touch the clock to wake it for a minute.
 - **Manual time** - Switch from atomic (NTP + RTC) to manual and step through HH→MM→SS→Month→Day→Year. Persists across reboots.
 - **Config portal** - Scan WiFi networks, pick a timezone, tune display and bell settings, upload firmware - all from a browser.
-- **New Year's Eve easter egg** - On Dec 31 from 6 PM, tiny sparkles appear and grow more frequent through the evening. At midnight the display shows a countdown, rings 12 bell strikes, and cycles through "HAPPY NEW YEAR". Enable daily test mode to run it every day for testing.
+- **New Year's Eve easter egg** - On Dec 31 from 6 PM, tiny sparkles appear and grow more frequent through the evening. At midnight the display shows a countdown, rings 12 bell strikes, and cycles through "HAPPY NEW YEAR".
 - **Timekeeping** - NTP syncs every 60 minutes when WiFi is available. The RTC keeps time when it's not. Manual mode bypasses both.
 - **OTA updates** - Push firmware over the air at `chronobell.local`.
 
