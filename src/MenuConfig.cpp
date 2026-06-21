@@ -62,6 +62,7 @@ DisplayMode g_stylePreviewMode = DisplayMode::LargeDigitsOnly;
 InfoLineMode g_stylePendingInfoLineMode = InfoLineMode::Seconds;
 static SeparatorMode g_stylePendingSeparatorMode = SeparatorMode::Steady;
 static DriftSeparatorMode g_stylePendingDriftSeparatorMode = DriftSeparatorMode::Steady;
+static DialMarksMode g_stylePendingDialMarksMode = DialMarksMode::On;
 static bool g_styleEditing = false;
 
 uint8_t styleMenuStep() {
@@ -82,6 +83,10 @@ SeparatorMode styleMenuPendingSeparatorMode() {
 
 DriftSeparatorMode styleMenuPendingDriftSeparatorMode() {
     return g_stylePendingDriftSeparatorMode;
+}
+
+DialMarksMode styleMenuPendingDialMarksMode() {
+    return g_stylePendingDialMarksMode;
 }
 
 bool styleMenuIsEditing() {
@@ -143,7 +148,7 @@ const char* bellValueName(int16_t value) {
 
 const char* styleValueName(int16_t value) {
     static const char* const NAMES[] = {
-        "RND", "BIG", "DATA", "WORD", "ROMA", "BIN", "DRIFT", nullptr
+        "RND", "BIG", "DATA", "WORD", "ROMA", "DIAL", "BIN", "DRIFT", nullptr
     };
     for (uint8_t i = 0; NAMES[i]; i++) {
         if ((int16_t)i == value) return NAMES[i];
@@ -178,6 +183,11 @@ static const char* separatorValueName(int16_t value, bool drift) {
     static const char* const DRIFT[] = {"SOLID", "BLINK"};
     if (drift) return (value >= 0 && value <= 1) ? DRIFT[value] : "?";
     return (value >= 0 && value <= 1) ? STANDARD[value] : "?";
+}
+
+static const char* dialMarksValueName(int16_t value) {
+    static const char* const NAMES[] = {"OFF", "ON"};
+    return (value >= 0 && value <= 1) ? NAMES[value] : "?";
 }
 
 const char* dateStyleValueName(int16_t value) {
@@ -272,6 +282,7 @@ static time_t manualTimeEpochFromGlobals() {
 const char* menuValueName(uint8_t index, int16_t value, void* ctx) {
     if (index == MENU_STYLE) {
         if (g_styleStep == 0) return styleValueName(value);
+        if (g_stylePreviewMode == DisplayMode::Dial) return dialMarksValueName(value);
         if (g_stylePreviewMode == DisplayMode::Info && g_styleStep == 1) {
             return infoLineValueName(value);
         }
@@ -316,6 +327,7 @@ static int16_t getDisplayModeMenu(void* ctx) {
     if (g_styleStep == 1) {
         if (styleMenuInfoPreviewActive()) return (int16_t)g_stylePendingInfoLineMode;
         if (g_stylePreviewMode == DisplayMode::Drift) return (int16_t)g_stylePendingDriftSeparatorMode;
+        if (g_stylePreviewMode == DisplayMode::Dial) return (int16_t)g_stylePendingDialMarksMode;
         return (int16_t)g_stylePendingSeparatorMode;
     }
     if (g_styleStep == 2) {
@@ -330,6 +342,7 @@ static void previewDisplayModeMenu(void* ctx, int16_t v) {
         g_stylePendingInfoLineMode = b->appSettings.infoLineMode;
         g_stylePendingSeparatorMode = b->appSettings.bigSeparator;
         g_stylePendingDriftSeparatorMode = b->appSettings.driftSeparator;
+        g_stylePendingDialMarksMode = b->appSettings.dialMarks;
     }
     if (g_styleStep == 0) {
         g_stylePreviewMode = clampDisplayMode((int)v);
@@ -340,6 +353,8 @@ static void previewDisplayModeMenu(void* ctx, int16_t v) {
         g_stylePendingSeparatorMode = clampSeparatorMode((int)v);
     } else if (g_stylePreviewMode == DisplayMode::Drift && g_styleStep == 1) {
         g_stylePendingDriftSeparatorMode = clampDriftSeparatorMode((int)v);
+    } else if (g_stylePreviewMode == DisplayMode::Dial && g_styleStep == 1) {
+        g_stylePendingDialMarksMode = clampDialMarksMode((int)v);
     } else if (g_styleStep == 1) {
         g_stylePendingSeparatorMode = clampSeparatorMode((int)v);
     }
@@ -376,6 +391,14 @@ static void commitDisplayModeMenu(void* ctx, int16_t v) {
         g_stylePendingDriftSeparatorMode = separator;
         b->appSettings.driftSeparator = separator;
         b->settingsStore.saveDriftSeparatorMode(separator);
+        return;
+    }
+
+    if (g_stylePreviewMode == DisplayMode::Dial && g_styleStep == 1) {
+        DialMarksMode marks = clampDialMarksMode((int)v);
+        g_stylePendingDialMarksMode = marks;
+        b->appSettings.dialMarks = marks;
+        b->settingsStore.saveDialMarksMode(marks);
         return;
     }
 
@@ -420,7 +443,9 @@ static bool editCommitDisplayModeMenu(void* ctx, int16_t v) {
             MENU_ITEMS[MENU_STYLE].maxValue = (int16_t)InfoLineMode::Alt;
             return true;
         }
-        if (g_stylePreviewMode == DisplayMode::LargeDigitsOnly || g_stylePreviewMode == DisplayMode::Drift) {
+        if (g_stylePreviewMode == DisplayMode::LargeDigitsOnly ||
+            g_stylePreviewMode == DisplayMode::Drift ||
+            g_stylePreviewMode == DisplayMode::Dial) {
             g_styleStep = 1;
             MENU_ITEMS[MENU_STYLE].minValue = 0;
             MENU_ITEMS[MENU_STYLE].maxValue = (int16_t)SeparatorMode::Pulse;
@@ -458,6 +483,7 @@ static void cancelDisplayModeMenu(void* ctx) {
     g_stylePendingInfoLineMode = b->appSettings.infoLineMode;
     g_stylePendingSeparatorMode = b->appSettings.bigSeparator;
     g_stylePendingDriftSeparatorMode = b->appSettings.driftSeparator;
+    g_stylePendingDialMarksMode = b->appSettings.dialMarks;
     g_styleStep = 0;
     g_styleEditing = false;
     resetStyleMenuRange();

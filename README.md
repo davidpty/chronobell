@@ -44,6 +44,7 @@ ChronoBell has seven clock display modes. The menu label is short because the sc
 | Info | DATA | Time on top with a selectable second line |
 | Word clock | WORD | A compact phrase-style clock such as "TWENTY TO THREE" |
 | Roman | ROMA | Roman-numeral-style hours and minutes |
+| Dial | DIAL | Minimal analog dial with optional cardinal marks and ellipse-scaled hands |
 | Binary | BIN | Binary hour, minute, and second rows |
 | Drift | DRIFT | BIG-style digits where displayed time slowly drifts and returns |
 
@@ -137,7 +138,7 @@ When night mode turns the display off, any touch wakes it for a minute.
 
 | Item | Choices | What it sets |
 |------|---------|-------------|
-| STYLE | RND / BIG / INFO / WORD / ROMA / BIN / DRIFT | Clock style; drift is the mode that makes now feel less fixed |
+| STYLE | RND / BIG / INFO / WORD / ROMA / DIAL / BIN / DRIFT | Clock style; drift is the mode that makes now feel less fixed |
 | ANIM | OFF / ON | Enable or disable clock transitions |
 | INFO | SEC / DECI / DATE / WDAY / ALT | Second-line choice for the DATA style |
 | DATE | DATE / YEAR / MOON / ZOD / CZOD | Extra info shown in the date view |
@@ -148,7 +149,7 @@ When night mode turns the display off, any touch wakes it for a minute.
 | SETTIME | AUTO / MANUAL | Time source - automatic (NTP + RTC) or manual entry |
 | HOTSPOT | OFF / ON | Turn the web config portal on or off |
 
-Hold center to enter the menu, left/right to browse, and tap center to edit. Each confirm saves the current step immediately. STYLE has a second step for clocks with a separator: BIG, INFO, and DRIFT offer SOLID or BLINK. INFO first opens a second-line chooser labeled DATA, then the separator step labeled COLON. Each style remembers its own separator choice. ANIM toggles between OFF and ON. When ON, Animations transition smoothly between views (e.g., digit morphs, screen retune effect) as long as the engine is compiled in. WORD, ROMA, BIN, and RND save immediately because they do not expose a separator choice. SETTIME also saves each confirmed step, so aborting mid-flow keeps the already confirmed values.
+Hold center to enter the menu, left/right to browse, and tap center to edit. Each confirm saves the current step immediately. STYLE has a second step for clocks with configurable details: BIG, INFO, and DRIFT offer separator choices, while DIAL offers MARKS OFF or ON. INFO first opens a second-line chooser labeled DATA, then the separator step labeled COLON. Each style remembers its own choice. ANIM toggles between OFF and ON. When ON, Animations transition smoothly between views (e.g., digit morphs, screen retune effect) as long as the engine is compiled in. WORD, ROMA, BIN, and RND save immediately because they do not expose a second step. SETTIME also saves each confirmed step, so aborting mid-flow keeps the already confirmed values.
 
 ### Setting the time manually
 

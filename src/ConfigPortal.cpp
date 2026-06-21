@@ -164,6 +164,7 @@ void ConfigPortal::handleRoot() {
     String initialHotspotOnText = hotspotOnText(hotspotActive);
     String initialBellMode = String((int)_settings.bellMode);
     String initialStyle = String((int)_settings.displayMode);
+    String initialDialMarks = String((int)_settings.dialMarks);
     String initialDateStyle = String((int)_settings.dateStyle);
     String initialTimeFormat = String((int)_settings.timeFormat);
     String initialNightMode = String((int)_settings.nightMode);
@@ -308,8 +309,9 @@ void ConfigPortal::handleRoot() {
                     <option value="2">DATA - Seconds, date, wday, or alternate</option>
                     <option value="3">WORD - Mixed-size word clock display</option>
                     <option value="4">ROMA - Roman numeral clock</option>
-                    <option value="5">BIN - Binary clock</option>
-                    <option value="6">DRIFT - Irregular BIG-style clock</option>
+                    <option value="5">DIAL - Minimal analog dial</option>
+                    <option value="6">BIN - Binary clock</option>
+                    <option value="7">DRIFT - Irregular BIG-style clock</option>
                 </select>
             </div>
 
@@ -321,6 +323,14 @@ void ConfigPortal::handleRoot() {
             <div class="setting-row hidden" id="separatorRow">
                 <div class="setting-label">Separator</div>
                 <select id="separator" onchange="applySeparator(this.value)"></select>
+            </div>
+
+            <div class="setting-row hidden" id="dialMarksRow">
+                <div class="setting-label">Marks</div>
+                <select id="dialMarks" onchange="applyDialMarks(this.value)">
+                    <option value="0">OFF - Hide cardinal marks</option>
+                    <option value="1">ON - Show cardinal marks</option>
+                </select>
             </div>
 
             __ANIM_ROW__
@@ -482,6 +492,7 @@ void ConfigPortal::handleRoot() {
         let wifiFieldsDirty = false;
         let separatorSetting = 0;
         let driftSeparatorSetting = 0;
+        let dialMarksSetting = Number("__INITIAL_DIALMARKS__");
         let infoLineSetting = 0;
         let timerState = {};
         const timerDisplaySvg = document.getElementById('timerDisplaySvg');
@@ -565,11 +576,11 @@ void ConfigPortal::handleRoot() {
             const style = Number(document.getElementById('style').value);
             const row = document.getElementById('separatorRow');
             const select = document.getElementById('separator');
-            const configurable = style === 1 || style === 2 || style === 6;
+            const configurable = style === 1 || style === 2 || style === 7;
             row.classList.toggle('hidden', !configurable);
             if (!configurable) return;
 
-            const options = style === 6
+            const options = style === 7
                 ? [[0, 'SOLID - Always on, position shows drift'],
                    [1, 'BLINK - Both dots blink, position shows drift']]
                 : [[0, 'SOLID - Always visible'],
@@ -581,19 +592,31 @@ void ConfigPortal::handleRoot() {
                 el.textContent = option[1];
                 select.appendChild(el);
             });
-            select.value = String(style === 6 ? driftSeparatorSetting : separatorSetting);
+            select.value = String(style === 7 ? driftSeparatorSetting : separatorSetting);
+        }
+
+        function syncDialMarksRow() {
+            const style = Number(document.getElementById('style').value);
+            const row = document.getElementById('dialMarksRow');
+            const select = document.getElementById('dialMarks');
+            row.classList.toggle('hidden', style !== 5);
+            select.value = String(dialMarksSetting);
         }
 
         function onStyleChange(value) {
             syncInfoLineRow();
             syncSeparatorRow();
+            syncDialMarksRow();
             const infoLine = document.getElementById('infoLine');
             const separator = document.getElementById('separator');
+            const dialMarks = document.getElementById('dialMarks');
             if (infoLine) infoLine.disabled = true;
             separator.disabled = true;
+            dialMarks.disabled = true;
             applySetting('style', value).finally(function() {
                 if (infoLine) infoLine.disabled = false;
                 separator.disabled = false;
+                dialMarks.disabled = false;
             });
         }
 
@@ -605,13 +628,18 @@ void ConfigPortal::handleRoot() {
         function applySeparator(value) {
             const style = Number(document.getElementById('style').value);
             const parsed = Number(value);
-            if (style === 6) {
+            if (style === 7) {
                 driftSeparatorSetting = parsed;
             } else {
                 separatorSetting = parsed;
             }
             return fetch('/apply?field=separator&style=' + encodeURIComponent(style) +
                          '&value=' + encodeURIComponent(value));
+        }
+
+        function applyDialMarks(value) {
+            dialMarksSetting = Number(value);
+            return applySetting('dialmarks', value);
         }
 
         function htmlEscape(value) {
@@ -707,6 +735,7 @@ void ConfigPortal::handleRoot() {
             syncHotspotToggle();
             syncInfoLineRow();
             syncSeparatorRow();
+            syncDialMarksRow();
         }
 
         function stopPendingPoll() {
@@ -801,7 +830,11 @@ void ConfigPortal::handleRoot() {
                 if (data.separatorDrift !== undefined) {
                     driftSeparatorSetting = Number(data.separatorDrift);
                 }
+                if (data.dialMarks !== undefined) {
+                    dialMarksSetting = Number(data.dialMarks);
+                }
                 syncSeparatorRow();
+                syncDialMarksRow();
 
                 updateHotspotFromStatus(data);
                 if (data.timer) {
@@ -1076,6 +1109,7 @@ void ConfigPortal::handleRoot() {
     html.replace("__ANIM_ROW__", "");
 #endif
     html.replace("__INITIAL_STYLE__", initialStyle);
+    html.replace("__INITIAL_DIALMARKS__", initialDialMarks);
     html.replace("__INITIAL_INFOLINE__", String((int)_settings.infoLineMode));
 #if DIGIT_TRANSITIONS || SCREEN_TRANSITION
     html.replace("__INITIAL_ANIM__", String((int)_settings.transitionMode));
@@ -1317,6 +1351,8 @@ void ConfigPortal::handleApply() {
             _webServer.send(400, "application/json", "{\"success\":false}");
             return;
         }
+    } else if (field == "dialmarks") {
+        settings.dialMarks = clampDialMarksMode(value.toInt());
     } else if (field == "datestyle") {
         settings.dateStyle = clampDateStyle(value.toInt());
     } else if (field == "timefmt") {
@@ -1378,7 +1414,7 @@ void ConfigPortal::handleApply() {
 #if DIGIT_TRANSITIONS || SCREEN_TRANSITION
         || field == "anim"
 #endif
-        || field == "separator" || field == "datestyle" || field == "timefmt" || field == "timezone" || field == "timeMode" || field == "manualtime" || field == "bellmode" || field == "brightness")) {
+        || field == "separator" || field == "dialmarks" || field == "datestyle" || field == "timefmt" || field == "timezone" || field == "timeMode" || field == "manualtime" || field == "bellmode" || field == "brightness")) {
         _previewCb(_previewContext, field);
     }
 
@@ -1423,6 +1459,8 @@ void ConfigPortal::handleStatus() {
     json += (int)_settings.bigSeparator;
     json += ",\"separatorDrift\":";
     json += (int)_settings.driftSeparator;
+    json += ",\"dialMarks\":";
+    json += (int)_settings.dialMarks;
     json += ",\"hotspotActive\":";
     json += hotspotActive ? "true" : "false";
     json += ",\"hotspotRemaining\":";

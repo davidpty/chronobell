@@ -93,7 +93,11 @@ void MenuRenderer::drawMenuValue(const MenuItem& it, int16_t v, int y) {
 void MenuRenderer::drawMenuName(const MenuItem& it, int y) {
     const char* label = it.name;
     if (strcmp(it.name, "STYLE") == 0 && styleMenuStep() > 0) {
-        label = styleMenuInfoPreviewActive() ? "DATA" : "COLON";
+        if (styleMenuPreviewMode() == DisplayMode::Dial) {
+            label = "MARKS";
+        } else {
+            label = styleMenuInfoPreviewActive() ? "DATA" : "COLON";
+        }
     }
     int w = _display->menuTextWidth(label, 4, 1);
     int x = (COLS_PER_ROW - w) / 2;

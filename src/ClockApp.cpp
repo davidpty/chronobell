@@ -32,6 +32,7 @@ static const DisplayMode QUICK_STYLE_POOL[] = {
     DisplayMode::Info,
     DisplayMode::Word,
     DisplayMode::Roma,
+    DisplayMode::Dial,
     DisplayMode::Bin,
     DisplayMode::Drift,
 };

@@ -28,6 +28,7 @@ public:
     void drawDriftTime(int hours, int minutes, int seconds, int offsetMinutes, bool freshChange, bool separatorVisible, int driftDirection);
     void drawWordTime(int hours, int minutes);
     void drawRomanTime(int hours, int minutes);
+    void drawDialTime(int hours, int minutes, bool showMarks);
     void drawBinaryTime(int hours, int minutes, int seconds);
     void drawInfoTime(ClockTime time);
     void drawDateTime(ClockTime time);
@@ -37,7 +38,7 @@ public:
     void drawDeciseconds(int seconds, uint8_t deciseconds);
     // Renders a live clock preview in the chosen style. Used by the menu
     // Edit-mode preview phase (see MenuRenderer).
-    void drawPreview(DisplayMode mode, ClockTime time);
+    void drawPreview(DisplayMode mode, ClockTime time, bool dialMarksVisible = true);
     void setDriftStyleActive(bool active);
 
     // Used by Display to fetch the live deciseconds digit (0-9) for the decisecond display.

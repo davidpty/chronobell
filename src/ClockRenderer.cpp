@@ -84,6 +84,30 @@ bool lineFits(const WordSegment* segments, uint8_t count) {
     return lineWidth(segments, count) <= COLS_PER_ROW;
 }
 
+void drawClippedLine(Display& display, int x0, int y0, int x1, int y1) {
+    int dx = abs(x1 - x0);
+    int sx = x0 < x1 ? 1 : -1;
+    int dy = -abs(y1 - y0);
+    int sy = y0 < y1 ? 1 : -1;
+    int error = dx + dy;
+
+    while (true) {
+        if (x0 >= 0 && x0 < COLS_PER_ROW && y0 >= 0 && y0 < TOTAL_ROWS) {
+            display.setPixel((uint8_t)x0, (uint8_t)y0, true);
+        }
+        if (x0 == x1 && y0 == y1) break;
+        int twiceError = 2 * error;
+        if (twiceError >= dy) {
+            error += dy;
+            x0 += sx;
+        }
+        if (twiceError <= dx) {
+            error += dx;
+            y0 += sy;
+        }
+    }
+}
+
 void drawCenteredTextWithSpacingFallback(Display& display,
                                          const char* text,
                                          int y,
@@ -459,7 +483,7 @@ int ClockRenderer::effectiveHours(int rawHours) const {
     return rawHours;
 }
 
-void ClockRenderer::drawPreview(DisplayMode mode, ClockTime time) {
+void ClockRenderer::drawPreview(DisplayMode mode, ClockTime time, bool dialMarksVisible) {
     int hours = effectiveHours(time.hours);
     setDriftStyleActive(mode == DisplayMode::Drift);
     switch (mode) {
@@ -471,6 +495,9 @@ void ClockRenderer::drawPreview(DisplayMode mode, ClockTime time) {
             break;
         case DisplayMode::Roma:
             drawRomanTime(time.hours, time.minutes);
+            break;
+        case DisplayMode::Dial:
+            drawDialTime(time.hours, time.minutes, dialMarksVisible);
             break;
         case DisplayMode::Bin:
             drawBinaryTime(time.hours, time.minutes, time.seconds);
@@ -767,6 +794,45 @@ void ClockRenderer::drawRomanTime(int hours, int minutes) {
     appendRomanNumeral(minutes, minuteBuf, sizeof(minuteBuf));
     _display->drawCenteredMediumText(hourBuf, 0);
     _display->drawCenteredSmallText(minuteBuf, 11);
+}
+
+void ClockRenderer::drawDialTime(int hours, int minutes, bool showMarks) {
+    static constexpr int CENTER_X = 15;
+    static constexpr int CENTER_Y = 7;
+    static constexpr double GEOMETRIC_CENTER_X = 15.5;
+    static constexpr double GEOMETRIC_CENTER_Y = 7.5;
+    static constexpr double DIAL_TWO_PI = 6.28318530717958647692;
+
+    if (showMarks) {
+        _display->setPixel(15, 1, true);
+        _display->setPixel(30, 7, true);
+        _display->setPixel(15, 14, true);
+        _display->setPixel(1, 7, true);
+    }
+
+    double minuteAngle = DIAL_TWO_PI * (minutes / 60.0);
+    double minuteRadiusX = showMarks ? 13.5 : 15.5;
+    double minuteRadiusY = showMarks ? 5.5 : 7.5;
+    int minuteX = (int)lround(GEOMETRIC_CENTER_X + minuteRadiusX * sin(minuteAngle));
+    int minuteY = (int)lround(GEOMETRIC_CENTER_Y - minuteRadiusY * cos(minuteAngle));
+    int minuteLength = max(abs(minuteX - CENTER_X), abs(minuteY - CENTER_Y));
+
+    double hourAngle = DIAL_TWO_PI * (((hours % 12) * 60.0 + minutes) / 720.0);
+    int hourX = (int)lround(GEOMETRIC_CENTER_X + 7.0 * sin(hourAngle));
+    int hourY = (int)lround(GEOMETRIC_CENTER_Y - 3.0 * cos(hourAngle));
+    int hourDx = hourX - CENTER_X;
+    int hourDy = hourY - CENTER_Y;
+    int hourLength = max(abs(hourDx), abs(hourDy));
+    if (hourLength >= minuteLength) {
+        int targetLength = max(1, minuteLength - 1);
+        hourX = CENTER_X + (int)lround((double)hourDx * targetLength / hourLength);
+        hourY = CENTER_Y + (int)lround((double)hourDy * targetLength / hourLength);
+    }
+    drawClippedLine(*_display, CENTER_X, CENTER_Y, hourX, hourY);
+
+    drawClippedLine(*_display, CENTER_X, CENTER_Y, minuteX, minuteY);
+
+    _display->setPixel(CENTER_X, CENTER_Y, true);
 }
 
 void ClockRenderer::drawBinaryTime(int hours, int minutes, int seconds) {

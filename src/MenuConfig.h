@@ -22,6 +22,7 @@ DisplayMode styleMenuPreviewMode();
 InfoLineMode styleMenuPendingInfoLineMode();
 SeparatorMode styleMenuPendingSeparatorMode();
 DriftSeparatorMode styleMenuPendingDriftSeparatorMode();
+DialMarksMode styleMenuPendingDialMarksMode();
 bool styleMenuIsEditing();
 bool styleMenuInfoPreviewActive();
 

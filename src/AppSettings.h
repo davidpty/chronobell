@@ -10,8 +10,9 @@ enum class DisplayMode : uint8_t {
     Info = 2,
     Word = 3,
     Roma = 4,
-    Bin = 5,
-    Drift = 6
+    Dial = 5,
+    Bin = 6,
+    Drift = 7
 };
 
 enum class InfoLineMode : uint8_t {
@@ -64,6 +65,11 @@ enum class DriftSeparatorMode : uint8_t {
     Pulse = 1
 };
 
+enum class DialMarksMode : uint8_t {
+    Off = 0,
+    On = 1
+};
+
 #if DIGIT_TRANSITIONS || SCREEN_TRANSITION
 enum class TransitionMode : uint8_t {
     Off = 0,
@@ -97,6 +103,7 @@ struct AppSettings {
     SeparatorMode bigSeparator = SeparatorMode::Steady;
     InfoLineMode infoLineMode = InfoLineMode::Seconds;
     DriftSeparatorMode driftSeparator = DriftSeparatorMode::Steady;
+    DialMarksMode dialMarks = DialMarksMode::On;
 #if DIGIT_TRANSITIONS || SCREEN_TRANSITION
     TransitionMode transitionMode = TransitionMode::Morph;
 #endif
@@ -117,6 +124,10 @@ inline DriftSeparatorMode clampDriftSeparatorMode(int mode) {
     if (mode < (int)DriftSeparatorMode::Steady) return DriftSeparatorMode::Steady;
     if (mode > (int)DriftSeparatorMode::Pulse) return DriftSeparatorMode::Pulse;
     return static_cast<DriftSeparatorMode>(mode);
+}
+
+inline DialMarksMode clampDialMarksMode(int mode) {
+    return mode <= (int)DialMarksMode::Off ? DialMarksMode::Off : DialMarksMode::On;
 }
 
 inline SeparatorMode separatorModeFor(const AppSettings& settings, DisplayMode mode) {
@@ -147,6 +158,8 @@ inline const char* displayModeLabel(DisplayMode mode) {
             return "WORD";
         case DisplayMode::Roma:
             return "ROMA";
+        case DisplayMode::Dial:
+            return "DIAL";
         case DisplayMode::Bin:
             return "BIN";
         case DisplayMode::Drift:

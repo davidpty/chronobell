@@ -230,6 +230,10 @@ void Display::showTime() {
         case DisplayMode::Roma:
             _clockRenderer->drawRomanTime(hours, minutes);
             break;
+        case DisplayMode::Dial:
+            _clockRenderer->drawDialTime(hours, minutes,
+                !_appSettings || _appSettings->dialMarks == DialMarksMode::On);
+            break;
         case DisplayMode::Bin:
             _clockRenderer->drawBinaryTime(hours, minutes, seconds);
             break;
@@ -275,12 +279,15 @@ void Display::drawStylePreview(DisplayMode mode) {
 #endif
     SeparatorMode separatorMode;
     DriftSeparatorMode driftSeparatorMode;
+    DialMarksMode dialMarksMode;
     if (styleMenuIsEditing()) {
         separatorMode = styleMenuPendingSeparatorMode();
         driftSeparatorMode = styleMenuPendingDriftSeparatorMode();
+        dialMarksMode = styleMenuPendingDialMarksMode();
     } else {
         separatorMode = _appSettings ? separatorModeFor(*_appSettings, mode) : SeparatorMode::Steady;
         driftSeparatorMode = _appSettings ? _appSettings->driftSeparator : DriftSeparatorMode::Steady;
+        dialMarksMode = _appSettings ? _appSettings->dialMarks : DialMarksMode::On;
     }
     _clockRenderer->setSeparatorModes(separatorMode, driftSeparatorMode);
     _clockRenderer->setDriftStyleActive(mode == DisplayMode::Drift);
@@ -288,7 +295,7 @@ void Display::drawStylePreview(DisplayMode mode) {
         InfoLineMode pendingInfo = styleMenuPendingInfoLineMode();
         InfoLineMode* restoreInfo = _appSettings ? &_appSettings->infoLineMode : nullptr;
         _clockRenderer->setInfoLineMode(&pendingInfo);
-        _clockRenderer->drawPreview(mode, time);
+        _clockRenderer->drawPreview(mode, time, dialMarksMode == DialMarksMode::On);
         _clockRenderer->setInfoLineMode(restoreInfo);
         return;
     }
@@ -303,7 +310,7 @@ void Display::drawStylePreview(DisplayMode mode) {
                                       _driftTimeModel->displayedMinuteFresh(nowMs), visible,
                                       driftDirection);
     } else {
-        _clockRenderer->drawPreview(mode, time);
+        _clockRenderer->drawPreview(mode, time, dialMarksMode == DialMarksMode::On);
     }
 }
 
