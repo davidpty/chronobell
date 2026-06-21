@@ -17,17 +17,21 @@ void NewYearRenderer::drawSparkles() {
     if (!_display || !_controller) return;
 
     // Shape definitions: pixel offset lists ordered center → partial → full
-    static const int8_t SHAPE_PX[6][9][2] = {
-        {{0,0}},                                           // Dot
-        {{0,0}, {0,-1}, {0,1}},                            // VBar
-        {{0,0}, {-1,0}, {1,0}},                            // HBar
-        {{0,0}, {0,-1}, {0,1}, {-1,0}, {1,0}},            // Cross
-        {{0,0}, {-1,-1}, {1,1}, {-1,1}, {1,-1}},          // X
-        {{0,0}, {-1,-1}, {1,-1}, {-1,1}, {1,1},           // Ring
+    static const int8_t SHAPE_PX[8][9][2] = {
+        {{0,0}},                                           // 0 Dot
+        {{0,0}, {-1,0}, {1,0}, {0,-1}},                    // 1 TriUp
+        {{0,0}, {-1,0}, {1,0}, {0,1}},                     // 2 TriDn
+        {{0,0}, {0,-1}, {0,1}, {-1,0}, {1,0}},             // 3 Cross
+        {{0,0}, {-1,-1}, {1,1}, {-1,1}, {1,-1}},           // 4 X
+        {{0,0}, {-1,-1}, {1,-1}, {-1,1}, {1,1},            // 5 Ring
          {0,-1}, {1,0}, {0,1}, {-1,0}},
+        {{0,0}, {-1,-2}, {1,-2}, {-2,-1}, {2,-1},          // 6 Stardust
+         {-2,1}, {2,1}, {-1,2}, {1,2}},
+        {{0,0}, {0,-2}, {-1,-1}, {1,-1},                   // 7 Big Star
+         {-2,0}, {2,0}, {-1,1}, {1,1}, {0,2}},
     };
-    static const uint8_t SHAPE_PC[6] = {1, 3, 3, 5, 5, 9};
-    static const uint16_t SHAPE_MS[6] = {180, 300, 300, 450, 550, 450};
+    static const uint8_t SHAPE_PC[8] = {1, 4, 4, 5, 5, 9, 9, 9};
+    static const uint16_t SHAPE_MS[8] = {180, 300, 300, 450, 550, 450, 550, 550};
 
     const uint8_t count = _controller->particleCount();
     const uint32_t now = _controller->phaseMilliseconds();
@@ -39,10 +43,11 @@ void NewYearRenderer::drawSparkles() {
 
     uint8_t maxShape;
     if (_controller->phase() == NewYearPhase::Ambient && now < 7200000UL) {
-        uint32_t hourIdx = now / 3600000UL;
-        static const uint8_t MAX_SHAPE[] = {0, 1};
-        if (hourIdx > 1) hourIdx = 1;
-        maxShape = MAX_SHAPE[hourIdx];
+        uint32_t bucket = now / 1800000UL;
+        static const uint8_t MAX_SHAPE[] = {0, 1, 2, 3};
+        maxShape = (bucket > 3) ? 3 : MAX_SHAPE[bucket];
+    } else if (_controller->phase() == NewYearPhase::Ambient) {
+        maxShape = 7;
     } else {
         maxShape = 5;
     }
@@ -55,10 +60,16 @@ void NewYearRenderer::drawSparkles() {
         uint32_t offset = r % period;
         uint32_t local = (now + period - offset) % period;
 
-        uint8_t sx = (r % (COLS_PER_ROW - 2)) + 1;
-        uint8_t sy = ((r >> 8) % (TOTAL_ROWS - 2)) + 1;
-        uint8_t shape = (r >> 16) % (maxShape + 1);
-        uint16_t dur = SHAPE_MS[shape];
+        uint8_t sx = (r % (COLS_PER_ROW - 4)) + 2;
+        uint8_t sy = ((r >> 8) % (TOTAL_ROWS - 4)) + 2;
+        uint8_t shape;
+        if (maxShape >= 6 && (r & 0x3) == 0) {
+            shape = 6 + ((r >> 16) & 1);
+        } else {
+            shape = (r >> 16) % ((maxShape + 1) < 6 ? (maxShape + 1) : 6);
+        }
+        uint16_t baseDur = SHAPE_MS[shape];
+        uint16_t dur = baseDur * (65 + ((r >> 24) % 121)) / 100;
 
         if (local >= dur) continue;
         activeCount++;
@@ -98,15 +109,17 @@ void NewYearRenderer::drawSparkles() {
     bool minimalPhase = _controller->phase() == NewYearPhase::Ambient
                      && _controller->phaseMilliseconds() < 7200000UL;
     if (!minimalPhase && activeCount > 0 && _lastActiveCount == 0) {
-        _burstBoost = activeCount;
-        if (_burstBoost > 7) _burstBoost = 7;
-        _burstFrames = 5;
+        _burstBoost = activeCount < 7 ? activeCount : 7;
+        _burstFrames = _burstBoost * 20;
+        _burstFramesMax = _burstFrames;
     }
     _lastActiveCount = activeCount;
 
     if (_burstFrames > 0) {
         _burstFrames--;
-        uint8_t easeBoost = (uint8_t)(_burstBoost * (_burstFrames + 1U) / 6U + 0.5f);
+        uint8_t easeBoost = _burstFramesMax > 0
+            ? (uint8_t)(_burstBoost * (_burstFrames + 1) / (_burstFramesMax + 1))
+            : 0;
         _display->applyBurstBoost(easeBoost);
     } else {
         _display->applyBurstBoost(0);

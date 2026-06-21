@@ -26,6 +26,7 @@ private:
     bool _didMidnightFlash = false;
     uint8_t _lastActiveCount = 0;
     uint8_t _burstFrames = 0;
+    uint8_t _burstFramesMax = 0;
     uint8_t _burstBoost = 0;
 };
 
