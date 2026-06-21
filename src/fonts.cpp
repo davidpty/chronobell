@@ -1157,9 +1157,9 @@ const uint8_t FONT_MEDIUM[44][TIME_FONT_MEDIUM_HEIGHT][6] = {
     {0,0,0,0,0,0}},
  };
 
-// Combined small font: index 0-9 = '0'-'9', index 10-35 = 'A'-'Z', index 36 = '%', index 37 = '-', index 38 = '+', index 39 = 'o', index 40 = '^', index 41 = '@', index 42 = 'v'
+// Combined small font: index 0-9 = '0'-'9', index 10-35 = 'A'-'Z', index 36 = '%', index 37 = '-', index 38 = '+', index 39 = 'o', index 40 = '^', index 41 = '@', index 42 = 'v', index 43 = ':'
 // 4 columns x 5 rows
-const uint8_t FONT_SMALL[43][SEC_FONT_HEIGHT][4] = {
+const uint8_t FONT_SMALL[44][SEC_FONT_HEIGHT][4] = {
   // 0
   {{1,1,1,1},
    {1,0,0,1},
@@ -1414,10 +1414,16 @@ const uint8_t FONT_SMALL[43][SEC_FONT_HEIGHT][4] = {
    {1,1,1,1},
    {1,1,1,1},
    {0,1,1,0}},
-   // arrow down
-  {{0,1,1,0},
-   {0,1,1,0},
-   {0,1,1,0},
-   {1,1,1,1},
-   {0,1,1,0}}
+    // arrow down
+   {{0,1,1,0},
+    {0,1,1,0},
+    {0,1,1,0},
+    {1,1,1,1},
+    {0,1,1,0}},
+    // :
+   {{0,0,0,0},
+    {0,1,0,0},
+    {0,0,0,0},
+    {0,1,0,0},
+    {0,0,0,0}}
  };

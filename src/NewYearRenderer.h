@@ -8,7 +8,7 @@
 class Display;
 class NewYearController;
 
-#if ENABLE_NEW_YEAR_EASTER_EGG
+#if FEATURE_NEW_YEAR
 
 class NewYearRenderer {
 public:

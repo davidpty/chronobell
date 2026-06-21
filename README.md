@@ -208,7 +208,7 @@ Open `Config.h` to adjust these:
 | `DRIFT_MAX_OFFSET_MINUTES` | `8` | Maximum distance from real time in either direction |
 | `DRIFT_PATTERN` | `0` | 0=behind↔ahead, 1=real→behind→real, 2=real→ahead→real |
 | `DRIFT_TIME_TO_MAX_OFFSET_MINUTES` | `60` | Minutes from real time to maximum offset; pattern 0 takes twice this between extremes |
-| `ENABLE_NEW_YEAR_EASTER_EGG` | `1` | Set to `0` to remove the entire NYE sequence (saves ~2KB flash) |
+| `FEATURE_NEW_YEAR` | `1` | Set to `0` to remove the entire NYE sequence (saves ~2KB flash) |
 | `NEW_YEAR_DAILY_TEST` | `1` | Run the 6-hour sequence every day instead of only Dec 31 |
 | `NEW_YEAR_WAKE_DISPLAY` | `1` | Force the display on during the final 10 seconds and celebration |
 | `NEW_YEAR_FORCE_BELL` | `1` | Ring the bell at midnight even if bell mode is Off |

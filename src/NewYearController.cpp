@@ -2,7 +2,7 @@
 
 #include "Config.h"
 
-#if ENABLE_NEW_YEAR_EASTER_EGG
+#if FEATURE_NEW_YEAR
 
 namespace {
 #if defined(ESP32)
@@ -24,11 +24,7 @@ uint8_t NewYearController::daysInMonth(int month, int year) {
 }
 
 int NewYearController::eventKeyForDate(const ClockDate& date) {
-#if NEW_YEAR_DAILY_TEST
-    return date.year * 10000 + date.month * 100 + date.date;
-#else
     return date.year;
-#endif
 }
 
 int NewYearController::previousDateKey(const ClockDate& date) {
@@ -49,9 +45,9 @@ void NewYearController::update(const ClockDate& date, const ClockTime& time, uin
     const uint32_t secondOfDay = (uint32_t)time.hours * 3600UL +
                                  (uint32_t)time.minutes * 60UL +
                                  (uint32_t)time.seconds;
-    const bool eveDate = NEW_YEAR_DAILY_TEST || (date.month == 12 && date.date == 31);
-    const bool celebrationDate = NEW_YEAR_DAILY_TEST || (date.month == 1 && date.date == 1);
-    const bool beforeMidnight = eveDate && time.hours >= 18;
+    const bool eveDate = date.month == 12 && date.date == 31;
+    const bool celebrationDate = date.month == 1 && date.date == 1;
+    const bool beforeMidnight = eveDate && time.hours >= 21;
     const bool afterMidnight = celebrationDate && secondOfDay < 120UL;
 
     if (!beforeMidnight && !afterMidnight) {
@@ -82,7 +78,7 @@ void NewYearController::update(const ClockDate& date, const ClockTime& time, uin
             _phaseMs = (secondOfDay - (23UL * 3600UL + 50UL * 60UL)) * 1000UL + milliseconds;
         } else {
             _phase = NewYearPhase::Ambient;
-            _phaseMs = (secondOfDay - 18UL * 3600UL) * 1000UL + milliseconds;
+            _phaseMs = (secondOfDay - 21UL * 3600UL) * 1000UL + milliseconds;
         }
         return;
     }
@@ -102,24 +98,20 @@ void NewYearController::update(const ClockDate& date, const ClockTime& time, uin
 bool NewYearController::takesOverDisplay() const {
     switch (_phase) {
         case NewYearPhase::FinalTenMinutes:
-            return (_phaseMs % 15000UL) >= 10000UL;
+            return (_phaseMs % 15000UL) < 10000UL;
         case NewYearPhase::FinalMinute:
-            return (_phaseMs % 10000UL) >= 5000UL;
+            return true;
         case NewYearPhase::FinalTenSeconds:
             return true;
         case NewYearPhase::Celebration:
-            return (_phaseMs % 12000UL) < 9000UL;
+            return true;
         default:
             return false;
     }
 }
 
 bool NewYearController::shouldWakeDisplay() const {
-#if NEW_YEAR_WAKE_DISPLAY
     return _phase == NewYearPhase::FinalTenSeconds || _phase == NewYearPhase::Celebration;
-#else
-    return false;
-#endif
 }
 
 uint8_t NewYearController::particleCount() const {
@@ -127,24 +119,46 @@ uint8_t NewYearController::particleCount() const {
     if (_phase == NewYearPhase::FinalMinute || _phase == NewYearPhase::FinalTenMinutes) return 8;
     if (_phase != NewYearPhase::Ambient) return 0;
 
-    uint32_t hourIntoSequence = _phaseMs / 3600000UL;
-    static const uint8_t COUNTS[] = {1, 2, 3, 4, 6, 10};
-    if (hourIntoSequence > 5) hourIntoSequence = 5;
-    return COUNTS[hourIntoSequence];
+    // 21:00 to 23:00 = 7200s = 7200000ms
+    const uint32_t MINIMAL_DURATION = 7200000UL;
+
+    if (_phaseMs < MINIMAL_DURATION) {
+        uint32_t bucket = _phaseMs / 1800000UL;
+        static const uint8_t COUNTS[] = {1, 1, 2, 2};
+        if (bucket > 3) bucket = 3;
+        return COUNTS[bucket];
+    }
+
+    // Heavy ramp: 10-minute buckets after 23:00
+    uint32_t heavyMs = _phaseMs - MINIMAL_DURATION;
+    uint32_t bucket = heavyMs / 600000UL;
+    static const uint8_t COUNTS[] = {3, 4, 6, 8, 10};
+    if (bucket > 4) bucket = 4;
+    return COUNTS[bucket];
 }
 
 uint16_t NewYearController::accentPeriodMs() const {
     if (_phase != NewYearPhase::Ambient) return 2000;
-    uint32_t hourIntoSequence = _phaseMs / 3600000UL;
-    static const uint16_t PERIODS[] = {15000, 12000, 10000, 8000, 6000, 4000};
-    if (hourIntoSequence > 5) hourIntoSequence = 5;
-    return PERIODS[hourIntoSequence];
+
+    // 21:00 to 23:00 = 7200s = 7200000ms
+    const uint32_t MINIMAL_DURATION = 7200000UL;
+
+    if (_phaseMs < MINIMAL_DURATION) {
+        uint32_t bucket = _phaseMs / 1800000UL;
+        static const uint16_t PERIODS[] = {25000, 20000, 15000, 12000};
+        if (bucket > 3) bucket = 3;
+        return PERIODS[bucket];
+    }
+
+    // Heavy ramp: 10-minute buckets after 23:00
+    uint32_t heavyMs = _phaseMs - MINIMAL_DURATION;
+    uint32_t bucket = heavyMs / 600000UL;
+    static const uint16_t PERIODS[] = {12000, 10000, 8000, 6000, 4000};
+    if (bucket > 4) bucket = 4;
+    return PERIODS[bucket];
 }
 
 int8_t NewYearController::boostedBrightness(int8_t normalBrightness, int8_t userBrightness) const {
-#if !NEW_YEAR_BRIGHTNESS_BOOST
-    return normalBrightness;
-#else
     if (normalBrightness < 0) normalBrightness = 0;
     if (userBrightness < normalBrightness) return normalBrightness;
 
@@ -165,7 +179,6 @@ int8_t NewYearController::boostedBrightness(int8_t normalBrightness, int8_t user
 
     if (progress > total) progress = total;
     return (int8_t)(normalBrightness + ((userBrightness - normalBrightness) * progress) / total);
-#endif
 }
 
 #endif

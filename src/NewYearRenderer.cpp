@@ -6,7 +6,7 @@
 #include "Display.h"
 #include "NewYearController.h"
 
-#if ENABLE_NEW_YEAR_EASTER_EGG
+#if FEATURE_NEW_YEAR
 
 void NewYearRenderer::init(Display& display, NewYearController& controller) {
     _display = &display;
@@ -38,10 +38,10 @@ void NewYearRenderer::drawSparkles() {
     const bool takeover = _controller->takesOverDisplay();
 
     uint8_t maxShape;
-    if (_controller->phase() == NewYearPhase::Ambient) {
+    if (_controller->phase() == NewYearPhase::Ambient && now < 7200000UL) {
         uint32_t hourIdx = now / 3600000UL;
-        if (hourIdx > 5) hourIdx = 5;
-        static const uint8_t MAX_SHAPE[] = {0, 1, 2, 3, 4, 5};
+        static const uint8_t MAX_SHAPE[] = {0, 1};
+        if (hourIdx > 1) hourIdx = 1;
         maxShape = MAX_SHAPE[hourIdx];
     } else {
         maxShape = 5;
@@ -95,7 +95,9 @@ void NewYearRenderer::drawSparkles() {
     }
 
     // Burst fires once per quiet→active transition
-    if (activeCount > 0 && _lastActiveCount == 0) {
+    bool minimalPhase = _controller->phase() == NewYearPhase::Ambient
+                     && _controller->phaseMilliseconds() < 7200000UL;
+    if (!minimalPhase && activeCount > 0 && _lastActiveCount == 0) {
         _burstBoost = activeCount;
         if (_burstBoost > 7) _burstBoost = 7;
         _burstFrames = 5;
@@ -117,15 +119,26 @@ void NewYearRenderer::renderOverlay() {
 
 void NewYearRenderer::drawCountdown() {
     uint32_t remainingSeconds = (_controller->millisecondsToMidnight() + 999UL) / 1000UL;
-    if (_controller->phase() == NewYearPhase::FinalTenSeconds) {
-        char seconds[4];
-        snprintf(seconds, sizeof(seconds), "%lu", (unsigned long)remainingSeconds);
-        _display->drawCenteredBigText(seconds, 0);
+
+    if (remainingSeconds <= 10) {
+        char buf[4];
+        snprintf(buf, sizeof(buf), "%lu", (unsigned long)remainingSeconds);
+        _display->drawCenteredBigText(buf, 0);
 
         if (remainingSeconds >= 1 && remainingSeconds <= 3) {
             _display->applyBurstBoost(12 - remainingSeconds * 2);
             return;
         }
+        drawSparkles();
+        return;
+    }
+
+    if (remainingSeconds <= 60) {
+        uint32_t minutes = remainingSeconds / 60UL;
+        uint32_t seconds = remainingSeconds % 60UL;
+        char text[12];
+        snprintf(text, sizeof(text), "%02lu:%02lu", (unsigned long)minutes, (unsigned long)seconds);
+        _display->drawCenteredMediumText(text, 3);
         drawSparkles();
         return;
     }
@@ -165,13 +178,14 @@ void NewYearRenderer::renderTakeover() {
                 }
             }
             _display->applyBurstBoost(15);
-            return;
         }
         drawCelebration();
     } else {
         _didMidnightFlash = false;
         drawCountdown();
-        drawSparkles();
+        if (_controller->phase() != NewYearPhase::FinalTenMinutes) {
+            drawSparkles();
+        }
     }
 }
 

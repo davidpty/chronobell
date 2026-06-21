@@ -15,6 +15,6 @@
 
 extern const uint8_t FONT_BIG[43][TIME_FONT_BIG_HEIGHT][6];
 extern const uint8_t FONT_MEDIUM[44][TIME_FONT_MEDIUM_HEIGHT][6];
-extern const uint8_t FONT_SMALL[43][SEC_FONT_HEIGHT][4];
+extern const uint8_t FONT_SMALL[44][SEC_FONT_HEIGHT][4];
 
 #endif

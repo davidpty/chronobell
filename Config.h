@@ -35,16 +35,7 @@
 #define SCREEN_TRANSITION                           1                                   // 0=remove engine, 1=include screen retune engine
 #define SCREEN_TRANSITION_MS                        450                                 // whole-screen transition duration
 
-// ---------------------------------------------------------------------------
-// Hidden New Year's Eve sequence. Daily test mode deliberately runs the full
-// six-hour sequence and may ring the bell every midnight when policy permits.
-// ---------------------------------------------------------------------------
-
-#define ENABLE_NEW_YEAR_EASTER_EGG                  1                                   // Enable hidden New Year's Eve sequence
-#define NEW_YEAR_DAILY_TEST                         1
-#define NEW_YEAR_WAKE_DISPLAY                       1
-#define NEW_YEAR_FORCE_BELL                         1
-#define NEW_YEAR_BRIGHTNESS_BOOST                   1
+#define FEATURE_NEW_YEAR                            1                                   // NYE countdown/sparkles/celebration from 21:00 to 00:02
 
 // ---------------------------------------------------------------------------
 // Night mode

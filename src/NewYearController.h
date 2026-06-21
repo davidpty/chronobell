@@ -15,7 +15,7 @@ enum class NewYearPhase : uint8_t {
     Celebration,
 };
 
-#if ENABLE_NEW_YEAR_EASTER_EGG
+#if FEATURE_NEW_YEAR
 
 class NewYearController {
 public:

@@ -211,7 +211,7 @@ static int appendTextSvg(String& out, const uint8_t (&font)[GlyphCount][Rows][Co
     return x;
 }
 
-static void appendCenteredTextSvg(String& out, const uint8_t (&font)[43][SEC_FONT_HEIGHT][4], const String& text, int y) {
+static void appendCenteredTextSvg(String& out, const uint8_t (&font)[44][SEC_FONT_HEIGHT][4], const String& text, int y) {
     int width = measureText(font, text, 1, 2);
     int x = (32 - width) / 2;
     appendTextSvg(out, font, text, x, y, 1, 2);
@@ -971,11 +971,7 @@ void ClockApp::updateBellSchedule() {
     bool muteAutomatic = _nightModeController.shouldMuteAutomaticBell(realTime);
 
     if (_newYearController.hasMidnightBellRequest()) {
-        bool bellPermitted = NEW_YEAR_FORCE_BELL ||
-                             (_bellMode != BellMode::Off && !muteAutomatic);
-        if (!bellPermitted) {
-            _newYearController.resolveMidnightBellRequest();
-        } else if (!_timerController.isCountdownExpired() && !_bellController.isBusy()) {
+        if (!_timerController.isCountdownExpired() && !_bellController.isBusy()) {
             _bellController.queueNewYearAlert();
             _newYearController.resolveMidnightBellRequest();
         }
