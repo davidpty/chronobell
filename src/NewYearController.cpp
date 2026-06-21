@@ -123,20 +123,20 @@ bool NewYearController::shouldWakeDisplay() const {
 }
 
 uint8_t NewYearController::particleCount() const {
-    if (_phase == NewYearPhase::Celebration || _phase == NewYearPhase::FinalTenSeconds) return 16;
-    if (_phase == NewYearPhase::FinalMinute || _phase == NewYearPhase::FinalTenMinutes) return 10;
+    if (_phase == NewYearPhase::Celebration || _phase == NewYearPhase::FinalTenSeconds) return 12;
+    if (_phase == NewYearPhase::FinalMinute || _phase == NewYearPhase::FinalTenMinutes) return 8;
     if (_phase != NewYearPhase::Ambient) return 0;
 
     uint32_t hourIntoSequence = _phaseMs / 3600000UL;
-    static const uint8_t COUNTS[] = {2, 3, 4, 6, 9, 14};
+    static const uint8_t COUNTS[] = {1, 2, 3, 4, 6, 10};
     if (hourIntoSequence > 5) hourIntoSequence = 5;
     return COUNTS[hourIntoSequence];
 }
 
 uint16_t NewYearController::accentPeriodMs() const {
-    if (_phase != NewYearPhase::Ambient) return 1500;
+    if (_phase != NewYearPhase::Ambient) return 2000;
     uint32_t hourIntoSequence = _phaseMs / 3600000UL;
-    static const uint16_t PERIODS[] = {10000, 8000, 6500, 5000, 3500, 2000};
+    static const uint16_t PERIODS[] = {15000, 12000, 10000, 8000, 6000, 4000};
     if (hourIntoSequence > 5) hourIntoSequence = 5;
     return PERIODS[hourIntoSequence];
 }
