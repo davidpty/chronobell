@@ -249,6 +249,31 @@ void draw_transition_glyph(PixelWriter&& writePixel,
     emit_grid(writePixel, grid, x, y);
 }
 
+template <size_t GlyphCount, size_t Rows, size_t Cols, typename PixelWriter>
+void draw_transition_glyph_forced(PixelWriter&& writePixel,
+                                   const uint8_t (&font)[GlyphCount][Rows][Cols],
+                                   int fromGlyph, int toGlyph,
+                                   double t, int x, int y) {
+#if DIGIT_TRANSITIONS
+    if (fromGlyph == toGlyph || fromGlyph < 0 || t >= 1.0) {
+        draw_glyph(writePixel, font, toGlyph, x, y);
+        return;
+    }
+    GlyphSpans<Rows> from;
+    GlyphSpans<Rows> to;
+    if (fromGlyph >= 0 && fromGlyph < static_cast<int>(GlyphCount)) {
+        from = extract_spans(font, static_cast<size_t>(fromGlyph));
+    }
+    if (toGlyph >= 0 && toGlyph < static_cast<int>(GlyphCount)) {
+        to = extract_spans(font, static_cast<size_t>(toGlyph));
+    }
+    Grid<Rows, Cols> grid = morph_transition<Rows, Cols>(from, to, t);
+    emit_grid(writePixel, grid, x, y);
+#else
+    draw_glyph(writePixel, font, toGlyph, x, y);
+#endif
+}
+
 inline DigitCellFrame advance_cell(DigitCellState& state,
                                    bool visible,
                                    uint8_t digit,

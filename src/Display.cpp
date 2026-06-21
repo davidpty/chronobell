@@ -76,8 +76,16 @@ void Display::setBrightness(int8_t v) {
     _leds.control(MD_MAX72XX::INTENSITY, v);
 }
 
+void Display::requestScreenTransition() {
+#if SCREEN_TRANSITION
+    _screenTransitionPending = true;
+#endif
+}
+
 void Display::applyBurstBoost(int8_t boost) {
-    int8_t v = _brightness + boost;
+    int8_t base = _brightness;
+    if (boost > 0 && base == 0) base = 1;
+    int8_t v = base + boost;
     if (v < 0) v = 0;
     if (v > 15) v = 15;
     _leds.control(MD_MAX72XX::INTENSITY, v);
@@ -472,7 +480,7 @@ void Display::noteScreenIdentity() {
     bool animOn = (_appSettings && _appSettings->transitionMode == TransitionMode::Morph);
 
     if (_hasScreenIdentity && identity != _screenIdentity) {
-        if (animOn) _screenTransitionPending = true;
+        if (animOn || (identity & 0xF80) == 0x580) _screenTransitionPending = true;
     } else if (_hasScreenIdentity && contentHash != 0 && contentHash != _lastContentHash) {
         if (animOn) _screenTransitionPending = true;
     }

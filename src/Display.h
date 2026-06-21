@@ -88,6 +88,7 @@ public:
     void clearBuffer();
     void renderBuffer();
     void applyBurstBoost(int8_t boost);
+    void requestScreenTransition();
     String snapshotSvg() const;
 
     // Tabular digit helpers for live time/timer displays. These keep every
@@ -111,8 +112,12 @@ public:
     void drawGuestWifiText(bool showSsid);
 
     static int charWidth(char c, bool small);
+    static int charWidthBig(char c);
     static int textWidth(const char* s, bool small, int letterSpacing, int wordGap);
+    static int textWidthBig(const char* s, int letterSpacing, int wordGap);
     static int menuTextWidth(const char* s, int cellW, int spacing);
+    void drawSmallChar(char c, int x, int y);
+    void drawBigChar(char c, int x, int y);
 
 private:
     void noteScreenIdentity();
@@ -120,10 +125,7 @@ private:
     void frameToBuffer(const uint32_t frame[16]);
     void flushBufferToLeds();
     void drawMediumChar(char c, int x, int y);
-    void drawSmallChar(char c, int x, int y);
-    void drawBigChar(char c, int x, int y);
-    static int charWidthBig(char c);
-    static int textWidthBig(const char* s, int letterSpacing, int wordGap);
+
 
     // --- Owned child renderers (constructed in ctor) ---
     ClockRenderer*  _clockRenderer  = nullptr;

@@ -16,18 +16,17 @@ void NewYearRenderer::init(Display& display, NewYearController& controller) {
 void NewYearRenderer::drawSparkles() {
     if (!_display || !_controller) return;
 
-    // Shape definitions: pixel offset lists ordered center → partial → full
     static const int8_t SHAPE_PX[8][9][2] = {
-        {{0,0}},                                           // 0 Dot
-        {{0,0}, {-1,0}, {1,0}, {0,-1}},                    // 1 TriUp
-        {{0,0}, {-1,0}, {1,0}, {0,1}},                     // 2 TriDn
-        {{0,0}, {0,-1}, {0,1}, {-1,0}, {1,0}},             // 3 Cross
-        {{0,0}, {-1,-1}, {1,1}, {-1,1}, {1,-1}},           // 4 X
-        {{0,0}, {-1,-1}, {1,-1}, {-1,1}, {1,1},            // 5 Ring
+        {{0,0}},
+        {{0,0}, {-1,0}, {1,0}, {0,-1}},
+        {{0,0}, {-1,0}, {1,0}, {0,1}},
+        {{0,0}, {0,-1}, {0,1}, {-1,0}, {1,0}},
+        {{0,0}, {-1,-1}, {1,1}, {-1,1}, {1,-1}},
+        {{0,0}, {-1,-1}, {1,-1}, {-1,1}, {1,1},
          {0,-1}, {1,0}, {0,1}, {-1,0}},
-        {{0,0}, {-1,-2}, {1,-2}, {-2,-1}, {2,-1},          // 6 Stardust
+        {{0,0}, {-1,-2}, {1,-2}, {-2,-1}, {2,-1},
          {-2,1}, {2,1}, {-1,2}, {1,2}},
-        {{0,0}, {0,-2}, {-1,-1}, {1,-1},                   // 7 Big Star
+        {{0,0}, {0,-2}, {-1,-1}, {1,-1},
          {-2,0}, {2,0}, {-1,1}, {1,1}, {0,2}},
     };
     static const uint8_t SHAPE_PC[8] = {1, 4, 4, 5, 5, 9, 9, 9};
@@ -105,7 +104,6 @@ void NewYearRenderer::drawSparkles() {
         }
     }
 
-    // Burst extends/re-peaks when a new wave arrives before the previous fade finishes
     bool minimalPhase = _controller->phase() == NewYearPhase::Ambient
                      && _controller->phaseMilliseconds() < 7200000UL;
     if (!minimalPhase && activeCount > _lastActiveCount) {
@@ -131,17 +129,98 @@ void NewYearRenderer::drawSparkles() {
     }
 }
 
-void NewYearRenderer::renderOverlay() {
-    drawSparkles();
+#if DIGIT_TRANSITIONS
+void NewYearRenderer::drawAnimatedSmallDigit(int x, int y, uint8_t digit,
+                                              digit_transition::DigitCellState& state,
+                                              unsigned long nowMs) {
+    auto writer = [this](int px, int py, bool on) { _display->setPixel(px, py, on); };
+    auto frame = digit_transition::advance_cell(state, true, digit, nowMs);
+    if (frame.transition) {
+        digit_transition::draw_transition_glyph_forced(writer, FONT_SMALL,
+            frame.fromVisible ? (int)frame.fromDigit : -1,
+            frame.toVisible ? (int)frame.toDigit : -1,
+            frame.progress, x, y);
+    } else {
+        digit_transition::draw_glyph(writer, FONT_SMALL, (int)digit, x, y);
+    }
 }
 
-void NewYearRenderer::drawCountdown() {
+void NewYearRenderer::drawAnimatedBigDigit(int x, int y, uint8_t digit,
+                                            digit_transition::DigitCellState& state,
+                                            unsigned long nowMs) {
+    auto writer = [this](int px, int py, bool on) { _display->setPixel(px, py, on); };
+    auto frame = digit_transition::advance_cell(state, true, digit, nowMs);
+    if (frame.transition) {
+        digit_transition::draw_transition_glyph_forced(writer, FONT_BIG,
+            frame.fromVisible ? (int)frame.fromDigit : -1,
+            frame.toVisible ? (int)frame.toDigit : -1,
+            frame.progress, x, y);
+    } else {
+        digit_transition::draw_glyph(writer, FONT_BIG, (int)digit, x, y);
+    }
+}
+
+void NewYearRenderer::drawAnimatedCenteredSmallText(const char* s, int y) {
+    int len = strlen(s);
+    int totalW = 0;
+    for (const char* p = s; *p; p++) {
+        totalW += (*p == ':') ? 2 : 5;
+    }
+    int cx = (COLS_PER_ROW - totalW) / 2;
+    unsigned long nowMs = millis();
+    uint8_t digitIdx = 0;
+
+    for (const char* p = s; *p; p++) {
+        if (*p >= '0' && *p <= '9') {
+            if (digitIdx < NYE_SMALL_DIGITS) {
+                drawAnimatedSmallDigit(cx, y, *p - '0', _smallDigitStates[digitIdx++], nowMs);
+            }
+        } else {
+            _display->drawSmallChar(*p, cx, y);
+        }
+        cx += (*p == ':') ? 2 : 5;
+    }
+}
+
+void NewYearRenderer::drawAnimatedCenteredBigText(const char* s, int y) {
+    int len = strlen(s);
+    int totalW = len * 6;
+    int cx = (COLS_PER_ROW - totalW) / 2;
+    unsigned long nowMs = millis();
+    uint8_t digitIdx = 0;
+
+    for (const char* p = s; *p; p++) {
+        if (*p >= '0' && *p <= '9') {
+            if (digitIdx < NYE_BIG_DIGITS) {
+                drawAnimatedBigDigit(cx, y, *p - '0', _bigDigitStates[digitIdx++], nowMs);
+            }
+        }
+        cx += 6;
+    }
+    // Mark unused digit states as invisible so they morph out
+    for (; digitIdx < NYE_BIG_DIGITS; digitIdx++) {
+        auto writer = [this](int px, int py, bool on) { _display->setPixel(px, py, on); };
+        auto frame = digit_transition::advance_cell(_bigDigitStates[digitIdx], false, 0, nowMs);
+        if (frame.transition) {
+            digit_transition::draw_transition_glyph_forced(writer, FONT_BIG,
+                frame.fromVisible ? (int)frame.fromDigit : -1,
+                -1, frame.progress, cx, y);
+        }
+    }
+}
+#endif
+
+void NewYearRenderer::drawAnimatedCountdown() {
     uint32_t remainingSeconds = (_controller->millisecondsToMidnight() + 999UL) / 1000UL;
 
     if (remainingSeconds <= 10) {
         char buf[4];
-        snprintf(buf, sizeof(buf), "%lu", (unsigned long)remainingSeconds);
+        snprintf(buf, sizeof(buf), "%02lu", (unsigned long)remainingSeconds);
+#if DIGIT_TRANSITIONS
+        drawAnimatedCenteredBigText(buf, 0);
+#else
         _display->drawCenteredBigText(buf, 0);
+#endif
 
         if (remainingSeconds >= 1 && remainingSeconds <= 3) {
             _display->applyBurstBoost(12 - remainingSeconds * 2);
@@ -161,7 +240,11 @@ void NewYearRenderer::drawCountdown() {
             uint32_t seconds = remainingSeconds % 60UL;
             char text[12];
             snprintf(text, sizeof(text), "T-%02lu:%02lu", (unsigned long)minutes, (unsigned long)seconds);
+#if DIGIT_TRANSITIONS
+            drawAnimatedCenteredSmallText(text, 5);
+#else
             _display->drawCenteredSmallText(text, 5);
+#endif
         }
         return;
     }
@@ -170,7 +253,11 @@ void NewYearRenderer::drawCountdown() {
     uint32_t seconds = remainingSeconds % 60UL;
     char text[12];
     snprintf(text, sizeof(text), "T-%02lu:%02lu", (unsigned long)minutes, (unsigned long)seconds);
+#if DIGIT_TRANSITIONS
+    drawAnimatedCenteredSmallText(text, 5);
+#else
     _display->drawCenteredSmallText(text, 5);
+#endif
 }
 
 void NewYearRenderer::drawCelebration() {
@@ -188,8 +275,34 @@ void NewYearRenderer::drawCelebration() {
     drawSparkles();
 }
 
+void NewYearRenderer::renderOverlay() {
+    drawSparkles();
+}
+
 void NewYearRenderer::renderTakeover() {
     if (!_display || !_controller) return;
+
+    NyeContentMode newMode;
+    if (_controller->phase() == NewYearPhase::Celebration) {
+        uint32_t slot = (_controller->phaseMilliseconds() / 3000UL) % 3UL;
+        newMode = (slot == 0) ? NYE_MODE_CELEBRATION_HAPPY
+                 : (slot == 1) ? NYE_MODE_CELEBRATION_NEW_YEAR
+                 : NYE_MODE_CELEBRATION_YEAR;
+    } else {
+        uint32_t remaining = (_controller->millisecondsToMidnight() + 999UL) / 1000UL;
+        if (remaining <= 10) {
+            newMode = NYE_MODE_BIG;
+        } else if (remaining <= 60 && remaining % 10 == 0) {
+            newMode = NYE_MODE_MEDIUM;
+        } else {
+            newMode = NYE_MODE_SMALL;
+        }
+    }
+    if (newMode != _lastContentMode) {
+        _display->requestScreenTransition();
+        _lastContentMode = newMode;
+    }
+
     _display->clearBuffer();
 
     if (_controller->phase() == NewYearPhase::Celebration) {
@@ -205,10 +318,8 @@ void NewYearRenderer::renderTakeover() {
         drawCelebration();
     } else {
         _didMidnightFlash = false;
-        drawCountdown();
-        if (_controller->phase() != NewYearPhase::FinalTenMinutes) {
-            drawSparkles();
-        }
+        drawAnimatedCountdown();
+        drawSparkles();
     }
 }
 
