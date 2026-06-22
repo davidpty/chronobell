@@ -54,6 +54,11 @@ public:
         uint8_t oldScoreHour = 0;
         uint8_t oldScoreMinute = 0;
         float scoreTransitionProgress = -1.0f;
+        // Debug counters for testing. They are not rendered, but are exposed
+        // through snapshot() so unusual recovery paths can be monitored.
+        uint16_t forcedSaveCount = 0;
+        uint16_t scoreBoxRecoveryCount = 0;
+        uint16_t staleCatchupCount = 0;
     };
 
     struct ScoreLayout {
@@ -81,12 +86,18 @@ private:
     static constexpr int PONG_PADDLE_MAX_Y = PONG_PLAY_BOTTOM - PONG_PADDLE_HEIGHT + 1;
     static constexpr int PONG_BALL_START_X = 15;
     static constexpr int PONG_BALL_START_Y = 10;
-    static constexpr unsigned long PONG_CENTER_BALL_HOLD_MS = 2000UL;
+    static constexpr unsigned long PONG_NEW_SCORE_SETTLE_MS = 1000UL;
+    static constexpr unsigned long PONG_CENTER_BALL_BLINK_MS = 1000UL;
+    static constexpr unsigned long PONG_CENTER_BALL_STEADY_MS = 1000UL;
+    static constexpr unsigned long PONG_CENTER_BALL_HOLD_MS = PONG_NEW_SCORE_SETTLE_MS + PONG_CENTER_BALL_BLINK_MS + PONG_CENTER_BALL_STEADY_MS;
     static constexpr unsigned long PONG_SCORE_FLASH_MS = 1000UL;
     static constexpr unsigned long PONG_SCORE_HOLD_BLANK_MS = 750UL;
     static constexpr unsigned long PONG_SCORE_HOLD_MS = PONG_SCORE_FLASH_MS + PONG_SCORE_HOLD_BLANK_MS;
     static constexpr unsigned long PONG_MISS_FLASH_MS = 3000UL;
+    static constexpr unsigned long PONG_RESET_PAUSE_MS = 450UL;
     static constexpr unsigned long PONG_STALE_BREAK_MS = 10000UL;
+    static constexpr unsigned long PONG_STALE_PRESSURE_MS = 30000UL;
+    static constexpr unsigned long PONG_STALE_FORCE_MS = 60000UL;
     static constexpr unsigned long PONG_RALLY_MAX_MS = 180000UL;
     static constexpr uint16_t PONG_RESONANCE_HIT_THRESHOLD = 6;
     static constexpr uint16_t PONG_RESONANCE_NUDGE_INTERVAL = 4;
@@ -126,7 +137,10 @@ private:
         int16_t ballDxF = PONG_VEL_SERVE;
         int16_t ballDyF = PONG_VEL_SERVE;
         uint16_t rallyHits = 0;
+        int8_t lossExitX = 0;
         int8_t lossExitY = 0;
+        int8_t lossPaddleY = 8;
+        unsigned long scoreStaleSinceMs = 0;
         uint8_t oldScoreHour = 0;
         uint8_t oldScoreMinute = 0;
         bool initialized = false;
@@ -140,7 +154,8 @@ private:
     static int visibleHour(int rawHours, TimeFormat format);
     static uint16_t visibleMinuteOfDay(int hours, int minutes, TimeFormat format);
     static int8_t clampPaddleY(int y);
-    static int8_t centerPaddleY();
+    static int8_t playfieldCenterY();
+    static int8_t servePaddleY();
     static int8_t awayPaddleY(int ballY);
     static PaddleTempo nextTempoMode(PaddleTempo current, bool ballNear, bool chaseSide, uint8_t seed);
     static uint16_t tempoStepDelay(PaddleTempo tempo, bool ballNear, bool chaseSide, uint8_t seed);
