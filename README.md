@@ -8,7 +8,7 @@ ChronoBell is a compact ESP32 clock with a 32x16 LED display, touch controls, co
 
 **A bell that rings like a ship's clock** - Traditional 1-8 strike pattern from nautical tradition, plus six other modes: off, single ding, hour count, half-hour, pair, and triple. You can hear each one in the menu before you choose it.
 
-**8 display styles + 5 date views** - Big digits, a configurable DATA overlay, word clock, roman numerals, binary, bar graphs, drift, or a configurable random view. DATA can show seconds, deciseconds, date, WDAY, or alternate between date and WDAY every N seconds after entering ALT. Drift uses the big digital layout, but lets displayed time slowly move away from real time and return. BAR turns hours, minutes, and optional seconds into stacked progress bars. Date views include day and month, year, moon phase, Western zodiac, and Chinese zodiac. Tap to peek at any view.
+**9 display styles + 5 date views** - Big digits, a configurable DATA overlay, word clock, roman numerals, binary, bar graphs, drift, pong, or a configurable random view. DATA can show seconds, deciseconds, date, WDAY, or alternate between date and WDAY every N seconds after entering ALT. Drift uses the big digital layout, but lets displayed time slowly move away from real time and return. BAR turns hours, minutes, and optional seconds into stacked progress bars. Pong plays a live rally that scores the current time. Date views include day and month, year, moon phase, Western zodiac, and Chinese zodiac. Tap to peek at any view.
 
 **Guest WiFi on screen** - Fetches a guest network password at boot and shows it on the clock. No phone needed. Good for lobbies, cafes, offices.
 
@@ -35,7 +35,7 @@ ChronoBell is a compact ESP32 clock with a 32x16 LED display, touch controls, co
 
 ## Clock Styles
 
-ChronoBell has eight clock display modes. The menu label is short because the screen is only 32x16 pixels:
+ChronoBell has nine clock display modes. The menu label is short because the screen is only 32x16 pixels:
 
 | Style | Menu | What it shows |
 |-------|------|---------------|
@@ -47,6 +47,7 @@ ChronoBell has eight clock display modes. The menu label is short because the sc
 | Dial | DIAL | Minimal analog dial with optional cardinal marks and ellipse-scaled hands |
 | Binary | BIN | Binary hour, minute, and second rows |
 | Bar | BAR | Hour, minute, and optional second progress bars |
+| Pong | PONG | A live rally where each player's score is the current time; miss sequence on every minute/hour change |
 | Drift | DRIFT | BIG-style digits where displayed time slowly drifts and returns |
 
 ### Date Views
@@ -139,7 +140,7 @@ When night mode turns the display off, any touch wakes it for a minute.
 
 | Item | Choices | What it sets |
 |------|---------|-------------|
-| STYLE | RND / BIG / INFO / WORD / ROMA / DIAL / BAR / BIN / DRIFT | Clock style; drift is the mode that makes now feel less fixed |
+| STYLE | RND / BIG / INFO / WORD / ROMA / DIAL / BAR / BIN / PONG / DRIFT | Clock style; drift is the mode that makes now feel less fixed |
 | ANIM | OFF / ON | Enable or disable clock transitions |
 | INFO | SEC / DECI / DATE / WDAY / ALT | Second-line choice for the DATA style |
 | DATE | DATE / YEAR / MOON / ZOD / CZOD | Extra info shown in the date view |
@@ -151,7 +152,7 @@ When night mode turns the display off, any touch wakes it for a minute.
 | SETTIME | AUTO / MANUAL | Time source - automatic (NTP + RTC) or manual entry |
 | HOTSPOT | OFF / ON | Turn the web config portal on or off |
 
-Hold center to enter the menu, left/right to browse, and tap center to edit. Each confirm saves the current step immediately. STYLE has a second step for clocks with configurable details: BIG, INFO, and DRIFT offer separator choices, DIAL offers MARKS OFF or ON, and BAR offers the SECOND toggle for optional seconds bars. INFO first opens a second-line chooser labeled DATA, then the separator step labeled COLON. Each style remembers its own choice. ANIM toggles between OFF and ON. When ON, animations transition smoothly between views (e.g., digit morphs, screen retune effect) as long as the engine is compiled in. WORD, ROMA, BIN, and RND save immediately because they do not expose a second step. SETTIME also saves each confirmed step, so aborting mid-flow keeps the already confirmed values.
+Hold center to enter the menu, left/right to browse, and tap center to edit. Each confirm saves the current step immediately. STYLE has a second step for clocks with configurable details: BIG, INFO, and DRIFT offer separator choices, DIAL offers MARKS OFF or ON, BAR offers the SECOND toggle for optional seconds bars, and BIN offers a SECOND toggle for binary seconds. INFO first opens a second-line chooser labeled DATA, then the separator step labeled COLON. Each style remembers its own choice. ANIM toggles between OFF and ON. When ON, animations transition smoothly between views (e.g., digit morphs, screen retune effect) as long as the engine is compiled in. WORD, ROMA, PONG, and RND save immediately because they do not expose a second step. SETTIME also saves each confirmed step, so aborting mid-flow keeps the already confirmed values.
 
 ### Setting the time manually
 
