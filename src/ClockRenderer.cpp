@@ -42,7 +42,7 @@ static const MonthDay CHINESE_NEW_YEAR_DATES_2001_2100[] = {
     {2, 18}, {2, 7},  {1, 27}, {2, 15}, {2, 5},  {1, 25}, {2, 12}, {2, 1},  {1, 21}, {2, 9}
 };
 
-static MoonAnchorCache gMoonAnchorCache;
+
 static constexpr int MOON_ANCHOR_START_YEAR = 2026;
 static constexpr int MOON_ANCHOR_START_MONTH = 6;
 static constexpr int MOON_ANCHOR_START_DAY = 8;
@@ -268,7 +268,7 @@ static bool chineseNewYearDateForYear(int year, int& month, int& day) {
 
 static double moonExactAgeDays(int year, int month, int day);
 static double moonMeanAgeDays(int year, int month, int day);
-static double moonAgeFromForwardAnchors(int year, int month, int day);
+static double moonAgeFromForwardAnchors(int year, int month, int day, ClockRenderer::MoonAnchorCache& cache);
 static double newMoonJdeForK(double k);
 
 static int64_t moonAnchorStartDayNumber() {
@@ -283,11 +283,11 @@ static int64_t moonAnchorJdnForJde(double jde) {
     return (int64_t)floor(jde + 0.5);
 }
 
-static void buildMoonAnchorCache() {
-    if (gMoonAnchorCache.initialized) {
+static void buildMoonAnchorCache(ClockRenderer::MoonAnchorCache& cache) {
+    if (cache.initialized) {
         return;
     }
-    gMoonAnchorCache.initialized = true;
+    cache.initialized = true;
 
     const int64_t startDay = moonAnchorStartDayNumber();
     const int64_t endDay = moonAnchorEndDayNumber();
@@ -300,20 +300,20 @@ static void buildMoonAnchorCache() {
         firstK++;
     }
 
-    for (int k = firstK; gMoonAnchorCache.count < (sizeof(gMoonAnchorCache.offsets) / sizeof(gMoonAnchorCache.offsets[0])); k++) {
+    for (int k = firstK; cache.count < (sizeof(cache.offsets) / sizeof(cache.offsets[0])); k++) {
         double candidateJde = newMoonJdeForK((double)k);
         int64_t candidateDay = moonAnchorJdnForJde(candidateJde);
         if (candidateDay > endDay) {
             break;
         }
         if (candidateDay >= startDay) {
-            gMoonAnchorCache.offsets[gMoonAnchorCache.count++] = (uint16_t)(candidateDay - startDay);
+            cache.offsets[cache.count++] = (uint16_t)(candidateDay - startDay);
         }
     }
 }
 
-static double moonAgeFromForwardAnchors(int year, int month, int day) {
-    buildMoonAnchorCache();
+static double moonAgeFromForwardAnchors(int year, int month, int day, ClockRenderer::MoonAnchorCache& cache) {
+    buildMoonAnchorCache(cache);
 
     const int64_t currentDay = daysFromCivilLocal(year, month, day);
     const int64_t startDay = moonAnchorStartDayNumber();
@@ -322,20 +322,20 @@ static double moonAgeFromForwardAnchors(int year, int month, int day) {
     if (currentDay < startDay) {
         return moonExactAgeDays(year, month, day);
     }
-    if (currentDay > endDay || gMoonAnchorCache.count == 0) {
+    if (currentDay > endDay || cache.count == 0) {
         return moonMeanAgeDays(year, month, day);
     }
 
     uint16_t targetOffset = (uint16_t)(currentDay - startDay);
-    if (targetOffset < gMoonAnchorCache.offsets[0]) {
+    if (targetOffset < cache.offsets[0]) {
         return moonExactAgeDays(year, month, day);
     }
 
     int lo = 0;
-    int hi = (int)gMoonAnchorCache.count;
+    int hi = (int)cache.count;
     while (lo < hi) {
         int mid = lo + ((hi - lo) / 2);
-        if (gMoonAnchorCache.offsets[mid] <= targetOffset) {
+        if (cache.offsets[mid] <= targetOffset) {
             lo = mid + 1;
         } else {
             hi = mid;
@@ -346,7 +346,7 @@ static double moonAgeFromForwardAnchors(int year, int month, int day) {
         return moonExactAgeDays(year, month, day);
     }
 
-    uint16_t anchorOffset = gMoonAnchorCache.offsets[lo - 1];
+    uint16_t anchorOffset = cache.offsets[lo - 1];
     return (double)(targetOffset - anchorOffset);
 }
 
@@ -533,7 +533,7 @@ void ClockRenderer::setBarSecondsMode(BarSecondsMode mode) {
 
 void ClockRenderer::drawBigTimeInternal(int hours, int minutes, int seconds, bool driftMode, int offsetMinutes, bool freshChange, bool separatorVisible, int driftDirection) {
     hours = effectiveHours(hours);
-    int digitWidth = 6;
+    int digitWidth = FONT_MEDIUM_COLS;
     int spacing = 1;
     int sepSpacingBefore = 3;
     int sepSpacingAfter = 2;
@@ -593,7 +593,7 @@ void ClockRenderer::drawDriftTime(int hours, int minutes, int seconds, int offse
 
 void ClockRenderer::drawTime(int hours, int minutes, int seconds) {
     hours = effectiveHours(hours);
-    int digitWidth = 6;
+    int digitWidth = FONT_MEDIUM_COLS;
     int numHourDigits = (hours >= 10) ? 2 : 1;
     int totalDigits = numHourDigits + 2;
     int sepSpacingBefore = 3;
@@ -993,7 +993,7 @@ void ClockRenderer::drawBigSeparator(int x, int y, int seconds) {
 }
 
 void ClockRenderer::drawSeconds(int seconds) {
-    int digitWidth = 4;
+    int digitWidth = FONT_SMALL_COLS;
     int totalWidth = (digitWidth * 2) + SEC_FONT_SPACING;
     int startX = (COLS_PER_ROW - totalWidth) / 2 + 1;
     int startY = 11;
@@ -1012,7 +1012,7 @@ void ClockRenderer::drawSeconds(int seconds) {
 }
 
 void ClockRenderer::drawDeciseconds(int seconds, uint8_t deciseconds) {
-    int digitWidth = 4;
+    int digitWidth = FONT_SMALL_COLS;
     int dotWidth = 1;
     int totalWidth = (digitWidth * 3) + (SEC_FONT_SPACING * 2) + dotWidth + (SEC_FONT_SPACING * 2);
     int startX = (COLS_PER_ROW - totalWidth) / 2 + 1;
@@ -1046,7 +1046,7 @@ void ClockRenderer::drawSecDigit(uint8_t digit, int x, int y) {
 }
 
 int ClockRenderer::textWidth(const char* s, int cellW, int letterSpacing, int wordGap) const {
-    return Display::textWidth(s, cellW <= 4, letterSpacing, wordGap);
+    return Display::textWidth(s, cellW <= FONT_SMALL_COLS, letterSpacing, wordGap);
 }
 
 void ClockRenderer::drawText(const char* s, int x, int y, bool small, int letterSpacing, int wordGap) {
@@ -1090,7 +1090,7 @@ void ClockRenderer::buildMinutePhrase(int minutes, bool toHour, int letterSpacin
 
     char wordPhrase[20];
     snprintf(wordPhrase, sizeof(wordPhrase), "%s %s", minuteWord(minutes), direction);
-    if (textWidth(wordPhrase, 4, letterSpacing, wordGap) <= COLS_PER_ROW) {
+    if (        textWidth(wordPhrase, FONT_SMALL_COLS, letterSpacing, wordGap) <= COLS_PER_ROW) {
         snprintf(out, outSize, "%s", wordPhrase);
         return;
     }
@@ -1142,7 +1142,7 @@ double ClockRenderer::getMoonAgeDays(int year, int month, int day) {
         return moonExactAgeDays(year, month, day);
     }
     if (year <= MOON_ANCHOR_END_YEAR) {
-        return moonAgeFromForwardAnchors(year, month, day);
+        return moonAgeFromForwardAnchors(year, month, day, _moonAnchorCache);
     }
     return moonMeanAgeDays(year, month, day);
 }

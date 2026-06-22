@@ -141,25 +141,34 @@ private:
     Display          _display;
     NightModeController _nightModeController;
 
-    DisplayMode _displayMode       = DisplayMode::LargeDigitsOnly;
-    DisplayMode _savedDisplayMode  = DisplayMode::LargeDigitsOnly;
-    DisplayMode _overrideDisplayMode = DisplayMode::LargeDigitsOnly;
-    DisplayMode _displayOverrideSourceMode = DisplayMode::LargeDigitsOnly;
-    DisplayMode _lastDisplayModeSeen = DisplayMode::LargeDigitsOnly;
-    DisplayMode _randomDisplayMode = DisplayMode::LargeDigitsOnly;
-    ClockDate   _randomDisplayDate;
-    uint8_t     _randomDisplayHourSlot = 0;
+    struct OverrideState {
+        bool active = false;
+        unsigned long expiresAt = 0;
+        DisplayMode mode = DisplayMode::LargeDigitsOnly;
+        DisplayMode sourceMode = DisplayMode::LargeDigitsOnly;
+    };
+
+    struct RandomModeState {
+        bool valid = false;
+        bool dateValid = false;
+        DisplayMode mode = DisplayMode::LargeDigitsOnly;
+        ClockDate date;
+        uint8_t hourSlot = 0;
+    };
+
+    DisplayMode      _displayMode        = DisplayMode::LargeDigitsOnly;
+    DisplayMode      _savedDisplayMode   = DisplayMode::LargeDigitsOnly;
+    DisplayMode      _lastDisplayModeSeen = DisplayMode::LargeDigitsOnly;
+    OverrideState    _overrideState;
+    RandomModeState  _randomState;
+
     BellMode    _bellMode          = BellMode::Off;
     TimeFormat  _timeFormat        = TimeFormat::Hours24;
     NightMode   _nightMode         = NightMode::Off;
     DateStyle   _activeDateStyle   = DateStyle::Date;
     DateStyle   _temporaryDateStyle = DateStyle::Date;
-    bool        _displayOverrideActive = false;
-    unsigned long _displayOverrideExpiresAt = 0;
     bool        _dateStyleOverrideActive = false;
     unsigned long _dateStyleOverrideExpiresAt = 0;
-    bool        _randomDisplayModeValid = false;
-    bool        _randomDisplayDateValid = false;
 
     MenuBindings     _menuBindings;
 

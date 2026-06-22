@@ -69,7 +69,7 @@ void MenuRenderer::drawMenuValue(const MenuItem& it, int16_t v, int y) {
     }
     int x;
     if (name) {
-        int w = _display->menuTextWidth(name, 6, 1);
+        int w = _display->menuTextWidth(name, FONT_MEDIUM_COLS, 1);
         x = (COLS_PER_ROW - w) / 2;
         _display->drawMediumText(name, x, y);
     } else {
@@ -84,7 +84,7 @@ void MenuRenderer::drawMenuValue(const MenuItem& it, int16_t v, int y) {
             buf[1] = (char)('0' + (v - 10));
             buf[2] = 0;
         }
-        int w = _display->menuTextWidth(buf, 6, 1);
+        int w = _display->menuTextWidth(buf, FONT_MEDIUM_COLS, 1);
         x = (COLS_PER_ROW - w) / 2;
         _display->drawMediumText(buf, x, y);
     }
@@ -101,7 +101,7 @@ void MenuRenderer::drawMenuName(const MenuItem& it, int y) {
             label = styleMenuInfoPreviewActive() ? "DATA" : "COLON";
         }
     }
-    int w = _display->menuTextWidth(label, 4, 1);
+    int w = _display->menuTextWidth(label, FONT_SMALL_COLS, 1);
     int x = (COLS_PER_ROW - w) / 2;
     _display->drawSmallText(label, x, y);
 }
@@ -118,7 +118,7 @@ void MenuRenderer::renderSetTimeEdit() {
         case 5: label = "DATE"; break;
         case 6: label = "YEAR"; break;
     }
-    int lw = _display->menuTextWidth(label, 4, 1);
+    int lw = _display->menuTextWidth(label, FONT_SMALL_COLS, 1);
     int lx = (COLS_PER_ROW - lw) / 2;
     _display->drawSmallText(label, lx, 0);
 
@@ -154,7 +154,7 @@ void MenuRenderer::renderSetTimeEdit() {
     }
 
     bool bo = _menu->blinkOn();
-    int digW = 6;
+    int digW = FONT_MEDIUM_COLS;
     int gap = 1;
 
     if (step == 4 || step == 5) {
@@ -162,7 +162,7 @@ void MenuRenderer::renderSetTimeEdit() {
                                              "JUL","AUG","SEP","OCT","NOV","DEC"};
         uint8_t mi = (g_setMonth >= 1 && g_setMonth <= 12) ? g_setMonth - 1 : 0;
         const char* mn = MONTHS[mi];
-        int mw = _display->menuTextWidth(mn, 6, 1);
+        int mw = _display->menuTextWidth(mn, FONT_MEDIUM_COLS, 1);
         int totalW = mw + gap + digW * 2 + gap;
         int x = (COLS_PER_ROW - totalW) / 2;
         bool blinkMonth = (step == 4);

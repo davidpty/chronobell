@@ -129,7 +129,6 @@ private:
     static PaddleTempo nextTempoMode(PaddleTempo current, bool ballNear, bool chaseSide, uint8_t seed);
     static uint16_t tempoStepDelay(PaddleTempo tempo, bool ballNear, bool chaseSide, uint8_t seed);
     static uint8_t tempoStepCap(PaddleTempo tempo);
-    static uint8_t fontIndex(char c);
     static int glyphWidth(uint8_t glyph);
     static int textWidth(const char* s);
     void syncSnapshot(TimeFormat format);

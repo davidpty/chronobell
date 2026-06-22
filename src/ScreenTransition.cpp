@@ -9,25 +9,25 @@ static int8_t retuneSlatOffset(uint8_t slat) {
 }
 }
 
-void ScreenTransition::clearFrame(uint32_t frame[16]) {
+void ScreenTransition::clearFrame(uint32_t frame[TOTAL_ROWS]) {
     memset(frame, 0, sizeof(uint32_t) * 16);
 }
 
-void ScreenTransition::copyFrame(uint32_t destination[16], const uint32_t source[16]) {
-    memcpy(destination, source, sizeof(uint32_t) * 16);
+void ScreenTransition::copyFrame(uint32_t destination[TOTAL_ROWS], const uint32_t source[TOTAL_ROWS]) {
+    memcpy(destination, source, sizeof(uint32_t) * TOTAL_ROWS);
 }
 
-bool ScreenTransition::getPixelFromFrame(const uint32_t frame[16], uint8_t x, uint8_t y) {
-    return x < 32 && y < 16 && (frame[y] & (1UL << x)) != 0;
+bool ScreenTransition::getPixelFromFrame(const uint32_t frame[TOTAL_ROWS], uint8_t x, uint8_t y) {
+    return x < COLS_PER_ROW && y < TOTAL_ROWS && (frame[y] & (1UL << x)) != 0;
 }
 
-void ScreenTransition::setPixelInFrame(uint32_t frame[16], int x, int y) {
-    if (x >= 0 && x < 32 && y >= 0 && y < 16) {
+void ScreenTransition::setPixelInFrame(uint32_t frame[TOTAL_ROWS], int x, int y) {
+    if (x >= 0 && x < COLS_PER_ROW && y >= 0 && y < TOTAL_ROWS) {
         frame[y] |= 1UL << x;
     }
 }
 
-void ScreenTransition::start(const uint32_t oldFrame[16], const uint32_t newFrame[16], uint32_t nowMs) {
+void ScreenTransition::start(const uint32_t oldFrame[TOTAL_ROWS], const uint32_t newFrame[TOTAL_ROWS], uint32_t nowMs) {
     copyFrame(_oldFrame, oldFrame);
     copyFrame(_newFrame, newFrame);
     _startMs = nowMs;
@@ -36,12 +36,12 @@ void ScreenTransition::start(const uint32_t oldFrame[16], const uint32_t newFram
     _active = true;
 }
 
-bool ScreenTransition::render(uint32_t nowMs, uint32_t outputFrame[16]) {
+bool ScreenTransition::render(uint32_t nowMs, uint32_t outputFrame[TOTAL_ROWS]) {
     if (!_active) return false;
     return renderRetune(nowMs, outputFrame);
 }
 
-bool ScreenTransition::renderRetune(uint32_t nowMs, uint32_t outputFrame[16]) {
+bool ScreenTransition::renderRetune(uint32_t nowMs, uint32_t outputFrame[TOTAL_ROWS]) {
     uint32_t elapsed = nowMs - _startMs;
     if (elapsed >= _durationMs) {
         copyFrame(outputFrame, _newFrame);

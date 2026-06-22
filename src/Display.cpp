@@ -395,8 +395,8 @@ void Display::setSnapshotPixel(uint8_t x, uint8_t y, bool value) {
 
 void Display::renderBuffer() {
 #if SCREEN_TRANSITION
-    uint32_t targetFrame[16];
-    uint32_t outputFrame[16];
+    uint32_t targetFrame[TOTAL_ROWS];
+    uint32_t outputFrame[TOTAL_ROWS];
     bufferToFrame(targetFrame);
     if (_screenTransitionPending && _hasLastFrame) {
         _screenTransition.start(_lastFrame, targetFrame, millis());
@@ -413,53 +413,33 @@ void Display::renderBuffer() {
     flushBufferToLeds();
 }
 
+void Display::flushBar(int bufferRow, bool flipX, bool flipY, int colOffset) {
+    for (int col = 0; col < COLS_PER_ROW; col++) {
+        uint8_t colData = 0;
+        for (int row = 0; row < ROWS_PER_MODULE; row++) {
+            if (pixelBuffer[col][row + bufferRow]) {
+                int bitPosition = flipY ? (ROWS_PER_MODULE - 1 - row) : row;
+                colData |= (1 << bitPosition);
+            }
+        }
+        int displayCol = flipX ? (colOffset + COLS_PER_ROW - 1 - col) : (colOffset + col);
+        _leds.setColumn(displayCol, colData);
+    }
+}
+
 void Display::flushBufferToLeds() {
 #if DISPLAY_FLIP == 0
-    const bool flipBarOneX = true;
-    const bool flipBarOneY = false;
-    const bool flipBarTwoX = true;
-    const bool flipBarTwoY = false;
-    const bool swapBars = false;
+    flushBar(0, true, false, 0);
+    flushBar(ROWS_PER_MODULE, true, false, COLS_PER_ROW);
 #else
-    const bool flipBarOneX = false;
-    const bool flipBarOneY = true;
-    const bool flipBarTwoX = false;
-    const bool flipBarTwoY = true;
-    const bool swapBars = true;
+    flushBar(ROWS_PER_MODULE, false, true, 0);
+    flushBar(0, false, true, COLS_PER_ROW);
 #endif
-
-    int upperBufferRow = swapBars ? ROWS_PER_MODULE : 0;
-    int lowerBufferRow = swapBars ? 0 : ROWS_PER_MODULE;
-
-    for (int col = 0; col < COLS_PER_ROW; col++) {
-        uint8_t colData = 0;
-        for (int row = 0; row < ROWS_PER_MODULE; row++) {
-            if (pixelBuffer[col][row + upperBufferRow]) {
-                int bitPosition = flipBarOneY ? (ROWS_PER_MODULE - 1 - row) : row;
-                colData |= (1 << bitPosition);
-            }
-        }
-        int displayCol = flipBarOneX ? (COLS_PER_ROW - 1 - col) : col;
-        _leds.setColumn(displayCol, colData);
-    }
-
-    for (int col = 0; col < COLS_PER_ROW; col++) {
-        uint8_t colData = 0;
-        for (int row = 0; row < ROWS_PER_MODULE; row++) {
-            if (pixelBuffer[col][row + lowerBufferRow]) {
-                int bitPosition = flipBarTwoY ? (ROWS_PER_MODULE - 1 - row) : row;
-                colData |= (1 << bitPosition);
-            }
-        }
-        int displayCol = flipBarTwoX ? (2 * COLS_PER_ROW - 1 - col) : (COLS_PER_ROW + col);
-        _leds.setColumn(displayCol, colData);
-    }
-
     _leds.update();
 }
 
 #if SCREEN_TRANSITION
-void Display::bufferToFrame(uint32_t frame[16]) const {
+void Display::bufferToFrame(uint32_t frame[TOTAL_ROWS]) const {
     ScreenTransition::clearFrame(frame);
     for (int y = 0; y < TOTAL_ROWS; y++) {
         for (int x = 0; x < COLS_PER_ROW; x++) {
@@ -468,7 +448,7 @@ void Display::bufferToFrame(uint32_t frame[16]) const {
     }
 }
 
-void Display::frameToBuffer(const uint32_t frame[16]) {
+void Display::frameToBuffer(const uint32_t frame[TOTAL_ROWS]) {
     for (int y = 0; y < TOTAL_ROWS; y++) {
         for (int x = 0; x < COLS_PER_ROW; x++) {
             pixelBuffer[x][y] = ScreenTransition::getPixelFromFrame(frame, x, y);
@@ -523,11 +503,19 @@ void Display::noteScreenIdentity() {
 String Display::snapshotSvg() const {
     String svg;
     svg.reserve(4096);
-    svg = "<svg class=\"pixel-display\" viewBox=\"0 0 32 16\" preserveAspectRatio=\"none\" aria-label=\"ChronoBell display snapshot\">";
+    svg = "<svg class=\"pixel-display\" viewBox=\"0 0 ";
+    svg += String(COLS_PER_ROW);
+    svg += " ";
+    svg += String(TOTAL_ROWS);
+    svg += "\" preserveAspectRatio=\"none\" aria-label=\"ChronoBell display snapshot\">";
     svg += "<defs><pattern id=\"pixel-off-pattern\" patternUnits=\"userSpaceOnUse\" width=\"1\" height=\"1\">";
     svg += "<circle class=\"pixel-dot off\" cx=\"0.5\" cy=\"0.5\" r=\"0.42\"></circle>";
     svg += "</pattern></defs>";
-    svg += "<rect x=\"0\" y=\"0\" width=\"32\" height=\"16\" fill=\"url(#pixel-off-pattern)\"></rect>";
+    svg += "<rect x=\"0\" y=\"0\" width=\"";
+    svg += String(COLS_PER_ROW);
+    svg += "\" height=\"";
+    svg += String(TOTAL_ROWS);
+    svg += "\" fill=\"url(#pixel-off-pattern)\"></rect>";
     for (int y = 0; y < TOTAL_ROWS; ++y) {
         for (int x = 0; x < COLS_PER_ROW; ++x) {
             if ((_snapshotFrame[y] & (1UL << x)) == 0) {
@@ -548,21 +536,6 @@ String Display::snapshotSvg() const {
 // Font helpers (used by all renderers)
 // =============================================================================
 
-// FONT_MEDIUM and FONT_SMALL are combined: index 0-9 = '0'-'9', index 10-35 = 'A'-'Z', index 36 = '%', index 37 = '-', index 38 = '+', index 39 = 'o', index 40 = '^', index 41 = '@', index 42 = 'v', index 43 = ':'.
-static uint8_t fontIndex(char c) {
-    if (c >= 'A' && c <= 'Z') return (uint8_t)(c - 'A' + 10);
-    if (c >= '0' && c <= '9') return (uint8_t)(c - '0');
-    if (c == '%') return 36;
-    if (c == '-') return 37;
-    if (c == '+') return 38;
-    if (c == 'o') return 39;
-    if (c == '^') return 40;
-    if (c == '@') return 41;
-    if (c == 'v') return 42;
-    if (c == ':') return 43;
-    return 0;
-}
-
 static bool fontPixel(uint8_t i, bool small, int row, int col) {
     return small ? FONT_SMALL[i][row][col] : FONT_MEDIUM[i][row][col];
 }
@@ -574,8 +547,8 @@ static void glyphBounds(char c, bool small, int& left, int& right) {
         return;
     }
 
-    uint8_t i = fontIndex(c);
-    int cellW = small ? 4 : 6;
+    uint8_t i = charToGlyphIndex(c);
+    int cellW = small ? FONT_SMALL_COLS : FONT_MEDIUM_COLS;
     int height = small ? SEC_FONT_HEIGHT : TIME_FONT_MEDIUM_HEIGHT;
     left = cellW;
     right = -1;
@@ -597,8 +570,8 @@ static void bigGlyphBounds(char c, int& left, int& right) {
         return;
     }
 
-    uint8_t i = fontIndex(c);
-    left = 6;
+    uint8_t i = charToGlyphIndex(c);
+    left = FONT_MEDIUM_COLS;
     right = -1;
 
     for (int col = 0; col < 6; col++) {
@@ -669,7 +642,7 @@ int Display::textWidthBig(const char* s, int letterSpacing, int wordGap) {
 
 int Display::menuTextWidth(const char* s, int cellW, int spacing) {
     (void)spacing;
-    return textWidth(s, cellW <= 4, 1, 2);
+    return textWidth(s, cellW <= FONT_SMALL_COLS, 1, 2);
 }
 
 void Display::drawMediumDigit(uint8_t digit, int x, int y) {
@@ -688,7 +661,7 @@ void Display::drawBigChar(char c, int x, int y) {
         return;
     }
 
-    uint8_t i = fontIndex(c);
+    uint8_t i = charToGlyphIndex(c);
     int left, right;
     bigGlyphBounds(c, left, right);
     for (int r = 0; r < TIME_FONT_BIG_HEIGHT; r++) {
@@ -708,7 +681,7 @@ void Display::drawMediumChar(char c, int x, int y) {
     if (c == ' ') {
         return;
     }
-    uint8_t i = fontIndex(c);
+    uint8_t i = charToGlyphIndex(c);
     int left, right;
     glyphBounds(c, false, left, right);
     for (int r = 0; r < TIME_FONT_MEDIUM_HEIGHT; r++) {
@@ -757,7 +730,7 @@ void Display::drawSmallChar(char c, int x, int y) {
     if (c == ' ') {
         return;
     }
-    uint8_t i = fontIndex(c);
+    uint8_t i = charToGlyphIndex(c);
     int left, right;
     glyphBounds(c, true, left, right);
     for (int r = 0; r < SEC_FONT_HEIGHT; r++) {

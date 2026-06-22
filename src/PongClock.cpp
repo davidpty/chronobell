@@ -195,10 +195,6 @@ int8_t PongClockEngine::awayPaddleY(int ballY) {
         : (int8_t)PONG_PADDLE_MIN_Y;
 }
 
-uint8_t PongClockEngine::fontIndex(char c) {
-    return (c >= '0' && c <= '9') ? (uint8_t)(c - '0') : 0;
-}
-
 int PongClockEngine::glyphWidth(uint8_t glyph) {
     if (glyph >= 10) return 0;
     int left = FONT_SMALL_COLS;
@@ -227,7 +223,7 @@ int PongClockEngine::textWidth(const char* s) {
             if (inWord) {
                 width += 1;
             }
-            width += glyphWidth(fontIndex(*s));
+            width += glyphWidth((uint8_t)charToGlyphIndex(*s));
             inWord = true;
         }
         ++s;

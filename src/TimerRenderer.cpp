@@ -135,7 +135,7 @@ void TimerRenderer::renderStopwatch() {
 void TimerRenderer::drawStopwatchTime(uint64_t totalSec, uint8_t centisec, bool running) {
     bool blink = running && ((millis() / 500UL) % 2UL == 0);
     const int y = 3;
-    const int dw = 6, sp = 1, sw = 1;
+    const int dw = FONT_MEDIUM_COLS, sp = 1, sw = 1;
     unsigned long nowMs = millis();
 
 #if DIGIT_TRANSITIONS
@@ -284,7 +284,7 @@ void TimerRenderer::drawStopwatchTime(uint64_t totalSec, uint8_t centisec, bool 
 void TimerRenderer::drawCountdownFinale(uint32_t totalSec, uint8_t centisec, bool running) {
     (void)running;
     const int y = 3;
-    const int dw = 6, sp = 1, sw = 1;
+    const int dw = FONT_MEDIUM_COLS, sp = 1, sw = 1;
     unsigned long nowMs = millis();
 
 #if DIGIT_TRANSITIONS
@@ -363,7 +363,7 @@ void TimerRenderer::drawTimerDuration(uint32_t totalSeconds, bool blinkSeparator
     }
 
     uint8_t digitCount = strlen(buf);
-    int digitWidth = 6;
+    int digitWidth = FONT_MEDIUM_COLS;
     int spacing = 1;
     int sepWidth = 1;
     int totalWidth = (digitWidth * digitCount) + (spacing * (digitCount - 1)) + sepWidth;

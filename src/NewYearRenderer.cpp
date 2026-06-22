@@ -184,7 +184,7 @@ void NewYearRenderer::drawAnimatedCenteredSmallText(const char* s, int y) {
 
 void NewYearRenderer::drawAnimatedCenteredBigText(const char* s, int y) {
     int len = strlen(s);
-    int totalW = len * 6;
+    int totalW = len * FONT_MEDIUM_COLS;
     int cx = (COLS_PER_ROW - totalW) / 2;
     unsigned long nowMs = millis();
     uint8_t digitIdx = 0;
@@ -195,7 +195,7 @@ void NewYearRenderer::drawAnimatedCenteredBigText(const char* s, int y) {
                 drawAnimatedBigDigit(cx, y, *p - '0', _bigDigitStates[digitIdx++], nowMs);
             }
         }
-        cx += 6;
+        cx += FONT_MEDIUM_COLS;
     }
     // Mark unused digit states as invisible so they morph out
     for (; digitIdx < NYE_BIG_DIGITS; digitIdx++) {

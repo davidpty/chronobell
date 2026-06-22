@@ -46,6 +46,12 @@ public:
     // Used by Display to fetch the live deciseconds digit (0-9) for the decisecond display.
     uint8_t currentClockDeciseconds() const;
 
+    struct MoonAnchorCache {
+        bool initialized = false;
+        uint16_t count = 0;
+        uint16_t offsets[1024] = {};
+    };
+
 private:
     // Low-level drawing. Time digits are tabular; word/date text is proportional.
     int effectiveHours(int rawHours) const;
@@ -75,7 +81,7 @@ private:
     static int dayOfYear(int year, int month, int day);
     static bool isLeapYear(int year);
     static int weekdayMonday1(int year, int month, int day);
-    static double getMoonAgeDays(int year, int month, int day);
+    double getMoonAgeDays(int year, int month, int day);
     static double getMoonIlluminationPercent(double ageDays);
     static const char* getMoonState(double ageDays, double illuminationPercent);
     static const char* getWesternZodiacSign(int month, int day);
@@ -83,6 +89,8 @@ private:
     static const char* getChineseZodiacAnimal(int year);
     static const char* getChineseZodiacElement(int year);
     void drawBigTimeInternal(int hours, int minutes, int seconds, bool driftMode, int offsetMinutes, bool freshChange = false, bool separatorVisible = true, int driftDirection = 0);
+
+    MoonAnchorCache _moonAnchorCache;
 
     Display* _display = nullptr;
     TimeProvider* _timeProvider = nullptr;

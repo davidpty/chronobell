@@ -1427,3 +1427,18 @@ const uint8_t FONT_SMALL[44][SEC_FONT_HEIGHT][4] = {
     {0,1,0,0},
     {0,0,0,0}}
  };
+
+int charToGlyphIndex(char c) {
+    if (c >= 'A' && c <= 'Z') return c - 'A' + 10;
+    if (c >= 'a' && c <= 'z') return c - 'a' + 10;
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c == '%') return 36;
+    if (c == '-') return 37;
+    if (c == '+') return 38;
+    if (c == 'o') return 39;
+    if (c == '^') return 40;
+    if (c == '@') return 41;
+    if (c == 'v') return 42;
+    if (c == ':') return 43;
+    return 0;
+}

@@ -125,9 +125,10 @@ public:
 
 private:
     void noteScreenIdentity();
-    void bufferToFrame(uint32_t frame[16]) const;
-    void frameToBuffer(const uint32_t frame[16]);
+    void bufferToFrame(uint32_t frame[TOTAL_ROWS]) const;
+    void frameToBuffer(const uint32_t frame[TOTAL_ROWS]);
     void flushBufferToLeds();
+    void flushBar(int bufferRow, bool flipX, bool flipY, int colOffset);
     void drawMediumChar(char c, int x, int y);
 
 
@@ -155,10 +156,10 @@ private:
     DateStyle* _dateStyle = nullptr;
 
     bool pixelBuffer[COLS_PER_ROW][TOTAL_ROWS];
-    uint32_t _snapshotFrame[16] = {};
+    uint32_t _snapshotFrame[TOTAL_ROWS] = {};
 #if SCREEN_TRANSITION
     ScreenTransition _screenTransition;
-    uint32_t _lastFrame[16] = {};
+    uint32_t _lastFrame[TOTAL_ROWS] = {};
     bool _hasLastFrame = false;
     bool _screenTransitionPending = false;
     uint16_t _screenIdentity = 0;

@@ -3,12 +3,7 @@
 #include <Wire.h>
 #include <time.h>
 #include <esp_system.h>
-#include <ctype.h>
-#include <math.h>
-#include <string.h>
-
 #include "Config.h"
-#include "fonts.h"
 #if DIGIT_TRANSITIONS || SCREEN_TRANSITION
 #include "DigitTransition.h"
 #endif
@@ -19,8 +14,11 @@ static const uint16_t COUNTDOWN_PRESET_MINUTES[] = {
 static const uint8_t COUNTDOWN_PRESET_COUNT =
     sizeof(COUNTDOWN_PRESET_MINUTES) / sizeof(COUNTDOWN_PRESET_MINUTES[0]);
 
-namespace {
-bool sameDate(const ClockDate& a, const ClockDate& b) {
+// -----------------------------------------------------------------------------
+// File-scope helpers for style selection and JSON serialization
+// -----------------------------------------------------------------------------
+
+static bool sameDate(const ClockDate& a, const ClockDate& b) {
     return a.day == b.day &&
            a.date == b.date &&
            a.month == b.month &&
@@ -55,13 +53,13 @@ static const DisplayMode RANDOM_STYLE_POOL[] = {
 static const uint8_t RANDOM_STYLE_POOL_COUNT =
     sizeof(RANDOM_STYLE_POOL) / sizeof(RANDOM_STYLE_POOL[0]);
 
-int randomStyleIntervalHours() {
+static int randomStyleIntervalHours() {
     int hours = RND_STYLE_INTERVAL_HOURS;
     if (hours < 1 || hours > 24) return 24;
     return hours;
 }
 
-void appendJsonString(String& out, const String& value) {
+static void appendJsonString(String& out, const String& value) {
     out += '"';
     for (size_t i = 0; i < value.length(); i++) {
         char c = value[i];
@@ -90,492 +88,6 @@ static void appendJsonUInt64(String& out, uint64_t value) {
         value /= 10ULL;
     } while (value > 0 && pos > 0);
     out += &buf[pos];
-}
-
-static void appendSvgCircle(String& out, float cx, float cy, float r = 0.42f) {
-    out += "<circle class=\"pixel-dot\" cx=\"";
-    out += String(cx, 1);
-    out += "\" cy=\"";
-    out += String(cy, 1);
-    out += "\" r=\"";
-    out += String(r, 2);
-    out += "\"></circle>";
-}
-
-static int normalizeGlyphIndex(char c) {
-    if (c == ' ' || c == '\0') return -1;
-    if (c >= '0' && c <= '9') return c - '0';
-    if (c >= 'a' && c <= 'z') c = (char)toupper((unsigned char)c);
-    if (c >= 'A' && c <= 'Z') return 10 + (c - 'A');
-    switch (c) {
-        case '%': return 36;
-        case '-': return 37;
-        case '+': return 38;
-        case 'o': case 'O': return 39;
-        case '^': return 40;
-        case '@': return 41;
-        case 'v': case 'V': return 42;
-        case ':': return 43;
-        default:  return -1;
-    }
-}
-
-template <size_t GlyphCount, size_t Rows, size_t Cols>
-static void glyphBounds(const uint8_t (&font)[GlyphCount][Rows][Cols], int glyphIndex, int& left, int& right) {
-    left = Cols;
-    right = -1;
-    if (glyphIndex < 0 || glyphIndex >= (int)GlyphCount) {
-        return;
-    }
-    for (size_t col = 0; col < Cols; ++col) {
-        for (size_t row = 0; row < Rows; ++row) {
-            if (font[glyphIndex][row][col]) {
-                if ((int)col < left) left = (int)col;
-                if ((int)col > right) right = (int)col;
-                break;
-            }
-        }
-    }
-}
-
-template <size_t GlyphCount, size_t Rows, size_t Cols>
-static int glyphTextWidth(const uint8_t (&font)[GlyphCount][Rows][Cols], char c) {
-    int glyph = normalizeGlyphIndex(c);
-    int left, right;
-    glyphBounds(font, glyph, left, right);
-    return right >= left ? (right - left + 1) : 0;
-}
-
-template <size_t GlyphCount, size_t Rows, size_t Cols>
-static int measureText(const uint8_t (&font)[GlyphCount][Rows][Cols], const String& text, int letterSpacing = 1, int wordGap = 2) {
-    int width = 0;
-    bool inWord = false;
-    for (size_t i = 0; i < text.length(); ++i) {
-        char ch = text[i];
-        if (ch == ' ') {
-            if (inWord) {
-                width += wordGap;
-                inWord = false;
-            }
-            continue;
-        }
-        int glyphWidth = glyphTextWidth(font, ch);
-        if (glyphWidth <= 0) continue;
-        if (inWord) width += letterSpacing;
-        width += glyphWidth;
-        inWord = true;
-    }
-    return width;
-}
-
-template <size_t GlyphCount, size_t Rows, size_t Cols>
-static void appendGlyphSvg(String& out, const uint8_t (&font)[GlyphCount][Rows][Cols], char c, int x, int y) {
-    int glyph = normalizeGlyphIndex(c);
-    if (glyph < 0 || glyph >= (int)GlyphCount) return;
-    int left, right;
-    glyphBounds(font, glyph, left, right);
-    if (right < left) return;
-
-    for (int row = 0; row < (int)Rows; ++row) {
-        for (int col = left; col <= right; ++col) {
-            if (!font[glyph][row][col]) continue;
-            appendSvgCircle(out, (float)(x + (col - left)) + 0.5f, (float)y + (float)row + 0.5f);
-        }
-    }
-}
-
-template <size_t GlyphCount, size_t Rows, size_t Cols>
-static int appendTextSvg(String& out, const uint8_t (&font)[GlyphCount][Rows][Cols], const String& text, int x, int y, int letterSpacing = 1, int wordGap = 2) {
-    bool inWord = false;
-    for (size_t i = 0; i < text.length(); ++i) {
-        char ch = text[i];
-        if (ch == ' ') {
-            if (inWord) {
-                x += wordGap;
-                inWord = false;
-            }
-            continue;
-        }
-        int glyphWidth = glyphTextWidth(font, ch);
-        if (glyphWidth <= 0) continue;
-        int glyph = normalizeGlyphIndex(ch);
-        int left, right;
-        glyphBounds(font, glyph, left, right);
-        if (inWord) x += letterSpacing;
-        if (right >= left) {
-            for (int row = 0; row < (int)Rows; ++row) {
-                for (int col = left; col <= right; ++col) {
-                    if (!font[glyph][row][col]) continue;
-                    appendSvgCircle(out, (float)x + (float)(col - left) + 0.5f, (float)y + (float)row + 0.5f);
-                }
-            }
-            x += right - left + 1;
-        }
-        inWord = true;
-    }
-    return x;
-}
-
-static void appendCenteredTextSvg(String& out, const uint8_t (&font)[44][SEC_FONT_HEIGHT][4], const String& text, int y) {
-    int width = measureText(font, text, 1, 2);
-    int x = (32 - width) / 2;
-    appendTextSvg(out, font, text, x, y, 1, 2);
-}
-
-static void appendCenteredTextSvg(String& out, const uint8_t (&font)[44][TIME_FONT_MEDIUM_HEIGHT][6], const String& text, int y) {
-    int width = measureText(font, text, 1, 2);
-    int x = (32 - width) / 2;
-    appendTextSvg(out, font, text, x, y, 1, 2);
-}
-
-static String dayOfYearLabel(int year, int month, int day) {
-    struct tm tm = {};
-    tm.tm_year = year - 1900;
-    tm.tm_mon = month - 1;
-    tm.tm_mday = day;
-    tm.tm_isdst = -1;
-    time_t epoch = mktime(&tm);
-    if (epoch <= 0) return "DAY 001";
-    struct tm start = {};
-    start.tm_year = year - 1900;
-    start.tm_mon = 0;
-    start.tm_mday = 1;
-    start.tm_isdst = -1;
-    time_t startEpoch = mktime(&start);
-    long diffDays = (long)((epoch - startEpoch) / 86400L) + 1;
-    return "DAY " + String(diffDays);
-}
-
-static float moonAgeDays(int year, int month, int day) {
-    const double synodicMonth = 29.530588853;
-    const double ref = 946728840000.0; // 2000-01-06 18:14 UTC
-    struct tm tm = {};
-    tm.tm_year = year - 1900;
-    tm.tm_mon = month - 1;
-    tm.tm_mday = day;
-    tm.tm_isdst = -1;
-    time_t epoch = mktime(&tm);
-    double age = fmod((double(epoch) * 1000.0 - ref) / 86400000.0, synodicMonth);
-    if (age < 0) age += synodicMonth;
-    return (float)age;
-}
-
-static const char* westernZodiacSign(int month, int day) {
-    if ((month == 1 && day >= 20) || (month == 2 && day <= 18)) return "AQUARIUS";
-    if ((month == 2 && day >= 19) || (month == 3 && day <= 20)) return "PISCES";
-    if ((month == 3 && day >= 21) || (month == 4 && day <= 19)) return "ARIES";
-    if ((month == 4 && day >= 20) || (month == 5 && day <= 20)) return "TAURUS";
-    if ((month == 5 && day >= 21) || (month == 6 && day <= 20)) return "GEMINI";
-    if ((month == 6 && day >= 21) || (month == 7 && day <= 22)) return "CANCER";
-    if ((month == 7 && day >= 23) || (month == 8 && day <= 22)) return "LEO";
-    if ((month == 8 && day >= 23) || (month == 9 && day <= 22)) return "VIRGO";
-    if ((month == 9 && day >= 23) || (month == 10 && day <= 22)) return "LIBRA";
-    if ((month == 10 && day >= 23) || (month == 11 && day <= 21)) return "SCORPIO";
-    if ((month == 11 && day >= 22) || (month == 12 && day <= 21)) return "SAGITTARIUS";
-    return "CAPRICORN";
-}
-
-static const char* westernZodiacElement(const char* sign) {
-    if (!strcmp(sign, "ARIES") || !strcmp(sign, "LEO") || !strcmp(sign, "SAGITTARIUS")) return "FIRE";
-    if (!strcmp(sign, "TAURUS") || !strcmp(sign, "VIRGO") || !strcmp(sign, "CAPRICORN")) return "EARTH";
-    if (!strcmp(sign, "GEMINI") || !strcmp(sign, "LIBRA") || !strcmp(sign, "AQUARIUS")) return "AIR";
-    return "WATER";
-}
-
-static String westernZodiacLabel(const char* sign) {
-    if (!strcmp(sign, "SCORPIO")) return "SCORP";
-    if (!strcmp(sign, "SAGITTARIUS")) return "SAGIT";
-    if (!strcmp(sign, "CAPRICORN")) return "CAPRI";
-    if (!strcmp(sign, "AQUARIUS")) return "AQUAR";
-    return String(sign);
-}
-
-static const char* chineseZodiacAnimal(int year) {
-    static const char* animals[] = {"RAT", "OX", "TIGER", "RABBIT", "DRAGON", "SNAKE", "HORSE", "GOAT", "MONKEY", "ROOSTER", "DOG", "PIG"};
-    return animals[((year - 4) % 12 + 12) % 12];
-}
-
-static const char* chineseZodiacAnimalCode(int year) {
-    static const char* codes[] = {"RAT", "OX", "TIGER", "RABBIT", "DRGN", "SNAKE", "HORSE", "GOAT", "MNKY", "RSTR", "DOG", "PIG"};
-    return codes[((year - 4) % 12 + 12) % 12];
-}
-
-static const char* chineseZodiacElement(int year) {
-    static const char* elements[] = {"WOOD", "WOOD", "FIRE", "FIRE", "EARTH", "EARTH", "METAL", "METAL", "WATER", "WATER"};
-    return elements[((year - 4) % 10 + 10) % 10];
-}
-
-static String formatDateLines(DateStyle style, const ClockDate& date) {
-    const char* weekdays[] = {"SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"};
-    const char* months[] = {"JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"};
-    String top;
-    String bottom;
-
-    switch (style) {
-        case DateStyle::Year:
-            top = String(date.year);
-            bottom = dayOfYearLabel(date.year, date.month, date.date);
-            break;
-        case DateStyle::Moon: {
-            top = "MOON";
-            float age = moonAgeDays(date.year, date.month, date.date);
-            float fullPoint = 14.765294f;
-            if (age >= 14.4f && age <= 15.1f) {
-                bottom = "FULL";
-            } else if (age <= 0.6f || age >= 28.9f) {
-                bottom = "NEW";
-            } else if (age < fullPoint) {
-                bottom = "FULL IN " + String(max(1, (int)lroundf(fullPoint - age)));
-            } else {
-                bottom = "NEW IN " + String(max(1, (int)lroundf(29.530588853f - age)));
-            }
-            break;
-        }
-        case DateStyle::Zod: {
-            const char* sign = westernZodiacSign(date.month, date.date);
-            top = westernZodiacLabel(sign);
-            bottom = westernZodiacElement(sign);
-            break;
-        }
-        case DateStyle::Czod: {
-            int year = date.year;
-            top = chineseZodiacAnimal(year);
-            bottom = chineseZodiacElement(year);
-            if (measureText(FONT_SMALL, top, 1, 2) > 32) {
-                top = chineseZodiacAnimalCode(year);
-            }
-            break;
-        }
-        case DateStyle::Date:
-        default:
-            top = weekdays[(date.day > 0 ? date.day - 1 : 0) % 7];
-            bottom = String(months[max(0, date.month - 1)]) + " " + (date.date < 10 ? "0" : "") + String(date.date);
-            break;
-    }
-
-    String svg;
-    svg.reserve(256);
-    appendCenteredTextSvg(svg, FONT_SMALL, top, 0);
-    appendCenteredTextSvg(svg, FONT_SMALL, bottom, 11);
-    return svg;
-}
-
-static String renderTimerDisplaySvg(const String& view, const ClockTime& time, const ClockDate& date,
-                                   bool guestAvailable, bool guestShowSsid, const String& guestSsid, const String& guestPassword,
-                                   bool stopwatchRunning, uint64_t stopwatchMs,
-                                   bool countdownRunning, bool countdownExpired, uint32_t countdownMs, uint32_t countdownElapsedSinceExpiryMs,
-                                   DateStyle dateStyle, DisplayMode displayMode, const AppSettings& settings) {
-    String svg;
-    svg.reserve(512);
-
-    if (view == "clock") {
-        int hours = time.hours;
-        if (settings.timeFormat == TimeFormat::AmPm) {
-            hours %= 12;
-            if (hours == 0) hours = 12;
-        }
-        bool showColon = separatorModeFor(settings, displayMode) != SeparatorMode::Pulse || ((time.seconds & 1) == 0);
-        const int digitWidth = 6;
-        const int spacing = 1;
-        const int sepSpacingBefore = 3;
-        const int sepSpacingAfter = 2;
-        const int sepWidth = 1;
-        const int hourDigits = hours >= 10 ? 2 : 1;
-        const int totalWidth = (digitWidth * (hourDigits + 2)) + (spacing * (hourDigits >= 2 ? 2 : 1)) + sepSpacingBefore + sepSpacingAfter + sepWidth;
-        int x = (32 - totalWidth) / 2;
-        int y = 0;
-        if (hours >= 10) {
-            char h0 = (char)('0' + (hours / 10));
-            appendGlyphSvg(svg, FONT_BIG, h0, x, y);
-            x += digitWidth + spacing;
-        }
-        char h1 = (char)('0' + (hours % 10));
-        appendGlyphSvg(svg, FONT_BIG, h1, x, y);
-        x += digitWidth + sepSpacingBefore;
-        if (showColon) {
-            appendSvgCircle(svg, (float)x + 0.5f, 5.5f);
-            appendSvgCircle(svg, (float)x + 0.5f, 10.5f);
-        }
-        x += sepWidth + sepSpacingAfter;
-        char m0 = (char)('0' + (time.minutes / 10));
-        appendGlyphSvg(svg, FONT_BIG, m0, x, y);
-        x += digitWidth + spacing;
-        char m1 = (char)('0' + (time.minutes % 10));
-        appendGlyphSvg(svg, FONT_BIG, m1, x, y);
-    } else if (view == "date") {
-        svg += formatDateLines(dateStyle, date);
-    } else if (view == "guest") {
-        String text = guestShowSsid ? guestSsid : guestPassword;
-        if (guestAvailable && text.length() > 0) {
-            if (measureText(FONT_SMALL, text, 1, 2) <= 32) {
-                appendCenteredTextSvg(svg, FONT_SMALL, text, 6);
-            } else {
-                int split = text.length() / 2;
-                String first = text.substring(0, split);
-                String second = text.substring(split);
-                first.trim();
-                second.trim();
-                appendCenteredTextSvg(svg, FONT_SMALL, first, 2);
-                appendCenteredTextSvg(svg, FONT_SMALL, second, 11);
-            }
-        }
-    } else if (view == "stopwatch") {
-        uint64_t total = stopwatchMs;
-        uint32_t centisec = (uint32_t)((total % 1000ULL) / 10ULL);
-        uint32_t totalSec = (uint32_t)(total / 1000ULL);
-        const int digitWidth = 6;
-        const int spacing = 1;
-        const int sepWidth = 1;
-        const int startY = 3;
-        int x = 0;
-        bool blink = stopwatchRunning && ((millis() / 500UL) % 2 == 0);
-        if (totalSec < 100) {
-            String s = String(totalSec);
-            while (s.length() < 2) s = "0" + s;
-            String c = String(centisec);
-            while (c.length() < 2) c = "0" + c;
-            const int totalW = digitWidth * 4 + spacing * 3 + sepWidth;
-            x = (32 - totalW) / 2;
-            appendGlyphSvg(svg, FONT_MEDIUM, s[0], x, startY);
-            x += digitWidth + spacing;
-            appendGlyphSvg(svg, FONT_MEDIUM, s[1], x, startY);
-            x += digitWidth + spacing;
-            appendSvgCircle(svg, (float)x + 0.5f, (float)startY + 8.5f);
-            x += sepWidth + spacing;
-            appendGlyphSvg(svg, FONT_MEDIUM, c[0], x, startY);
-            x += digitWidth + spacing;
-            appendGlyphSvg(svg, FONT_MEDIUM, c[1], x, startY);
-        } else if (totalSec < 600) {
-            String m = String(totalSec / 60);
-            String s = String(totalSec % 60);
-            while (s.length() < 2) s = "0" + s;
-            String d = String(centisec / 10);
-            const int totalW = digitWidth * 4 + spacing * 3 + sepWidth * 2;
-            x = (32 - totalW) / 2;
-            appendGlyphSvg(svg, FONT_MEDIUM, m[0], x, startY);
-            x += digitWidth + spacing;
-            if (blink) {
-                appendSvgCircle(svg, (float)x + 0.5f, (float)startY + 4.5f);
-                appendSvgCircle(svg, (float)x + 0.5f, (float)startY + 6.5f);
-            }
-            x += sepWidth + spacing;
-            appendGlyphSvg(svg, FONT_MEDIUM, s[0], x, startY);
-            x += digitWidth + spacing;
-            appendGlyphSvg(svg, FONT_MEDIUM, s[1], x, startY);
-            x += digitWidth + spacing;
-            appendSvgCircle(svg, (float)x + 0.5f, (float)startY + 8.5f);
-            x += sepWidth + spacing;
-            appendGlyphSvg(svg, FONT_MEDIUM, d[0], x, startY);
-        } else if (totalSec < 6000) {
-            String mm = String(totalSec / 60);
-            while (mm.length() < 2) mm = "0" + mm;
-            String ss = String(totalSec % 60);
-            while (ss.length() < 2) ss = "0" + ss;
-            const int totalW = digitWidth * 4 + spacing * 3 + sepWidth;
-            x = (32 - totalW) / 2;
-            appendGlyphSvg(svg, FONT_MEDIUM, mm[0], x, startY);
-            x += digitWidth + spacing;
-            appendGlyphSvg(svg, FONT_MEDIUM, mm[1], x, startY);
-            x += digitWidth + spacing;
-            if (blink) appendSvgCircle(svg, (float)x + 0.5f, (float)startY + 8.5f);
-            x += sepWidth + spacing;
-            appendGlyphSvg(svg, FONT_MEDIUM, ss[0], x, startY);
-            x += digitWidth + spacing;
-            appendGlyphSvg(svg, FONT_MEDIUM, ss[1], x, startY);
-        } else if (totalSec < 360000) {
-            String hh = String(totalSec / 3600);
-            while (hh.length() < 2) hh = "0" + hh;
-            String mm = String((totalSec % 3600) / 60);
-            while (mm.length() < 2) mm = "0" + mm;
-            const int totalW = digitWidth * 4 + spacing * 3 + sepWidth;
-            x = (32 - totalW) / 2;
-            appendGlyphSvg(svg, FONT_MEDIUM, hh[0], x, startY);
-            x += digitWidth + spacing;
-            appendGlyphSvg(svg, FONT_MEDIUM, hh[1], x, startY);
-            x += digitWidth + spacing;
-            if (blink) {
-                appendSvgCircle(svg, (float)x + 0.5f, (float)startY + 4.5f);
-                appendSvgCircle(svg, (float)x + 0.5f, (float)startY + 6.5f);
-            }
-            x += sepWidth + spacing;
-            appendGlyphSvg(svg, FONT_MEDIUM, mm[0], x, startY);
-            x += digitWidth + spacing;
-            appendGlyphSvg(svg, FONT_MEDIUM, mm[1], x, startY);
-        } else {
-            uint32_t days = totalSec / 86400U;
-            if (days > 99U) days = 99U;
-            String dd = String(days);
-            while (dd.length() < 2) dd = "0" + dd;
-            String hh = String((totalSec % 86400U) / 3600U);
-            while (hh.length() < 2) hh = "0" + hh;
-            const int totalW = digitWidth * 4 + spacing * 3 + sepWidth;
-            x = (32 - totalW) / 2;
-            appendGlyphSvg(svg, FONT_MEDIUM, dd[0], x, startY);
-            x += digitWidth + spacing;
-            appendGlyphSvg(svg, FONT_MEDIUM, dd[1], x, startY);
-            x += digitWidth + spacing;
-            appendSvgCircle(svg, (float)x + 0.5f, (float)startY + 4.5f);
-            appendSvgCircle(svg, (float)x + 0.5f, (float)startY + 6.5f);
-            x += sepWidth + spacing;
-            appendGlyphSvg(svg, FONT_MEDIUM, hh[0], x, startY);
-            x += digitWidth + spacing;
-            appendGlyphSvg(svg, FONT_MEDIUM, hh[1], x, startY);
-        }
-    } else if (view == "countdown") {
-        if (countdownExpired && (millis() % 1000UL) >= 750UL) {
-            return svg;
-        }
-        uint32_t total = countdownMs;
-        uint32_t totalSec = total / 1000UL;
-        uint32_t minutes = totalSec / 60UL;
-        uint32_t seconds = totalSec % 60UL;
-        bool blink = countdownRunning && ((millis() / 500UL) % 2 == 0);
-        const int digitWidth = 6;
-        const int spacing = 1;
-        const int sepWidth = 1;
-        const int startY = 3;
-        int x = 0;
-        if (minutes < 100) {
-            String mm = String(minutes);
-            while (mm.length() < 2) mm = "0" + mm;
-            String ss = String(seconds);
-            while (ss.length() < 2) ss = "0" + ss;
-            const int totalW = digitWidth * 4 + spacing * 3 + sepWidth;
-            x = (32 - totalW) / 2;
-            appendGlyphSvg(svg, FONT_MEDIUM, mm[0], x, startY);
-            x += digitWidth + spacing;
-            appendGlyphSvg(svg, FONT_MEDIUM, mm[1], x, startY);
-            x += digitWidth + spacing;
-            if (blink) {
-                appendSvgCircle(svg, (float)x + 0.5f, (float)startY + 4.5f);
-                appendSvgCircle(svg, (float)x + 0.5f, (float)startY + 6.5f);
-            }
-            x += sepWidth + spacing;
-            appendGlyphSvg(svg, FONT_MEDIUM, ss[0], x, startY);
-            x += digitWidth + spacing;
-            appendGlyphSvg(svg, FONT_MEDIUM, ss[1], x, startY);
-        } else {
-            String hh = String(minutes / 60UL);
-            while (hh.length() < 2) hh = "0" + hh;
-            String mm = String(minutes % 60UL);
-            while (mm.length() < 2) mm = "0" + mm;
-            const int totalW = digitWidth * 4 + spacing * 3 + sepWidth;
-            x = (32 - totalW) / 2;
-            appendGlyphSvg(svg, FONT_MEDIUM, hh[0], x, startY);
-            x += digitWidth + spacing;
-            appendGlyphSvg(svg, FONT_MEDIUM, hh[1], x, startY);
-            x += digitWidth + spacing;
-            appendSvgCircle(svg, (float)x + 0.5f, (float)startY + 4.5f);
-            appendSvgCircle(svg, (float)x + 0.5f, (float)startY + 6.5f);
-            x += sepWidth + spacing;
-            appendGlyphSvg(svg, FONT_MEDIUM, mm[0], x, startY);
-            x += digitWidth + spacing;
-            appendGlyphSvg(svg, FONT_MEDIUM, mm[1], x, startY);
-        }
-    }
-
-    return svg;
-}
 }
 
 // =============================================================================
@@ -1024,15 +536,15 @@ bool ClockApp::updateNewYearState(ClockTime* timeOut, ClockDate* dateOut) {
 }
 
 void ClockApp::syncDisplayModeSelection() {
-    if (_displayOverrideActive &&
+    if (_overrideState.active &&
         LAST_STYLE_TIMEOUT_MINUTES > 0) {
         unsigned long now = millis();
-        if ((int32_t)(now - _displayOverrideExpiresAt) >= 0 ||
-            _savedDisplayMode != _displayOverrideSourceMode) {
-            _displayOverrideActive = false;
+        if ((int32_t)(now - _overrideState.expiresAt) >= 0 ||
+            _savedDisplayMode != _overrideState.sourceMode) {
+            _overrideState.active = false;
         }
     } else if (LAST_STYLE_TIMEOUT_MINUTES <= 0) {
-        _displayOverrideActive = false;
+        _overrideState.active = false;
     }
 
     DisplayMode baseMode = _savedDisplayMode;
@@ -1045,36 +557,36 @@ void ClockApp::syncDisplayModeSelection() {
             ? (uint8_t)(currentTime.hours / randomStyleIntervalHours())
             : 0;
 
-        if (!_randomDisplayModeValid) {
-            _randomDisplayMode = pickRandomConcreteDisplayMode(DisplayMode::Rnd);
-            _randomDisplayModeValid = true;
+        if (!_randomState.valid) {
+            _randomState.mode = pickRandomConcreteDisplayMode(DisplayMode::Rnd);
+            _randomState.valid = true;
             if (haveDate && haveTime) {
-                _randomDisplayDate = currentDate;
-                _randomDisplayDateValid = true;
-                _randomDisplayHourSlot = currentSlot;
+                _randomState.date = currentDate;
+                _randomState.dateValid = true;
+                _randomState.hourSlot = currentSlot;
             }
         }
 
         if (haveDate && haveTime) {
-            if (!_randomDisplayDateValid) {
-                _randomDisplayDate = currentDate;
-                _randomDisplayDateValid = true;
-                _randomDisplayHourSlot = currentSlot;
-            } else if (!sameDate(currentDate, _randomDisplayDate) ||
-                       currentSlot != _randomDisplayHourSlot) {
-                _randomDisplayDate = currentDate;
-                _randomDisplayHourSlot = currentSlot;
-                _randomDisplayMode = pickRandomConcreteDisplayMode(_randomDisplayMode);
+            if (!_randomState.dateValid) {
+                _randomState.date = currentDate;
+                _randomState.dateValid = true;
+                _randomState.hourSlot = currentSlot;
+            } else if (!sameDate(currentDate, _randomState.date) ||
+                       currentSlot != _randomState.hourSlot) {
+                _randomState.date = currentDate;
+                _randomState.hourSlot = currentSlot;
+                _randomState.mode = pickRandomConcreteDisplayMode(_randomState.mode);
             }
         }
 
-        baseMode = _randomDisplayMode;
+        baseMode = _randomState.mode;
     } else {
-        _randomDisplayModeValid = false;
-        _randomDisplayDateValid = false;
+        _randomState.valid = false;
+        _randomState.dateValid = false;
     }
 
-    _displayMode = _displayOverrideActive ? _overrideDisplayMode : baseMode;
+    _displayMode = _overrideState.active ? _overrideState.mode : baseMode;
 }
 
 void ClockApp::syncDateStyleSelection() {
@@ -1112,16 +624,16 @@ void ClockApp::cycleTemporaryDisplayMode(int direction) {
 
     int nextIndex = (currentIndex + direction + QUICK_STYLE_POOL_COUNT) % QUICK_STYLE_POOL_COUNT;
     DisplayMode mode = QUICK_STYLE_POOL[nextIndex];
-    if (_displayOverrideActive && mode == _overrideDisplayMode) {
+    if (_overrideState.active && mode == _overrideState.mode) {
         return;
     }
 
-    _overrideDisplayMode = mode;
-    _displayOverrideSourceMode = _savedDisplayMode;
-    _displayOverrideActive = true;
-    _displayOverrideExpiresAt =
+    _overrideState.mode = mode;
+    _overrideState.sourceMode = _savedDisplayMode;
+    _overrideState.active = true;
+    _overrideState.expiresAt =
         millis() + (unsigned long)LAST_STYLE_TIMEOUT_MINUTES * 60000UL;
-    _displayMode = _overrideDisplayMode;
+    _displayMode = _overrideState.mode;
     LOG("Temporary clock style: ");
     LOGLN(displayModeLabel(mode));
 }
