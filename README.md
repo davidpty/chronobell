@@ -204,7 +204,7 @@ Open `Config.h` to adjust these:
 | `NIGHT_DIM_START_HOUR` | `19` (7 PM) | When night dimming starts |
 | `GUEST_WIFI_URL` | *(see file)* | Guest WiFi password URL; set to `""` to disable |
 | `TIME_SYNC_INTERVAL_MINUTES` | `60` | How often NTP re-syncs |
-| `RND_STYLE_INTERVAL_HOURS` | `24` | RND change interval aligned to local midnight (`3` = 00:00, 03:00, 06:00...) |
+| `RND_STYLE_INTERVAL_MINUTES` | `360` | RND change interval aligned to local midnight (`360` = 00:00, 06:00, 12:00...; valid 1-1440) |
 | `HOTSPOT_TIMEOUT_MINUTES` | `0` | Auto-stop hotspot after N minutes (`0` = stays on) |
 | `DIGIT_TRANSITIONS` | `1` | Set to `0` to remove per-digit morph engine (saves flash/RAM) |
 | `SCREEN_TRANSITION` | `1` | Set to `0` to remove screen retune engine (saves flash/RAM) |

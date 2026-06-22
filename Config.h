@@ -17,7 +17,7 @@
   #define LOGLN(...)   Serial.println(__VA_ARGS__)
   #define LOGF(...)    Serial.printf(__VA_ARGS__)
 #else
-  #define LOG(...)
+  #define LOG(...) 
   #define LOGLN(...)
   #define LOGF(...)
 #endif
@@ -85,7 +85,7 @@
 #define LAST_STYLE_TIMEOUT_MINUTES                  360                                 // Reset remembered clock view to configured View after N idle min (0=off)
 #define LAST_DATEVIEW_TIMEOUT_MINUTES               5                                   // Reset remembered date view to configured after N idle min (0=off)
 
-#define RND_STYLE_INTERVAL_HOURS                    6                                   // RND changes on local-hour boundaries aligned to midnight (3 = 00,03,06...; valid 1-24)
+#define RND_STYLE_INTERVAL_MINUTES                  360                                 // RND changes on minute-aligned boundaries from midnight (eg. 360 = 00:00, 06:00, 12:00...; valid 1-1440)
 #define INFO_ALT_INTERVAL_SECONDS                   10                                  // ALT switches between DATE and WDAY every N seconds after entering ALT (valid 1-3600)
 
 // ---------------------------------------------------------------------------

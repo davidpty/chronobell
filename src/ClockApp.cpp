@@ -53,10 +53,10 @@ static const DisplayMode RANDOM_STYLE_POOL[] = {
 static const uint8_t RANDOM_STYLE_POOL_COUNT =
     sizeof(RANDOM_STYLE_POOL) / sizeof(RANDOM_STYLE_POOL[0]);
 
-static int randomStyleIntervalHours() {
-    int hours = RND_STYLE_INTERVAL_HOURS;
-    if (hours < 1 || hours > 24) return 24;
-    return hours;
+static int randomStyleIntervalMinutes() {
+    int minutes = RND_STYLE_INTERVAL_MINUTES;
+    if (minutes < 1 || minutes > 1440) return 1440;
+    return minutes;
 }
 
 static void appendJsonString(String& out, const String& value) {
@@ -554,7 +554,7 @@ void ClockApp::syncDisplayModeSelection() {
         ClockTime currentTime;
         bool haveTime = _timeProvider.currentTime(currentTime);
         uint8_t currentSlot = haveTime
-            ? (uint8_t)(currentTime.hours / randomStyleIntervalHours())
+            ? (uint8_t)((currentTime.hours * 60 + currentTime.minutes) / randomStyleIntervalMinutes())
             : 0;
 
         if (!_randomState.valid) {
