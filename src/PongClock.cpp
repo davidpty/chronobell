@@ -22,50 +22,47 @@ static uint16_t randomRange(uint16_t minValue, uint16_t maxValue) {
 static constexpr int kPongMidX = COLS_PER_ROW / 2;
 static constexpr int kPongMidY = (TOTAL_ROWS - 1) / 2;
 
-static PongClockEngine::MissEscape chooseMissEscape(const PongClockEngine::Snapshot& view,
-                                                    PongClockEngine::MissSide missSide) {
-    int paddleY = (missSide == PongClockEngine::MissSide::Left) ? view.leftPaddleY : view.rightPaddleY;
-    bool ballUpper = view.ballY <= kPongMidY;
-    bool paddleUpper = paddleY <= kPongMidY;
-    int sideDistance = (missSide == PongClockEngine::MissSide::Left)
-        ? view.ballX
-        : (COLS_PER_ROW - 1 - view.ballX);
+static const int16_t kServeVels[][2] = {
+    { 8,  8}, { 8,  4}, { 8,  2}, { 8,  1}, { 8,  0},
+    { 8, -1}, { 8, -2}, { 8, -4}, { 8, -8},
+    { 4,  8}, { 2,  8}, { 1,  8}, { 0,  8},
+    {-1,  8}, {-2,  8}, {-4,  8},
+    {-8,  8}, {-8,  4}, {-8,  2}, {-8,  0},
+    {-8, -8}, {-8, -4}, {-8, -2}, {-8, -1},
+    {-4, -8}, {-2, -8}, {-1, -8}, { 0, -8},
+    { 1, -8}, { 2, -8}, { 4, -8},
+    { 8, -8}, { 8, -4}, { 8, -2}, { 8, -1}
+};
+static constexpr int kServeVelCount = (int)(sizeof(kServeVels) / sizeof(kServeVels[0]));
+static constexpr int16_t kVelBase = 8;
+static constexpr int16_t kVelClip = 12;
 
-    if (ballUpper != paddleUpper) {
-        return ballUpper ? PongClockEngine::MissEscape::TopGap : PongClockEngine::MissEscape::BottomGap;
+static int predictIntercept(int16_t ballXF, int16_t ballYF,
+                             int16_t velXF, int16_t velYF,
+                             int paddleXPx, int topPx, int bottomPx) {
+    int ballPx = ballXF / kVelBase;
+    int16_t dxF = (paddleXPx - ballPx) * kVelBase;
+    if (dxF == 0) return ballYF / kVelBase;
+    if ((dxF > 0 && velXF <= 0) || (dxF < 0 && velXF >= 0))
+        return (topPx + bottomPx) / 2;
+    int steps = dxF / velXF;
+    if (steps <= 0) {
+        if ((dxF > 0 && velXF <= 0) || (dxF < 0 && velXF >= 0))
+            return (topPx + bottomPx) / 2;
+        steps = 1;
     }
-    if (sideDistance <= 5) {
-        return PongClockEngine::MissEscape::SideExit;
+    if (steps > 120) return (topPx + bottomPx) / 2;
+    int yF = ballYF;
+    int16_t vy = velYF;
+    int topF = topPx * kVelBase;
+    int bottomF = bottomPx * kVelBase;
+    for (int s = 0; s < steps; s++) {
+        yF += vy;
+        int py = yF / kVelBase;
+        if (py < topPx) { yF = 2 * topF - yF; vy = -vy; }
+        else if (py > bottomPx) { yF = 2 * bottomF - yF; vy = -vy; }
     }
-    if ((esp_random() & 1U) == 0) {
-        return ballUpper ? PongClockEngine::MissEscape::TopGap : PongClockEngine::MissEscape::BottomGap;
-    }
-    return PongClockEngine::MissEscape::SideExit;
-}
-
-static void steerMissBall(PongClockEngine::Snapshot& view,
-                          PongClockEngine::MissSide missSide,
-                          PongClockEngine::MissEscape missEscape) {
-    switch (missEscape) {
-        case PongClockEngine::MissEscape::TopGap:
-            view.ballDy = -1;
-            view.ballDx = (view.ballX < kPongMidX) ? 1 : (view.ballX > kPongMidX ? -1 : 0);
-            break;
-        case PongClockEngine::MissEscape::BottomGap:
-            view.ballDy = 1;
-            view.ballDx = (view.ballX < kPongMidX) ? 1 : (view.ballX > kPongMidX ? -1 : 0);
-            break;
-        case PongClockEngine::MissEscape::SideExit:
-            view.ballDx = (missSide == PongClockEngine::MissSide::Left) ? -1 : 1;
-            if (view.ballY <= SEC_FONT_HEIGHT - 1) {
-                view.ballDy = 1;
-            } else if (view.ballY >= TOTAL_ROWS - 3) {
-                view.ballDy = -1;
-            } else {
-                view.ballDy = 0;
-            }
-            break;
-    }
+    return yF / kVelBase;
 }
 
 static uint8_t tempoBias(uint8_t base, int delta) {
@@ -154,14 +151,14 @@ PongClockEngine::PaddleTempo PongClockEngine::nextTempoMode(PaddleTempo current,
 uint16_t PongClockEngine::tempoStepDelay(PaddleTempo tempo, bool ballNear, bool chaseSide, uint8_t seed) {
     switch (tempo) {
         case PaddleTempo::Hold:
-            return randomRange(ballNear ? 120U : 180U, ballNear ? 260U : 360U);
+            return randomRange(ballNear ? 100U : 140U, ballNear ? 200U : 280U);
         case PaddleTempo::Drift:
-            return randomRange(66U, ballNear ? 120U : 150U) + (uint16_t)(seed & 5U);
+            return randomRange(56U, ballNear ? 100U : 120U) + (uint16_t)(seed & 5U);
         case PaddleTempo::Cruise:
-            return randomRange(ballNear ? 28U : 44U, ballNear ? 72U : 98U) + (uint16_t)((seed >> 1) & 7U);
+            return randomRange(ballNear ? 24U : 36U, ballNear ? 60U : 80U) + (uint16_t)((seed >> 1) & 7U);
         case PaddleTempo::Burst:
         default:
-            return randomRange(ballNear ? 14U : 22U, chaseSide ? 48U : 64U) + (uint16_t)((seed >> 2) & 3U);
+            return randomRange(ballNear ? 12U : 18U, chaseSide ? 40U : 52U) + (uint16_t)((seed >> 2) & 3U);
     }
 }
 
@@ -248,6 +245,10 @@ PongClockEngine::ScoreLayout PongClockEngine::scoreLayout(TimeFormat format) con
 }
 
 void PongClockEngine::syncSnapshot(TimeFormat format) {
+    _state.view.ballX = _state.ballXF / PONG_VEL_BASE;
+    _state.view.ballY = _state.ballYF / PONG_VEL_BASE;
+    _state.view.ballDx = (_state.ballDxF > 0) ? 1 : (_state.ballDxF < 0) ? -1 : 0;
+    _state.view.ballDy = (_state.ballDyF > 0) ? 1 : (_state.ballDyF < 0) ? -1 : 0;
     _snapshot = _state.view;
     _snapshot.scoreHour = (uint8_t)visibleHour(_state.view.scoreHour, format);
     _snapshot.scoreMinute = _state.view.scoreMinute;
@@ -281,16 +282,28 @@ void PongClockEngine::resetBall(ClockTime time, unsigned long nowMs, TimeFormat 
     _state.leftNextMoveMs = nowMs + tempoStepDelay(_state.leftTempo, false, false, _state.leftTempoSeed);
     _state.rightNextMoveMs = nowMs + tempoStepDelay(_state.rightTempo, false, false, _state.rightTempoSeed);
 
-    int horizontalSeed = time.hours + time.minutes + time.seconds + (int)((nowMs >> 8) & 0xFF);
-    int verticalSeed = time.minutes + time.seconds + (int)((nowMs >> 4) & 0xFF);
+    _state.rallyHits = 0;
+    _state.ballXF = PONG_BALL_START_X * PONG_VEL_BASE;
+    _state.ballYF = PONG_BALL_START_Y * PONG_VEL_BASE;
+    int idx = (time.hours + time.minutes + time.seconds) % kServeVelCount;
+    int16_t dx = kServeVels[idx][0];
+    int16_t dy = kServeVels[idx][1];
+    static constexpr int16_t kMinServeComp = 4;
+    if (abs(dx) < kMinServeComp) dx = (dx >= 0) ? kMinServeComp : -kMinServeComp;
+    if (abs(dy) < kMinServeComp) dy = (dy >= 0) ? kMinServeComp : -kMinServeComp;
     if (afterMiss && _state.view.pendingMissSide == MissSide::Right) {
-        _state.view.ballDx = -1;
+        dx = -abs(dx);
     } else if (afterMiss && _state.view.pendingMissSide == MissSide::Left) {
-        _state.view.ballDx = 1;
+        dx = abs(dx);
+    } else if ((time.hours + time.minutes + time.seconds + (int)((nowMs >> 8) & 0xFF)) & 1) {
+        dx = abs(dx);
     } else {
-        _state.view.ballDx = (horizontalSeed & 1) ? 1 : -1;
+        dx = -abs(dx);
     }
-    _state.view.ballDy = (verticalSeed & 1) ? 1 : -1;
+    _state.ballDxF = dx;
+    _state.ballDyF = dy;
+    _state.view.ballDx = (dx > 0) ? 1 : (dx < 0) ? -1 : 0;
+    _state.view.ballDy = (dy > 0) ? 1 : (dy < 0) ? -1 : 0;
     _state.view.ballVisible = _state.view.phase != Phase::CenterTravel;
 }
 
@@ -305,12 +318,16 @@ void PongClockEngine::update(ClockTime time, unsigned long nowMs, TimeFormat for
         _state.view.pendingScoreValid = true;
         _state.view.phase = Phase::CenterTravel;
         _state.phaseUntilMs = nowMs + PONG_CENTER_TRAVEL_MS;
+        _state.rallyHits = 0;
         _state.view.ballVisible = false;
+        _state.ballXF = PONG_BALL_START_X * PONG_VEL_BASE;
+        _state.ballYF = PONG_BALL_START_Y * PONG_VEL_BASE;
+        _state.ballDxF = 0;
+        _state.ballDyF = 0;
         _state.view.ballX = PONG_BALL_START_X;
         _state.view.ballY = PONG_BALL_START_Y;
         _state.view.ballDx = 0;
         _state.view.ballDy = 0;
-        _state.physicsDividerCounter = 0;
         _state.leftTargetY = centerPaddleY();
         _state.rightTargetY = centerPaddleY();
         _state.leftNextMoveMs = nowMs;
@@ -392,13 +409,16 @@ void PongClockEngine::update(ClockTime time, unsigned long nowMs, TimeFormat for
         }
         _state.view.phase = Phase::ResetPause;
         _state.phaseUntilMs = nowMs + PONG_RESET_PAUSE_MS;
+        _state.rallyHits = 0;
+        _state.ballXF = PONG_BALL_START_X * PONG_VEL_BASE;
+        _state.ballYF = PONG_BALL_START_Y * PONG_VEL_BASE;
+        _state.ballDxF = ((esp_random() & 1U) == 0) ? PONG_VEL_SERVE : -PONG_VEL_SERVE;
+        _state.ballDyF = ((esp_random() & 1U) == 0) ? PONG_VEL_SERVE : -PONG_VEL_SERVE;
         _state.view.ballX = PONG_BALL_START_X;
         _state.view.ballY = PONG_BALL_START_Y;
-        _state.view.missEscape = MissEscape::SideExit;
-        _state.view.ballDx = ((esp_random() & 1U) == 0) ? 1 : -1;
-        _state.view.ballDy = ((esp_random() & 1U) == 0) ? 1 : -1;
+        _state.view.ballDx = (_state.ballDxF > 0) ? 1 : -1;
+        _state.view.ballDy = (_state.ballDyF > 0) ? 1 : -1;
         _state.view.ballVisible = true;
-        _state.physicsDividerCounter = 0;
         _state.leftTempo = PaddleTempo::Cruise;
         _state.rightTempo = PaddleTempo::Cruise;
         _state.leftTempoUntilMs = nowMs + randomRange(120U, 240U);
@@ -416,7 +436,6 @@ void PongClockEngine::update(ClockTime time, unsigned long nowMs, TimeFormat for
         }
         _state.view.phase = Phase::Rally;
         _state.phaseUntilMs = 0;
-        _state.view.missEscape = MissEscape::SideExit;
         _state.physicsDividerCounter = 0;
         _state.leftTempo = (esp_random() & 1U) ? PaddleTempo::Cruise : PaddleTempo::Drift;
         _state.rightTempo = (esp_random() & 1U) ? PaddleTempo::Cruise : PaddleTempo::Drift;
@@ -432,13 +451,12 @@ void PongClockEngine::update(ClockTime time, unsigned long nowMs, TimeFormat for
 
     int displayedHourVisible = visibleHour(_state.view.scoreHour, format);
     int currentHourVisible = visibleHour(time.hours, format);
-    MissSide currentMissSide = (currentHourVisible != displayedHourVisible) ? MissSide::Left : MissSide::Right;
-    MissSide leadInMissSide = (time.minutes == 59) ? MissSide::Left : MissSide::Right;
+    MissSide currentMissSide = (currentHourVisible != displayedHourVisible) ? MissSide::Right : MissSide::Left;
+    MissSide leadInMissSide = (time.minutes == 59) ? MissSide::Right : MissSide::Left;
 
     if (!scoreStale && _state.view.phase == Phase::Rally && time.seconds >= 56) {
         _state.view.pendingMiss = true;
         _state.view.pendingMissSide = leadInMissSide;
-        _state.view.missEscape = chooseMissEscape(_state.view, leadInMissSide);
         _state.view.phase = Phase::LeadIn;
     }
 
@@ -446,7 +464,6 @@ void PongClockEngine::update(ClockTime time, unsigned long nowMs, TimeFormat for
         if (!_state.view.pendingMiss || _state.view.pendingMissSide != currentMissSide) {
             _state.view.pendingMiss = true;
             _state.view.pendingMissSide = currentMissSide;
-            _state.view.missEscape = chooseMissEscape(_state.view, currentMissSide);
         }
         if (_state.view.phase == Phase::Rally || _state.view.phase == Phase::LeadIn) {
             _state.view.phase = Phase::MissFlight;
@@ -472,11 +489,23 @@ void PongClockEngine::update(ClockTime time, unsigned long nowMs, TimeFormat for
         bool ballNear = ballDistance <= 6;
         bool ballApproaching = leftSide ? (_state.view.ballDx < 0) : (_state.view.ballDx > 0);
         bool chaseSide = ballApproaching || ballNear;
+        bool perfectTrack = !missThisSide &&
+            (_state.view.phase == Phase::Rally || _state.view.phase == Phase::LeadIn);
+        bool needUrgency = false;
+        if (perfectTrack && ballApproaching) {
+            int paddleDist = abs((int)paddleY - (int)targetY);
+            int ballDistToWall = leftSide ? _state.view.ballX : (COLS_PER_ROW - 1 - _state.view.ballX);
+            needUrgency = ballDistToWall <= (6 + paddleDist * 2);
+        }
         bool missCommit = missThisSide &&
                           _state.view.phase == Phase::MissFlight &&
                           ballDistance <= PONG_MISS_COMMIT_DISTANCE;
 
-        if ((int32_t)(nowMs - tempoUntilMs) >= 0) {
+        if (needUrgency) {
+            tempo = PaddleTempo::Burst;
+        } else if (_state.view.phase == Phase::LeadIn && missThisSide) {
+            tempo = PaddleTempo::Burst;
+        } else if ((int32_t)(nowMs - tempoUntilMs) >= 0) {
             if (missCommit) {
                 tempo = PaddleTempo::Burst;
             } else if (_state.view.phase == Phase::CenterTravel ||
@@ -492,28 +521,19 @@ void PongClockEngine::update(ClockTime time, unsigned long nowMs, TimeFormat for
 
         int aim;
         if (missCommit) {
-            if (_state.view.missEscape == MissEscape::TopGap) {
-                aim = PONG_PADDLE_MAX_Y;
-            } else if (_state.view.missEscape == MissEscape::BottomGap) {
-                aim = PONG_PADDLE_MIN_Y;
-            } else {
-                aim = (_state.view.ballY <= kPongMidY) ? PONG_PADDLE_MAX_Y : PONG_PADDLE_MIN_Y;
-            }
+            aim = awayPaddleY(_state.view.ballY);
         } else if (_state.view.phase == Phase::CenterTravel ||
                    _state.view.phase == Phase::CenterBallHold ||
                    _state.view.phase == Phase::ScoreHold ||
                    _state.view.phase == Phase::ResetPause) {
             aim = centerPaddleY();
+        } else if (_state.view.phase == Phase::LeadIn && missThisSide) {
+            aim = centerPaddleY();
         } else {
-            aim = _state.view.ballY - (PONG_PADDLE_HEIGHT / 2);
-            int wobble = (int)(esp_random() % 3U) - 1;
-            int chaseJitter = (int)(esp_random() % 2U);
-            if (_state.view.ballDy > 0) {
-                aim += chaseJitter;
-            } else if (_state.view.ballDy < 0) {
-                aim -= chaseJitter;
-            }
-            aim += wobble;
+            aim = predictIntercept(_state.ballXF, _state.ballYF,
+                                    _state.ballDxF, _state.ballDyF,
+                                    leftSide ? 0 : (COLS_PER_ROW - 1),
+                                    SEC_FONT_HEIGHT, PONG_PLAY_BOTTOM) - (PONG_PADDLE_HEIGHT / 2);
             if (_state.view.phase == Phase::LeadIn && !missThisSide) {
                 aim += (leftSide ? -1 : 1);
             }
@@ -522,10 +542,12 @@ void PongClockEngine::update(ClockTime time, unsigned long nowMs, TimeFormat for
         targetY = clampPaddleY(aim);
 
         int stepCap = 0;
-        if (_state.view.phase == Phase::CenterTravel ||
-            _state.view.phase == Phase::CenterBallHold ||
-            _state.view.phase == Phase::ScoreHold ||
-            _state.view.phase == Phase::ResetPause) {
+        if (needUrgency) {
+            stepCap = ballNear ? 4 : 3;
+        } else if (_state.view.phase == Phase::CenterTravel ||
+                   _state.view.phase == Phase::CenterBallHold ||
+                   _state.view.phase == Phase::ScoreHold ||
+                   _state.view.phase == Phase::ResetPause) {
             stepCap = 1;
         } else if (tempo == PaddleTempo::Hold) {
             stepCap = 0;
@@ -540,12 +562,14 @@ void PongClockEngine::update(ClockTime time, unsigned long nowMs, TimeFormat for
         int step = 0;
         if (stepCap > 0) {
             step = 1 + (int)(esp_random() % stepCap);
-            if (tempo == PaddleTempo::Drift && ((esp_random() & 3U) == 0)) {
-                step = 0;
-            } else if (tempo == PaddleTempo::Cruise && ((esp_random() & 7U) == 0)) {
-                step = 0;
-            } else if (tempo == PaddleTempo::Burst && ((esp_random() & 11U) == 0)) {
-                step = 0;
+            if (!needUrgency) {
+                if (tempo == PaddleTempo::Drift && ((esp_random() & 3U) == 0)) {
+                    step = 0;
+                } else if (tempo == PaddleTempo::Cruise && ((esp_random() & 7U) == 0)) {
+                    step = 0;
+                } else if (tempo == PaddleTempo::Burst && ((esp_random() & 11U) == 0)) {
+                    step = 0;
+                }
             }
             if (missCommit) {
                 step = 1 + (int)(esp_random() % 2U);
@@ -557,8 +581,6 @@ void PongClockEngine::update(ClockTime time, unsigned long nowMs, TimeFormat for
                 paddleY = clampPaddleY(paddleY + step);
             } else if (paddleY > targetY) {
                 paddleY = clampPaddleY(paddleY - step);
-            } else if (!missThisSide && ((esp_random() & 3U) == 0)) {
-                paddleY = clampPaddleY(paddleY + (((esp_random() & 1U) == 0) ? -1 : 1));
             }
         }
 
@@ -569,6 +591,8 @@ void PongClockEngine::update(ClockTime time, unsigned long nowMs, TimeFormat for
                    _state.view.phase == Phase::ScoreHold ||
                    _state.view.phase == Phase::ResetPause) {
             delay = jitterDelay(56U, 16U);
+        } else if (needUrgency) {
+            delay = randomRange(8U, 18U);
         } else if (missCommit) {
             delay = tempoStepDelay(PaddleTempo::Burst, ballNear, chaseSide, tempoSeed);
         } else {
@@ -580,10 +604,6 @@ void PongClockEngine::update(ClockTime time, unsigned long nowMs, TimeFormat for
     updatePaddle(true);
     updatePaddle(false);
 
-    if (_state.view.phase == Phase::MissFlight && _state.view.pendingMiss) {
-        steerMissBall(_state.view, _state.view.pendingMissSide, _state.view.missEscape);
-    }
-
     _state.physicsDividerCounter++;
     if (_state.physicsDividerCounter < PONG_PHYSICS_DIVIDER) {
         syncSnapshot(format);
@@ -591,8 +611,16 @@ void PongClockEngine::update(ClockTime time, unsigned long nowMs, TimeFormat for
     }
     _state.physicsDividerCounter = 0;
 
-    int nextX = _state.view.ballX + _state.view.ballDx;
-    int nextY = _state.view.ballY + _state.view.ballDy;
+    _state.ballXF += _state.ballDxF;
+    _state.ballYF += _state.ballDyF;
+    int prevBallX = _state.view.ballX;
+    int prevBallY = _state.view.ballY;
+    int nextX = _state.ballXF / PONG_VEL_BASE;
+    int nextY = _state.ballYF / PONG_VEL_BASE;
+    _state.view.ballX = (int8_t)nextX;
+    _state.view.ballY = (int8_t)nextY;
+    _state.view.ballDx = (_state.ballDxF > 0) ? 1 : (_state.ballDxF < 0) ? -1 : 0;
+    _state.view.ballDy = (_state.ballDyF > 0) ? 1 : (_state.ballDyF < 0) ? -1 : 0;
     bool bounced = false;
     ScoreLayout layout = scoreLayout(format);
 
@@ -602,16 +630,33 @@ void PongClockEngine::update(ClockTime time, unsigned long nowMs, TimeFormat for
             return false;
         }
 
-        bool hitSide = (_state.view.ballX < boxLeft) || (_state.view.ballX > boxRight);
-        bool hitVertical = (_state.view.ballY < boxTop) || (_state.view.ballY > boxBottom);
-        if (hitSide) {
-            _state.view.ballDx = (int8_t)-_state.view.ballDx;
+        bool hitSide = (prevBallX < boxLeft) || (prevBallX > boxRight);
+        bool hitVertical = (prevBallY < boxTop) || (prevBallY > boxBottom);
+        if (!hitSide && !hitVertical) {
+            _state.ballXF = (_state.ballDxF >= 0)
+                ? (boxRight + 1) * PONG_VEL_BASE
+                : (boxLeft - 1) * PONG_VEL_BASE;
+            _state.ballYF = (_state.ballDyF >= 0)
+                ? (boxBottom + 1) * PONG_VEL_BASE
+                : (boxTop - 1) * PONG_VEL_BASE;
+        } else {
+            if (hitSide) {
+                _state.ballDxF = -_state.ballDxF;
+                _state.view.ballDx = (_state.ballDxF > 0) ? 1 : -1;
+                _state.ballXF = (_state.ballDxF > 0)
+                    ? (boxRight + 1) * PONG_VEL_BASE
+                    : (boxLeft - 1) * PONG_VEL_BASE;
+            }
+            if (hitVertical) {
+                _state.ballDyF = -_state.ballDyF;
+                _state.view.ballDy = (_state.ballDyF > 0) ? 1 : -1;
+                _state.ballYF = (_state.ballDyF > 0)
+                    ? (boxBottom + 1) * PONG_VEL_BASE
+                    : (boxTop - 1) * PONG_VEL_BASE;
+            }
         }
-        if (hitVertical || (!hitSide && !hitVertical)) {
-            _state.view.ballDy = (int8_t)-_state.view.ballDy;
-        }
-        nextX = _state.view.ballX + _state.view.ballDx;
-        nextY = _state.view.ballY + _state.view.ballDy;
+        nextX = _state.ballXF / PONG_VEL_BASE;
+        nextY = _state.ballYF / PONG_VEL_BASE;
         bounced = true;
         return true;
     };
@@ -619,84 +664,99 @@ void PongClockEngine::update(ClockTime time, unsigned long nowMs, TimeFormat for
     if (bounceOffScoreBox(layout.leftX, layout.leftWidth, layout.topY, layout.bottomY) ||
         bounceOffScoreBox(layout.rightX, layout.rightWidth, layout.topY, layout.bottomY)) {
         // handled by lambda
-    } else if (_state.view.phase == Phase::MissFlight && _state.view.pendingMiss) {
-        bool missExit = false;
-        switch (_state.view.missEscape) {
-            case MissEscape::TopGap:
-                missExit = (nextY < PONG_PLAY_TOP);
-                break;
-            case MissEscape::BottomGap:
-                missExit = (nextY > PONG_PLAY_BOTTOM);
-                break;
-            case MissEscape::SideExit:
-                missExit = (nextX < 0 || nextX >= COLS_PER_ROW);
-                break;
-        }
-        if (missExit) {
-            beginMissSequence(_state.view.pendingMissSide);
-            syncSnapshot(format);
-            return;
-        }
-    } else if (nextY < PONG_PLAY_TOP) {
-        _state.view.ballDy = 1;
+    }
+
+    if (nextY < PONG_PLAY_TOP) {
+        _state.ballYF = PONG_PLAY_TOP * PONG_VEL_BASE;
+        _state.ballDyF = abs(_state.ballDyF);
         nextY = PONG_PLAY_TOP;
         bounced = true;
     } else if (nextY > PONG_PLAY_BOTTOM) {
+        _state.ballYF = PONG_PLAY_BOTTOM * PONG_VEL_BASE;
+        _state.ballDyF = -abs(_state.ballDyF);
         nextY = PONG_PLAY_BOTTOM;
-        _state.view.ballDy = -1;
         bounced = true;
     }
 
     if (_state.view.ballDx < 0 && nextX <= 0) {
-        bool hit = nextY >= _state.view.leftPaddleY && nextY < _state.view.leftPaddleY + PONG_PADDLE_HEIGHT;
+        int yLo = prevBallY < nextY ? prevBallY : nextY;
+        int yHi = prevBallY > nextY ? prevBallY : nextY;
+        int paddleBot = _state.view.leftPaddleY + PONG_PADDLE_HEIGHT;
+        bool hit = yHi >= _state.view.leftPaddleY && yLo < paddleBot;
         if (hit) {
-            _state.view.ballDx = 1;
-            _state.view.ballX = 1;
-            _state.view.ballY = (int8_t)nextY;
-            int impact = nextY - _state.view.leftPaddleY;
-            if (impact <= 1) {
-                _state.view.ballDy = -1;
-            } else if (impact >= PONG_PADDLE_HEIGHT - 2) {
-                _state.view.ballDy = 1;
-            } else {
-                _state.view.ballDy = (_state.view.ballDy >= 0) ? -1 : 1;
+            _state.rallyHits++;
+            if (_state.rallyHits >= 2 && (_state.rallyHits % 2 == 0)) {
+                int16_t factor = 100 + min((int16_t)((_state.rallyHits / 2) * 8), (int16_t)60);
+                _state.ballDxF = (_state.ballDxF * factor) / 100;
+                _state.ballDyF = (_state.ballDyF * factor) / 100;
+                if (abs(_state.ballDxF) > PONG_VEL_CLIP)
+                    _state.ballDxF = (_state.ballDxF > 0) ? PONG_VEL_CLIP : -PONG_VEL_CLIP;
+                if (abs(_state.ballDyF) > PONG_VEL_CLIP)
+                    _state.ballDyF = (_state.ballDyF > 0) ? PONG_VEL_CLIP : -PONG_VEL_CLIP;
             }
+            int impact = nextY - _state.view.leftPaddleY;
+            static const int16_t kRetFrac[] = { -6, -3, 3, 6 };
+            int16_t speed = max(abs(_state.ballDxF), abs(_state.ballDyF));
+            _state.ballDyF = (kRetFrac[impact < 0 ? 0 : (impact > 3 ? 3 : impact)] * speed) / PONG_VEL_BASE;
+            _state.ballDxF = abs(_state.ballDxF);
+            _state.ballXF = PONG_VEL_BASE;
+            _state.ballYF = nextY * PONG_VEL_BASE;
             syncSnapshot(format);
             return;
         } else if (nextX < 0) {
             if (_state.view.pendingMiss && _state.view.pendingMissSide == MissSide::Left &&
                 (_state.view.phase == Phase::MissFlight || scoreStale)) {
-                beginMissSequence(MissSide::Left);
-                syncSnapshot(format);
-                return;
+                bool inScoreY = yHi >= 0 && yLo < SEC_FONT_HEIGHT;
+                if (!inScoreY) {
+                    beginMissSequence(MissSide::Left);
+                    syncSnapshot(format);
+                    return;
+                }
             }
+            _state.ballXF = 0;
+            _state.ballDxF = PONG_VEL_BASE;
             nextX = 0;
             _state.view.ballDx = 1;
             bounced = true;
         }
     } else if (_state.view.ballDx > 0 && nextX >= COLS_PER_ROW - 1) {
-        bool hit = nextY >= _state.view.rightPaddleY && nextY < _state.view.rightPaddleY + PONG_PADDLE_HEIGHT;
+        int yLo = prevBallY < nextY ? prevBallY : nextY;
+        int yHi = prevBallY > nextY ? prevBallY : nextY;
+        int paddleBot = _state.view.rightPaddleY + PONG_PADDLE_HEIGHT;
+        bool hit = yHi >= _state.view.rightPaddleY && yLo < paddleBot;
         if (hit) {
-            _state.view.ballDx = -1;
-            _state.view.ballX = COLS_PER_ROW - 2;
-            _state.view.ballY = (int8_t)nextY;
-            int impact = nextY - _state.view.rightPaddleY;
-            if (impact <= 1) {
-                _state.view.ballDy = -1;
-            } else if (impact >= PONG_PADDLE_HEIGHT - 2) {
-                _state.view.ballDy = 1;
-            } else {
-                _state.view.ballDy = (_state.view.ballDy >= 0) ? -1 : 1;
+            _state.rallyHits++;
+            if (_state.rallyHits >= 2 && (_state.rallyHits % 2 == 0)) {
+                int16_t factor = 100 + min((int16_t)((_state.rallyHits / 2) * 8), (int16_t)60);
+                _state.ballDxF = (_state.ballDxF * factor) / 100;
+                _state.ballDyF = (_state.ballDyF * factor) / 100;
+                if (abs(_state.ballDxF) > PONG_VEL_CLIP)
+                    _state.ballDxF = (_state.ballDxF > 0) ? PONG_VEL_CLIP : -PONG_VEL_CLIP;
+                if (abs(_state.ballDyF) > PONG_VEL_CLIP)
+                    _state.ballDyF = (_state.ballDyF > 0) ? PONG_VEL_CLIP : -PONG_VEL_CLIP;
             }
+            int impact = nextY - _state.view.rightPaddleY;
+            static const int16_t kRetFrac[] = { -6, -3, 3, 6 };
+            int16_t speed = max(abs(_state.ballDxF), abs(_state.ballDyF));
+            _state.ballDyF = (kRetFrac[impact < 0 ? 0 : (impact > 3 ? 3 : impact)] * speed) / PONG_VEL_BASE;
+            _state.ballDxF = -abs(_state.ballDxF);
+            int16_t rightEdge = (COLS_PER_ROW - 1) * PONG_VEL_BASE;
+            _state.ballXF = rightEdge - PONG_VEL_BASE;
+            _state.ballYF = nextY * PONG_VEL_BASE;
             syncSnapshot(format);
             return;
         } else if (nextX >= COLS_PER_ROW) {
             if (_state.view.pendingMiss && _state.view.pendingMissSide == MissSide::Right &&
                 (_state.view.phase == Phase::MissFlight || scoreStale)) {
-                beginMissSequence(MissSide::Right);
-                syncSnapshot(format);
-                return;
+                bool inScoreY = yHi >= 0 && yLo < SEC_FONT_HEIGHT;
+                if (!inScoreY) {
+                    beginMissSequence(MissSide::Right);
+                    syncSnapshot(format);
+                    return;
+                }
             }
+            _state.ballXF = (COLS_PER_ROW - 1) * PONG_VEL_BASE;
+            _state.ballDxF = -PONG_VEL_BASE;
             nextX = COLS_PER_ROW - 1;
             _state.view.ballDx = -1;
             bounced = true;
@@ -708,11 +768,18 @@ void PongClockEngine::update(ClockTime time, unsigned long nowMs, TimeFormat for
 
     if (!bounced && (_state.view.ballX < 0 || _state.view.ballX >= COLS_PER_ROW)) {
         if (_state.view.pendingMiss && (_state.view.phase == Phase::MissFlight || scoreStale)) {
-            beginMissSequence(_state.view.pendingMissSide);
+            int yLo = prevBallY < _state.view.ballY ? prevBallY : _state.view.ballY;
+            int yHi = prevBallY > _state.view.ballY ? prevBallY : _state.view.ballY;
+            bool inScoreY = yHi >= 0 && yLo < SEC_FONT_HEIGHT;
+            if (!inScoreY) {
+                beginMissSequence(_state.view.pendingMissSide);
+            }
         } else {
             if (_state.view.ballX < 0) {
+                _state.ballXF = 0;
                 _state.view.ballX = 0;
             } else if (_state.view.ballX >= COLS_PER_ROW) {
+                _state.ballXF = (COLS_PER_ROW - 1) * PONG_VEL_BASE;
                 _state.view.ballX = COLS_PER_ROW - 1;
             }
         }

@@ -25,12 +25,6 @@ public:
         ResetPause = 6
     };
 
-    enum class MissEscape : uint8_t {
-        TopGap = 0,
-        BottomGap = 1,
-        SideExit = 2
-    };
-
     enum class PaddleTempo : uint8_t {
         Hold = 0,
         Drift = 1,
@@ -54,7 +48,6 @@ public:
         bool pendingScoreValid = false;
         uint8_t pendingScoreHour = 0;
         uint8_t pendingScoreMinute = 0;
-        MissEscape missEscape = MissEscape::SideExit;
     };
 
     struct ScoreLayout {
@@ -85,7 +78,7 @@ private:
     static constexpr unsigned long PONG_CENTER_BALL_HOLD_MS = 700UL;
     static constexpr unsigned long PONG_SCORE_HOLD_MS = 650UL;
     static constexpr unsigned long PONG_RESET_PAUSE_MS = 650UL;
-    static constexpr uint8_t PONG_PHYSICS_DIVIDER = 2;
+    static constexpr uint8_t PONG_PHYSICS_DIVIDER = 1;
     static constexpr uint16_t PONG_LEFT_MIN_STEP_MS = 52;
     static constexpr uint16_t PONG_LEFT_STEP_JITTER_MS = 64;
     static constexpr uint16_t PONG_RIGHT_MIN_STEP_MS = 44;
@@ -95,6 +88,9 @@ private:
     static constexpr uint16_t PONG_LEFT_NEAR_TRACK_MS = 30;
     static constexpr uint16_t PONG_RIGHT_NEAR_TRACK_MS = 26;
     static constexpr int PONG_MISS_COMMIT_DISTANCE = 3;
+    static constexpr int16_t PONG_VEL_BASE = 8;
+    static constexpr int16_t PONG_VEL_SERVE = 10;
+    static constexpr int16_t PONG_VEL_CLIP = 12;
 
     struct State {
         Snapshot view;
@@ -106,13 +102,17 @@ private:
         int8_t leftTargetY = 8;
         int8_t rightTargetY = 8;
         unsigned long phaseUntilMs = 0;
-        MissEscape missEscape = MissEscape::SideExit;
         PaddleTempo leftTempo = PaddleTempo::Cruise;
         PaddleTempo rightTempo = PaddleTempo::Cruise;
         unsigned long leftTempoUntilMs = 0;
         unsigned long rightTempoUntilMs = 0;
         uint8_t leftTempoSeed = 0;
         uint8_t rightTempoSeed = 0;
+        int16_t ballXF = PONG_BALL_START_X * PONG_VEL_BASE;
+        int16_t ballYF = PONG_BALL_START_Y * PONG_VEL_BASE;
+        int16_t ballDxF = PONG_VEL_SERVE;
+        int16_t ballDyF = PONG_VEL_SERVE;
+        uint16_t rallyHits = 0;
         bool initialized = false;
     };
 
