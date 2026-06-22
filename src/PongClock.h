@@ -94,6 +94,7 @@ private:
     static constexpr uint16_t PONG_RIGHT_FAR_TRACK_MS = 76;
     static constexpr uint16_t PONG_LEFT_NEAR_TRACK_MS = 30;
     static constexpr uint16_t PONG_RIGHT_NEAR_TRACK_MS = 26;
+    static constexpr int PONG_MISS_COMMIT_DISTANCE = 3;
 
     struct State {
         Snapshot view;

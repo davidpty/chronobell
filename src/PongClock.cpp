@@ -201,7 +201,7 @@ uint8_t PongClockEngine::fontIndex(char c) {
 
 int PongClockEngine::glyphWidth(uint8_t glyph) {
     if (glyph >= 10) return 0;
-    int left = 4;
+    int left = FONT_SMALL_COLS;
     int right = -1;
     for (int col = 0; col < 4; col++) {
         for (int row = 0; row < SEC_FONT_HEIGHT; row++) {
@@ -476,10 +476,13 @@ void PongClockEngine::update(ClockTime time, unsigned long nowMs, TimeFormat for
         bool ballNear = ballDistance <= 6;
         bool ballApproaching = leftSide ? (_state.view.ballDx < 0) : (_state.view.ballDx > 0);
         bool chaseSide = ballApproaching || ballNear;
+        bool missCommit = missThisSide &&
+                          _state.view.phase == Phase::MissFlight &&
+                          ballDistance <= PONG_MISS_COMMIT_DISTANCE;
 
         if ((int32_t)(nowMs - tempoUntilMs) >= 0) {
-            if (missThisSide && (_state.view.phase == Phase::LeadIn || _state.view.phase == Phase::MissFlight)) {
-                tempo = (ballNear || ballApproaching) ? PaddleTempo::Burst : PaddleTempo::Cruise;
+            if (missCommit) {
+                tempo = PaddleTempo::Burst;
             } else if (_state.view.phase == Phase::CenterTravel ||
                        _state.view.phase == Phase::CenterBallHold ||
                        _state.view.phase == Phase::ScoreHold ||
@@ -492,15 +495,7 @@ void PongClockEngine::update(ClockTime time, unsigned long nowMs, TimeFormat for
         }
 
         int aim;
-        if (_state.view.phase == Phase::LeadIn && missThisSide) {
-            if (_state.view.missEscape == MissEscape::TopGap) {
-                aim = PONG_PADDLE_MAX_Y;
-            } else if (_state.view.missEscape == MissEscape::BottomGap) {
-                aim = PONG_PADDLE_MIN_Y;
-            } else {
-                aim = awayPaddleY(_state.view.ballY);
-            }
-        } else if (_state.view.phase == Phase::MissFlight && missThisSide) {
+        if (missCommit) {
             if (_state.view.missEscape == MissEscape::TopGap) {
                 aim = PONG_PADDLE_MAX_Y;
             } else if (_state.view.missEscape == MissEscape::BottomGap) {
@@ -556,9 +551,7 @@ void PongClockEngine::update(ClockTime time, unsigned long nowMs, TimeFormat for
             } else if (tempo == PaddleTempo::Burst && ((esp_random() & 11U) == 0)) {
                 step = 0;
             }
-            if (missThisSide && _state.view.phase == Phase::LeadIn) {
-                step = 1 + (int)(esp_random() % 2U);
-            } else if (missThisSide && _state.view.phase == Phase::MissFlight) {
+            if (missCommit) {
                 step = 1 + (int)(esp_random() % 2U);
             }
         }
@@ -580,9 +573,7 @@ void PongClockEngine::update(ClockTime time, unsigned long nowMs, TimeFormat for
                    _state.view.phase == Phase::ScoreHold ||
                    _state.view.phase == Phase::ResetPause) {
             delay = jitterDelay(56U, 16U);
-        } else if (missThisSide && _state.view.phase == Phase::LeadIn) {
-            delay = tempoStepDelay(PaddleTempo::Burst, ballNear, chaseSide, tempoSeed);
-        } else if (missThisSide && _state.view.phase == Phase::MissFlight) {
+        } else if (missCommit) {
             delay = tempoStepDelay(PaddleTempo::Burst, ballNear, chaseSide, tempoSeed);
         } else {
             delay = tempoStepDelay(tempo, ballNear, chaseSide, tempoSeed);
