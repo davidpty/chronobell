@@ -166,6 +166,7 @@ void ConfigPortal::handleRoot() {
     String initialStyle = String((int)_settings.displayMode);
     String initialDialMarks = String((int)_settings.dialMarks);
     String initialBarSeconds = String((int)_settings.barSeconds);
+    String initialBinSeconds = String((int)_settings.binSeconds);
     String initialDateStyle = String((int)_settings.dateStyle);
     String initialTimeFormat = String((int)_settings.timeFormat);
     String initialNightMode = String((int)_settings.nightMode);
@@ -314,7 +315,7 @@ void ConfigPortal::handleRoot() {
                     <option value="5">DIAL - Minimal analog dial</option>
                     <option value="6">BAR - Progress bar clock</option>
                     <option value="7">BIN - Binary clock</option>
-                    <option value="8">PONG - a clock that plays the game</option>
+                    <option value="8">PONG - Who wins the game?</option>
                     <option value="9">DRIFT - Irregular BIG-style clock</option>
                 </select>
             </div>
@@ -340,6 +341,14 @@ void ConfigPortal::handleRoot() {
             <div class="setting-row hidden" id="barSecondsRow">
                 <div class="setting-label">SECOND</div>
                 <select id="barSeconds" onchange="applyBarSeconds(this.value)">
+                    <option value="0">OFF</option>
+                    <option value="1">ON</option>
+                </select>
+            </div>
+
+            <div class="setting-row hidden" id="binSecondsRow">
+                <div class="setting-label">SECOND</div>
+                <select id="binSeconds" onchange="applyBinSeconds(this.value)">
                     <option value="0">OFF</option>
                     <option value="1">ON</option>
                 </select>
@@ -506,6 +515,7 @@ void ConfigPortal::handleRoot() {
         let driftSeparatorSetting = 0;
         let dialMarksSetting = Number("__INITIAL_DIALMARKS__");
         let barSecondsSetting = Number("__INITIAL_BARSECONDS__");
+        let binSecondsSetting = Number("__INITIAL_BINSECONDS__");
         let infoLineSetting = 0;
         let timerState = {};
         const timerDisplaySvg = document.getElementById('timerDisplaySvg');
@@ -624,24 +634,36 @@ void ConfigPortal::handleRoot() {
             select.value = String(barSecondsSetting);
         }
 
+        function syncBinSecondsRow() {
+            const style = Number(document.getElementById('style').value);
+            const row = document.getElementById('binSecondsRow');
+            const select = document.getElementById('binSeconds');
+            row.classList.toggle('hidden', style !== 7);
+            select.value = String(binSecondsSetting);
+        }
+
         function onStyleChange(value) {
             syncInfoLineRow();
             syncSeparatorRow();
             syncDialMarksRow();
             syncBarSecondsRow();
+            syncBinSecondsRow();
             const infoLine = document.getElementById('infoLine');
             const separator = document.getElementById('separator');
             const dialMarks = document.getElementById('dialMarks');
             const barSeconds = document.getElementById('barSeconds');
+            const binSeconds = document.getElementById('binSeconds');
             if (infoLine) infoLine.disabled = true;
             separator.disabled = true;
             dialMarks.disabled = true;
             if (barSeconds) barSeconds.disabled = true;
+            if (binSeconds) binSeconds.disabled = true;
             applySetting('style', value).finally(function() {
                 if (infoLine) infoLine.disabled = false;
                 separator.disabled = false;
                 dialMarks.disabled = false;
                 if (barSeconds) barSeconds.disabled = false;
+                if (binSeconds) binSeconds.disabled = false;
             });
         }
 
@@ -670,6 +692,11 @@ void ConfigPortal::handleRoot() {
         function applyBarSeconds(value) {
             barSecondsSetting = Number(value);
             return applySetting('barseconds', value);
+        }
+
+        function applyBinSeconds(value) {
+            binSecondsSetting = Number(value);
+            return applySetting('binseconds', value);
         }
 
         function htmlEscape(value) {
@@ -1142,6 +1169,7 @@ void ConfigPortal::handleRoot() {
     html.replace("__INITIAL_STYLE__", initialStyle);
     html.replace("__INITIAL_DIALMARKS__", initialDialMarks);
     html.replace("__INITIAL_BARSECONDS__", initialBarSeconds);
+    html.replace("__INITIAL_BINSECONDS__", initialBinSeconds);
     html.replace("__INITIAL_INFOLINE__", String((int)_settings.infoLineMode));
 #if DIGIT_TRANSITIONS || SCREEN_TRANSITION
     html.replace("__INITIAL_ANIM__", String((int)_settings.transitionMode));
@@ -1387,6 +1415,8 @@ void ConfigPortal::handleApply() {
         settings.dialMarks = clampDialMarksMode(value.toInt());
     } else if (field == "barseconds") {
         settings.barSeconds = clampBarSecondsMode(value.toInt());
+    } else if (field == "binseconds") {
+        settings.binSeconds = clampBinSecondsMode(value.toInt());
     } else if (field == "datestyle") {
         settings.dateStyle = clampDateStyle(value.toInt());
     } else if (field == "timefmt") {
@@ -1497,6 +1527,8 @@ void ConfigPortal::handleStatus() {
     json += (int)_settings.dialMarks;
     json += ",\"barSeconds\":";
     json += (int)_settings.barSeconds;
+    json += ",\"binSeconds\":";
+    json += (int)_settings.binSeconds;
     json += ",\"hotspotActive\":";
     json += hotspotActive ? "true" : "false";
     json += ",\"hotspotRemaining\":";

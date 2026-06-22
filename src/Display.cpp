@@ -229,6 +229,7 @@ void Display::showTime() {
     _clockRenderer->setSeparatorModes(separatorMode, driftSeparatorMode);
     _clockRenderer->setDriftStyleActive(mode == DisplayMode::Drift);
     _clockRenderer->setBarSecondsMode(_appSettings ? _appSettings->barSeconds : BarSecondsMode::Off);
+    _clockRenderer->setBinSecondsMode(_appSettings ? _appSettings->binSeconds : BinSecondsMode::On);
     switch (mode) {
         case DisplayMode::Info:
             _clockRenderer->drawInfoTime(time);
@@ -296,20 +297,24 @@ void Display::drawStylePreview(DisplayMode mode) {
     DriftSeparatorMode driftSeparatorMode;
     DialMarksMode dialMarksMode;
     BarSecondsMode barSeconds;
+    BinSecondsMode binSeconds;
     if (styleMenuIsEditing()) {
         separatorMode = styleMenuPendingSeparatorMode();
         driftSeparatorMode = styleMenuPendingDriftSeparatorMode();
         dialMarksMode = styleMenuPendingDialMarksMode();
         barSeconds = styleMenuPendingBarSeconds();
+        binSeconds = styleMenuPendingBinSeconds();
     } else {
         separatorMode = _appSettings ? separatorModeFor(*_appSettings, mode) : SeparatorMode::Steady;
         driftSeparatorMode = _appSettings ? _appSettings->driftSeparator : DriftSeparatorMode::Steady;
         dialMarksMode = _appSettings ? _appSettings->dialMarks : DialMarksMode::On;
         barSeconds = _appSettings ? _appSettings->barSeconds : BarSecondsMode::Off;
+        binSeconds = _appSettings ? _appSettings->binSeconds : BinSecondsMode::On;
     }
     _clockRenderer->setSeparatorModes(separatorMode, driftSeparatorMode);
     _clockRenderer->setDriftStyleActive(mode == DisplayMode::Drift);
     _clockRenderer->setBarSecondsMode(barSeconds);
+    _clockRenderer->setBinSecondsMode(binSeconds);
     if (mode == DisplayMode::Info && styleMenuInfoPreviewActive()) {
         InfoLineMode pendingInfo = styleMenuPendingInfoLineMode();
         InfoLineMode* restoreInfo = _appSettings ? &_appSettings->infoLineMode : nullptr;

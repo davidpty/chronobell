@@ -77,6 +77,11 @@ enum class BarSecondsMode : uint8_t {
     On = 1
 };
 
+enum class BinSecondsMode : uint8_t {
+    Off = 0,
+    On = 1
+};
+
 #if DIGIT_TRANSITIONS || SCREEN_TRANSITION
 enum class TransitionMode : uint8_t {
     Off = 0,
@@ -112,6 +117,7 @@ struct AppSettings {
     DriftSeparatorMode driftSeparator = DriftSeparatorMode::Steady;
     DialMarksMode dialMarks = DialMarksMode::On;
     BarSecondsMode barSeconds = BarSecondsMode::Off;
+    BinSecondsMode binSeconds = BinSecondsMode::On;
 #if DIGIT_TRANSITIONS || SCREEN_TRANSITION
     TransitionMode transitionMode = TransitionMode::Morph;
 #endif
@@ -140,6 +146,10 @@ inline DialMarksMode clampDialMarksMode(int mode) {
 
 inline BarSecondsMode clampBarSecondsMode(int mode) {
     return mode <= (int)BarSecondsMode::Off ? BarSecondsMode::Off : BarSecondsMode::On;
+}
+
+inline BinSecondsMode clampBinSecondsMode(int mode) {
+    return mode <= (int)BinSecondsMode::Off ? BinSecondsMode::Off : BinSecondsMode::On;
 }
 
 inline SeparatorMode separatorModeFor(const AppSettings& settings, DisplayMode mode) {

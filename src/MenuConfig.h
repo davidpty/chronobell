@@ -24,6 +24,7 @@ SeparatorMode styleMenuPendingSeparatorMode();
 DriftSeparatorMode styleMenuPendingDriftSeparatorMode();
 DialMarksMode styleMenuPendingDialMarksMode();
 BarSecondsMode styleMenuPendingBarSeconds();
+BinSecondsMode styleMenuPendingBinSeconds();
 bool styleMenuIsEditing();
 bool styleMenuInfoPreviewActive();
 

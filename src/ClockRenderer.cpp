@@ -531,6 +531,10 @@ void ClockRenderer::setBarSecondsMode(BarSecondsMode mode) {
     _barSeconds = mode;
 }
 
+void ClockRenderer::setBinSecondsMode(BinSecondsMode mode) {
+    _binSeconds = mode;
+}
+
 void ClockRenderer::drawBigTimeInternal(int hours, int minutes, int seconds, bool driftMode, int offsetMinutes, bool freshChange, bool separatorVisible, int driftDirection) {
     hours = effectiveHours(hours);
     int digitWidth = FONT_MEDIUM_COLS;
@@ -841,10 +845,15 @@ void ClockRenderer::drawDialTime(int hours, int minutes, bool showMarks) {
 }
 
 void ClockRenderer::drawBinaryTime(int hours, int minutes, int seconds) {
-    (void)seconds;
-    drawBinaryRow((uint8_t)hours, 0);
-    drawBinaryRow((uint8_t)minutes, 6);
-    drawBinaryRow((uint8_t)seconds, 12);
+    hours = effectiveHours(hours);
+    if (_binSeconds == BinSecondsMode::Off) {
+        drawBinaryRow((uint8_t)hours, 2, true);
+        drawBinaryRow((uint8_t)minutes, 10, true);
+    } else {
+        drawBinaryRow((uint8_t)hours, 0, false);
+        drawBinaryRow((uint8_t)minutes, 6, false);
+        drawBinaryRow((uint8_t)seconds, 12, false);
+    }
 }
 
 void ClockRenderer::drawBarTime(int hours, int minutes, int seconds) {
@@ -963,15 +972,24 @@ void ClockRenderer::drawBigTimeDigit(uint8_t digit, int x, int y) {
     drawGlyph(*_display, FONT_BIG, digit, x, y);
 }
 
-void ClockRenderer::drawBinaryRow(uint8_t value, int y) {
+void ClockRenderer::drawBinaryRow(uint8_t value, int y, bool bigSquares) {
     for (int bit = 5; bit >= 0; bit--) {
         int cellX = 1 + ((5 - bit) * 5);
         bool on = ((value >> bit) & 0x01) != 0;
         for (int dy = 0; dy < 4; dy++) {
             for (int dx = 0; dx < 5; dx++) {
-                bool pixel = on
-                    ? (dx >= 1 && dx <= 3 && dy <= 2)
-                    : (dx == 2 && dy == 1);
+                bool pixel = false;
+                if (bigSquares) {
+                    if (on) {
+                        pixel = (dx >= 1);
+                    } else {
+                        pixel = (dx >= 2 && dx <= 3) && (dy >= 1 && dy <= 2);
+                    }
+                } else {
+                    pixel = on
+                        ? (dx >= 1 && dx <= 3 && dy <= 2)
+                        : (dx == 2 && dy == 1);
+                }
                 if (pixel) {
                     _display->setPixel(cellX + dx, y + dy, true);
                 }

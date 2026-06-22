@@ -22,6 +22,7 @@ public:
     void setInfoLineMode(InfoLineMode* infoLineMode);
     void setSeparatorModes(SeparatorMode separatorMode, DriftSeparatorMode driftSeparatorMode);
     void setBarSecondsMode(BarSecondsMode mode);
+    void setBinSecondsMode(BinSecondsMode mode);
 
     // Top-level time-rendering entry points used by Display::showTime().
     void drawTime(int hours, int minutes, int seconds);
@@ -65,7 +66,7 @@ private:
     void drawText(const char* s, int x, int y, bool small, int letterSpacing, int wordGap);
     void drawCenteredText(const char* s, int y, bool small, int letterSpacing, int wordGap);
     void drawWordTimeLegacy(int hours, int minutes);
-    void drawBinaryRow(uint8_t value, int y);
+    void drawBinaryRow(uint8_t value, int y, bool bigSquares = false);
     const char* hourWord(int hours) const;
     const char* minuteWord(int minutes) const;
     void buildMinutePhrase(int minutes, bool toHour, int letterSpacing, int wordGap, char* out, size_t outSize) const;
@@ -100,6 +101,7 @@ private:
     bool _infoAltStartValid = false;
     bool _driftStyleActive = false;
     BarSecondsMode _barSeconds = BarSecondsMode::Off;
+    BinSecondsMode _binSeconds = BinSecondsMode::On;
     SeparatorMode _separatorMode = SeparatorMode::Steady;
     DriftSeparatorMode _driftSeparatorMode = DriftSeparatorMode::Steady;
 #if DIGIT_TRANSITIONS
