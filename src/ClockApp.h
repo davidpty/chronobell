@@ -184,6 +184,7 @@ private:
     void syncDateStyleSelection();
     void cycleTemporaryDisplayMode(int direction);
     void cycleTemporaryDateStyle(int direction);
+    void refreshPongOnEntry();
     DisplayMode pickRandomConcreteDisplayMode(DisplayMode avoid) const;
     bool getCurrentClockTime(int& h, int& m, int& s) const;
     void onTouchMenuPrev(uint8_t pad);

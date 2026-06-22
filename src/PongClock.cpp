@@ -261,23 +261,23 @@ void PongClockEngine::syncSnapshot(TimeFormat format) {
     }
 }
 
-void PongClockEngine::resetBall(ClockTime time, unsigned long nowMs, TimeFormat format) {
+void PongClockEngine::prepareServeState(ClockTime time, unsigned long nowMs, TimeFormat format) {
     (void)format;
     _state.view.scoreHour = (uint8_t)time.hours;
     _state.view.scoreMinute = (uint8_t)time.minutes;
     _state.view.pendingMiss = false;
-    _state.view.phase = Phase::Rally;
     _state.view.pendingMissSide = MissSide::None;
     _state.view.pendingScoreValid = false;
     _state.view.ballX = PONG_BALL_START_X;
     _state.view.ballY = PONG_BALL_START_Y;
-    _state.view.leftPaddleY = clampPaddleY(centerPaddleY() + (int)(esp_random() % 3U) - 1);
-    _state.view.rightPaddleY = clampPaddleY(centerPaddleY() + (int)(esp_random() % 3U) - 1);
+    _state.view.leftPaddleY = centerPaddleY();
+    _state.view.rightPaddleY = centerPaddleY();
     _state.leftTargetY = _state.view.leftPaddleY;
     _state.rightTargetY = _state.view.rightPaddleY;
     _state.view.ballDx = 0;
     _state.view.ballDy = 0;
     _state.phaseUntilMs = 0;
+    _state.rallyStartMs = 0;
     _state.physicsDividerCounter = 0;
     _state.leftTempoSeed = (uint8_t)(esp_random() & 0xFFU);
     _state.rightTempoSeed = (uint8_t)(esp_random() & 0xFFU);
@@ -287,17 +287,28 @@ void PongClockEngine::resetBall(ClockTime time, unsigned long nowMs, TimeFormat 
     _state.rightTempoUntilMs = nowMs + randomRange(140U, 360U);
     _state.leftNextMoveMs = nowMs + tempoStepDelay(_state.leftTempo, false, false, _state.leftTempoSeed);
     _state.rightNextMoveMs = nowMs + tempoStepDelay(_state.rightTempo, false, false, _state.rightTempoSeed);
-
     _state.rallyHits = 0;
     _state.ballXF = PONG_BALL_START_X * PONG_VEL_BASE;
     _state.ballYF = PONG_BALL_START_Y * PONG_VEL_BASE;
+    _state.view.ballVisible = true;
+}
+
+void PongClockEngine::armRally(TimeFormat format, ClockTime time, unsigned long nowMs) {
+    (void)format;
+    _state.view.phase = Phase::Rally;
+    _state.phaseUntilMs = 0;
+    _state.rallyStartMs = nowMs;
     int idx = (time.hours + time.minutes + time.seconds) % kServeVelCount;
     int16_t dx = kServeVels[idx][0];
     int16_t dy = kServeVels[idx][1];
     static constexpr int16_t kMinServeComp = 4;
     if (abs(dx) < kMinServeComp) dx = (dx >= 0) ? kMinServeComp : -kMinServeComp;
     if (abs(dy) < kMinServeComp) dy = (dy >= 0) ? kMinServeComp : -kMinServeComp;
-    if ((time.hours + time.minutes + time.seconds + (int)((nowMs >> 8) & 0xFF)) & 1) {
+    if ((_state.view.pendingMissSide == MissSide::Right)) {
+        dx = -abs(dx);
+    } else if (_state.view.pendingMissSide == MissSide::Left) {
+        dx = abs(dx);
+    } else if ((time.hours + time.minutes + time.seconds + (int)((nowMs >> 8) & 0xFF)) & 1) {
         dx = abs(dx);
     } else {
         dx = -abs(dx);
@@ -306,7 +317,53 @@ void PongClockEngine::resetBall(ClockTime time, unsigned long nowMs, TimeFormat 
     _state.ballDyF = dy;
     _state.view.ballDx = (dx > 0) ? 1 : (dx < 0) ? -1 : 0;
     _state.view.ballDy = (dy > 0) ? 1 : (dy < 0) ? -1 : 0;
+    _state.leftTempo = (esp_random() & 1U) ? PaddleTempo::Cruise : PaddleTempo::Drift;
+    _state.rightTempo = (esp_random() & 1U) ? PaddleTempo::Cruise : PaddleTempo::Drift;
+    _state.leftTempoUntilMs = nowMs + randomRange(120U, 260U);
+    _state.rightTempoUntilMs = nowMs + randomRange(120U, 260U);
+    _state.leftNextMoveMs = nowMs + tempoStepDelay(_state.leftTempo, false, false, _state.leftTempoSeed);
+    _state.rightNextMoveMs = nowMs + tempoStepDelay(_state.rightTempo, false, false, _state.rightTempoSeed);
+}
+
+void PongClockEngine::resetBall(ClockTime time, unsigned long nowMs, TimeFormat format) {
+    prepareServeState(time, nowMs, format);
+    _state.view.phase = Phase::Rally;
+    armRally(format, time, nowMs);
+}
+
+void PongClockEngine::startFreshServe(ClockTime time, unsigned long nowMs, TimeFormat format) {
+    prepareServeState(time, nowMs, format);
+    _state.view.phase = Phase::CenterBallHold;
+    _state.phaseUntilMs = nowMs + PONG_CENTER_BALL_HOLD_MS;
     _state.view.ballVisible = true;
+}
+
+static void nudgeBallAngle(int16_t& ballDxF, int16_t& ballDyF, int16_t& ballXF, int16_t& ballYF) {
+    static constexpr int16_t kMaxVel = 12;
+    int16_t dxStep = (esp_random() & 1U) ? 1 : -1;
+    int16_t dyStep = (esp_random() & 1U) ? 1 : -1;
+
+    int16_t nextDx = ballDxF + dxStep;
+    int16_t nextDy = ballDyF + dyStep;
+
+    if (nextDx == 0) {
+        nextDx += (dxStep > 0) ? 1 : -1;
+    }
+    if (nextDy == 0) {
+        nextDy += (dyStep > 0) ? 1 : -1;
+    }
+
+    if (abs(nextDx) > kMaxVel) {
+        nextDx = (nextDx > 0) ? kMaxVel : -kMaxVel;
+    }
+    if (abs(nextDy) > kMaxVel) {
+        nextDy = (nextDy > 0) ? kMaxVel : -kMaxVel;
+    }
+
+    ballDxF = nextDx;
+    ballDyF = nextDy;
+    ballXF += dxStep;
+    ballYF += dyStep;
 }
 
 void PongClockEngine::update(ClockTime time, unsigned long nowMs, TimeFormat format) {
@@ -443,39 +500,8 @@ void PongClockEngine::update(ClockTime time, unsigned long nowMs, TimeFormat for
             syncSnapshot(format);
             return;
         }
-        _state.view.phase = Phase::Rally;
-        _state.phaseUntilMs = 0;
         _state.physicsDividerCounter = 0;
-        int idx = (time.hours + time.minutes + time.seconds) % kServeVelCount;
-        int16_t dx = kServeVels[idx][0];
-        int16_t dy = kServeVels[idx][1];
-        static constexpr int16_t kMinServeComp = 4;
-        if (abs(dx) < kMinServeComp) dx = (dx >= 0) ? kMinServeComp : -kMinServeComp;
-        if (abs(dy) < kMinServeComp) dy = (dy >= 0) ? kMinServeComp : -kMinServeComp;
-        if (_state.view.pendingMissSide == MissSide::Right) {
-            dx = -abs(dx);
-        } else if (_state.view.pendingMissSide == MissSide::Left) {
-            dx = abs(dx);
-        } else if ((time.hours + time.minutes + time.seconds + (int)((nowMs >> 8) & 0xFF)) & 1) {
-            dx = abs(dx);
-        } else {
-            dx = -abs(dx);
-        }
-        _state.ballDxF = dx;
-        _state.ballDyF = dy;
-        _state.ballXF = PONG_BALL_START_X * PONG_VEL_BASE;
-        _state.ballYF = PONG_BALL_START_Y * PONG_VEL_BASE;
-        _state.view.ballX = PONG_BALL_START_X;
-        _state.view.ballY = PONG_BALL_START_Y;
-        _state.view.ballDx = (dx > 0) ? 1 : -1;
-        _state.view.ballDy = (dy > 0) ? 1 : -1;
-        _state.view.ballVisible = true;
-        _state.leftTempo = (esp_random() & 1U) ? PaddleTempo::Cruise : PaddleTempo::Drift;
-        _state.rightTempo = (esp_random() & 1U) ? PaddleTempo::Cruise : PaddleTempo::Drift;
-        _state.leftTempoUntilMs = nowMs + randomRange(120U, 260U);
-        _state.rightTempoUntilMs = nowMs + randomRange(120U, 260U);
-        _state.leftNextMoveMs = nowMs + tempoStepDelay(_state.leftTempo, false, false, _state.leftTempoSeed);
-        _state.rightNextMoveMs = nowMs + tempoStepDelay(_state.rightTempo, false, false, _state.rightTempoSeed);
+        armRally(format, time, nowMs);
         syncSnapshot(format);
         return;
     }
@@ -564,6 +590,25 @@ void PongClockEngine::update(ClockTime time, unsigned long nowMs, TimeFormat for
         }
     }
 
+    if (_state.view.phase == Phase::Rally ||
+        _state.view.phase == Phase::LeadIn ||
+        _state.view.phase == Phase::MissFlight) {
+        unsigned long rallyAgeMs = nowMs - _state.rallyStartMs;
+        if (scoreStale && rallyAgeMs >= PONG_STALE_BREAK_MS) {
+            _state.view.pendingMiss = true;
+            _state.view.pendingMissSide = currentMissSide;
+            _state.lossExitY = _state.view.ballY;
+            beginMissSequence(currentMissSide);
+            syncSnapshot(format);
+            return;
+        }
+        if (!scoreStale && rallyAgeMs >= PONG_RALLY_MAX_MS) {
+            startFreshServe(time, nowMs, format);
+            syncSnapshot(format);
+            return;
+        }
+    }
+
     auto updatePaddle = [&](bool leftSide) {
         int8_t& paddleY = leftSide ? _state.view.leftPaddleY : _state.view.rightPaddleY;
         int8_t& targetY = leftSide ? _state.leftTargetY : _state.rightTargetY;
@@ -585,11 +630,13 @@ void PongClockEngine::update(ClockTime time, unsigned long nowMs, TimeFormat for
         bool chaseSide = ballApproaching || ballNear;
         bool perfectTrack = !missThisSide &&
             (_state.view.phase == Phase::Rally || _state.view.phase == Phase::LeadIn);
+        bool earlyTrack = false;
         bool needUrgency = false;
         if (perfectTrack && ballApproaching) {
             int paddleDist = abs((int)paddleY - (int)targetY);
             int ballDistToWall = leftSide ? _state.view.ballX : (COLS_PER_ROW - 1 - _state.view.ballX);
-            needUrgency = ballDistToWall <= (6 + paddleDist * 2);
+            earlyTrack = ballDistToWall <= (12 + paddleDist * 2);
+            needUrgency = ballDistToWall <= (4 + paddleDist);
         }
         bool missCommit = missThisSide &&
                           _state.view.phase == Phase::MissFlight &&
@@ -597,6 +644,8 @@ void PongClockEngine::update(ClockTime time, unsigned long nowMs, TimeFormat for
 
         if (needUrgency) {
             tempo = PaddleTempo::Burst;
+        } else if (earlyTrack) {
+            tempo = PaddleTempo::Cruise;
         } else if (_state.view.phase == Phase::LeadIn && missThisSide) {
             tempo = PaddleTempo::Burst;
         } else if ((int32_t)(nowMs - tempoUntilMs) >= 0) {
@@ -629,11 +678,53 @@ void PongClockEngine::update(ClockTime time, unsigned long nowMs, TimeFormat for
             }
         }
 
-        targetY = clampPaddleY(aim);
+        int desiredTarget = clampPaddleY(aim);
+        int previousTarget = targetY;
+        int lagWeight = 0;
+
+        if (perfectTrack && !missCommit && !needUrgency) {
+            if (ballDistance > 12) {
+                lagWeight = 3;
+            } else if (ballDistance > 7) {
+                lagWeight = 2;
+            } else {
+                lagWeight = 1;
+            }
+            if (ballApproaching) {
+                lagWeight += 1;
+            }
+        } else if (earlyTrack) {
+            lagWeight = 1;
+        }
+
+        if (lagWeight > 0) {
+            desiredTarget = clampPaddleY((previousTarget * lagWeight + desiredTarget) / (lagWeight + 1));
+        }
+
+        int maxTargetDelta = 0;
+        if (needUrgency) {
+            maxTargetDelta = ballNear ? 2 : 1;
+        } else if (earlyTrack) {
+            maxTargetDelta = 1;
+        } else if (perfectTrack) {
+            maxTargetDelta = ballNear ? 1 : 2;
+        } else {
+            maxTargetDelta = 2;
+        }
+
+        if (desiredTarget > previousTarget + maxTargetDelta) {
+            desiredTarget = previousTarget + maxTargetDelta;
+        } else if (desiredTarget < previousTarget - maxTargetDelta) {
+            desiredTarget = previousTarget - maxTargetDelta;
+        }
+
+        targetY = clampPaddleY(desiredTarget);
 
         int stepCap = 0;
         if (needUrgency) {
-            stepCap = ballNear ? 4 : 3;
+            stepCap = ballNear ? 2 : 1;
+        } else if (earlyTrack) {
+            stepCap = ballNear ? 1 : 1;
         } else if (_state.view.phase == Phase::CenterBallHold ||
                    _state.view.phase == Phase::ScoreHold) {
             stepCap = 1;
@@ -676,8 +767,10 @@ void PongClockEngine::update(ClockTime time, unsigned long nowMs, TimeFormat for
         if (_state.view.phase == Phase::CenterBallHold ||
                    _state.view.phase == Phase::ScoreHold) {
             delay = jitterDelay(56U, 16U);
+        } else if (earlyTrack) {
+            delay = randomRange(ballNear ? 18U : 28U, ballNear ? 36U : 52U);
         } else if (needUrgency) {
-            delay = randomRange(8U, 18U);
+            delay = randomRange(12U, 24U);
         } else if (missCommit) {
             delay = tempoStepDelay(PaddleTempo::Burst, ballNear, chaseSide, tempoSeed);
         } else {
@@ -708,6 +801,18 @@ void PongClockEngine::update(ClockTime time, unsigned long nowMs, TimeFormat for
     _state.view.ballDy = (_state.ballDyF > 0) ? 1 : (_state.ballDyF < 0) ? -1 : 0;
     bool bounced = false;
     ScoreLayout layout = scoreLayout(format);
+
+    auto maybeNudgeResonance = [&]() {
+        if (_state.rallyHits < PONG_RESONANCE_HIT_THRESHOLD) {
+            return;
+        }
+        if ((_state.rallyHits % PONG_RESONANCE_NUDGE_INTERVAL) != 0) {
+            return;
+        }
+        nudgeBallAngle(_state.ballDxF, _state.ballDyF, _state.ballXF, _state.ballYF);
+        _state.view.ballDx = (_state.ballDxF > 0) ? 1 : (_state.ballDxF < 0) ? -1 : 0;
+        _state.view.ballDy = (_state.ballDyF > 0) ? 1 : (_state.ballDyF < 0) ? -1 : 0;
+    };
 
     auto bounceOffScoreBox = [&](int boxLeft, int boxWidth, int boxTop, int boxBottom) {
         int boxRight = boxLeft + boxWidth - 1;
@@ -756,11 +861,13 @@ void PongClockEngine::update(ClockTime time, unsigned long nowMs, TimeFormat for
         _state.ballDyF = abs(_state.ballDyF);
         nextY = PONG_PLAY_TOP;
         bounced = true;
+        maybeNudgeResonance();
     } else if (nextY > PONG_PLAY_BOTTOM) {
         _state.ballYF = PONG_PLAY_BOTTOM * PONG_VEL_BASE;
         _state.ballDyF = -abs(_state.ballDyF);
         nextY = PONG_PLAY_BOTTOM;
         bounced = true;
+        maybeNudgeResonance();
     }
 
     if (_state.view.ballDx < 0 && nextX <= 0) {
@@ -786,6 +893,7 @@ void PongClockEngine::update(ClockTime time, unsigned long nowMs, TimeFormat for
             _state.ballDxF = abs(_state.ballDxF);
             _state.ballXF = PONG_VEL_BASE;
             _state.ballYF = nextY * PONG_VEL_BASE;
+            maybeNudgeResonance();
             syncSnapshot(format);
             return;
         } else if (nextX < 0) {
@@ -829,6 +937,7 @@ void PongClockEngine::update(ClockTime time, unsigned long nowMs, TimeFormat for
             int16_t rightEdge = (COLS_PER_ROW - 1) * PONG_VEL_BASE;
             _state.ballXF = rightEdge - PONG_VEL_BASE;
             _state.ballYF = nextY * PONG_VEL_BASE;
+            maybeNudgeResonance();
             syncSnapshot(format);
             return;
         } else if (nextX >= COLS_PER_ROW) {

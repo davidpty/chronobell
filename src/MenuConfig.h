@@ -7,7 +7,7 @@
 
 extern MenuItem MENU_ITEMS[];
 extern const uint8_t MENU_ITEM_COUNT;
-extern InfoLineMode g_stylePendingInfoLineMode;
+extern StyleConfig g_stylePending;
 
 extern uint8_t g_settimeStep;
 extern uint8_t  g_setHour;
@@ -19,12 +19,6 @@ extern uint16_t g_setYear;
 
 uint8_t styleMenuStep();
 DisplayMode styleMenuPreviewMode();
-InfoLineMode styleMenuPendingInfoLineMode();
-SeparatorMode styleMenuPendingSeparatorMode();
-DriftSeparatorMode styleMenuPendingDriftSeparatorMode();
-DialMarksMode styleMenuPendingDialMarksMode();
-BarSecondsMode styleMenuPendingBarSeconds();
-BinSecondsMode styleMenuPendingBinSeconds();
 bool styleMenuIsEditing();
 bool styleMenuInfoPreviewActive();
 

@@ -78,6 +78,7 @@ public:
     // Edit-mode preview phase. The caller is responsible for clearBuffer()
     // and renderBuffer() bracketing.
     void drawStylePreview(DisplayMode mode);
+    void resetPong(ClockTime time);
 
     // Boot-time LED self-test: all LEDs on for `seconds`, then cleared.
     void runTest(uint8_t seconds);

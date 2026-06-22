@@ -522,7 +522,7 @@ void ClockRenderer::setDriftStyleActive(bool active) {
     _driftStyleActive = active;
 }
 
-void ClockRenderer::setSeparatorModes(SeparatorMode separatorMode, DriftSeparatorMode driftSeparatorMode) {
+void ClockRenderer::setSeparatorModes(SeparatorMode separatorMode, SeparatorMode driftSeparatorMode) {
     _separatorMode = separatorMode;
     _driftSeparatorMode = driftSeparatorMode;
 }
@@ -709,7 +709,7 @@ void ClockRenderer::drawDriftSeparator(int x, int y, int offsetMinutes, bool fre
     if (offsetMinutes > 0)      upper -= travel;
     else if (offsetMinutes < 0) lower += travel;
 
-    if (_driftSeparatorMode == DriftSeparatorMode::Pulse && !separatorVisible)
+    if (_driftSeparatorMode == SeparatorMode::Pulse && !separatorVisible)
         return;
 
     _display->setPixel(x, y + upper, true);
@@ -871,7 +871,7 @@ void ClockRenderer::drawBarTime(int hours, int minutes, int seconds) {
     if (is24h) {
         numTicks = hours;
     } else {
-        numTicks = hours % 12;
+        numTicks = effectiveHours(hours);
     }
 
     int minY = showSeconds

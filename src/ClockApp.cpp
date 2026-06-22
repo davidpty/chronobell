@@ -373,6 +373,8 @@ void ClockApp::render() {
                 _lastDisplayModeSeen = DisplayMode::Drift;
             }
         }
+    } else if (_displayMode == DisplayMode::Pong) {
+        refreshPongOnEntry();
     } else {
         _lastDisplayModeSeen = _displayMode;
     }
@@ -734,6 +736,17 @@ void ClockApp::applyEffectiveDisplayBrightness() {
     if (effective != _display.getBrightness()) {
         _display.setBrightness(effective);
     }
+}
+
+void ClockApp::refreshPongOnEntry() {
+    if (_lastDisplayModeSeen == DisplayMode::Pong) {
+        return;
+    }
+
+    ClockTime time = _timeProvider.displayTime();
+    _display.resetPong(time);
+    _lastDisplayModeSeen = DisplayMode::Pong;
+    LOG("Pong re-entry reset to fresh serve\n");
 }
 
 // =============================================================================

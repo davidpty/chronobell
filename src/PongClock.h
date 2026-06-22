@@ -66,6 +66,7 @@ public:
     };
 
     void reset(ClockTime time, unsigned long nowMs, TimeFormat format);
+    void startFreshServe(ClockTime time, unsigned long nowMs, TimeFormat format);
     void update(ClockTime time, unsigned long nowMs, TimeFormat format);
 
     const Snapshot& snapshot() const { return _snapshot; }
@@ -85,6 +86,10 @@ private:
     static constexpr unsigned long PONG_SCORE_HOLD_BLANK_MS = 750UL;
     static constexpr unsigned long PONG_SCORE_HOLD_MS = PONG_SCORE_FLASH_MS + PONG_SCORE_HOLD_BLANK_MS;
     static constexpr unsigned long PONG_MISS_FLASH_MS = 3000UL;
+    static constexpr unsigned long PONG_STALE_BREAK_MS = 10000UL;
+    static constexpr unsigned long PONG_RALLY_MAX_MS = 180000UL;
+    static constexpr uint16_t PONG_RESONANCE_HIT_THRESHOLD = 6;
+    static constexpr uint16_t PONG_RESONANCE_NUDGE_INTERVAL = 4;
     static constexpr uint8_t PONG_PHYSICS_DIVIDER = 1;
     static constexpr uint16_t PONG_LEFT_MIN_STEP_MS = 52;
     static constexpr uint16_t PONG_LEFT_STEP_JITTER_MS = 64;
@@ -109,6 +114,7 @@ private:
         int8_t leftTargetY = 8;
         int8_t rightTargetY = 8;
         unsigned long phaseUntilMs = 0;
+        unsigned long rallyStartMs = 0;
         PaddleTempo leftTempo = PaddleTempo::Cruise;
         PaddleTempo rightTempo = PaddleTempo::Cruise;
         unsigned long leftTempoUntilMs = 0;
@@ -142,6 +148,8 @@ private:
     static int glyphWidth(uint8_t glyph);
     static int textWidth(const char* s);
     void syncSnapshot(TimeFormat format);
+    void prepareServeState(ClockTime time, unsigned long nowMs, TimeFormat format);
+    void armRally(TimeFormat format, ClockTime time, unsigned long nowMs);
     void resetBall(ClockTime time, unsigned long nowMs, TimeFormat format);
 };
 

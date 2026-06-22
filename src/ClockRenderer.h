@@ -20,7 +20,7 @@ public:
     void init(Display& display, TimeProvider& timeProvider);
     void setTimeFormat(TimeFormat* timeFormat);
     void setInfoLineMode(InfoLineMode* infoLineMode);
-    void setSeparatorModes(SeparatorMode separatorMode, DriftSeparatorMode driftSeparatorMode);
+    void setSeparatorModes(SeparatorMode separatorMode, SeparatorMode driftSeparatorMode);
     void setBarSecondsMode(BarSecondsMode mode);
     void setBinSecondsMode(BinSecondsMode mode);
 
@@ -103,7 +103,7 @@ private:
     BarSecondsMode _barSeconds = BarSecondsMode::Off;
     BinSecondsMode _binSeconds = BinSecondsMode::On;
     SeparatorMode _separatorMode = SeparatorMode::Steady;
-    DriftSeparatorMode _driftSeparatorMode = DriftSeparatorMode::Steady;
+    SeparatorMode _driftSeparatorMode = SeparatorMode::Steady;
 #if DIGIT_TRANSITIONS
     digit_transition::DigitCellState _bigDigitStates[4];
     digit_transition::DigitCellState _mediumDigitStates[4];

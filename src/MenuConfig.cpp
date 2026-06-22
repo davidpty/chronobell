@@ -59,12 +59,7 @@ uint8_t  g_setMonth = 1;
 uint16_t g_setYear = 2025;
 uint8_t g_styleStep = 0;
 DisplayMode g_stylePreviewMode = DisplayMode::LargeDigitsOnly;
-InfoLineMode g_stylePendingInfoLineMode = InfoLineMode::Seconds;
-static SeparatorMode g_stylePendingSeparatorMode = SeparatorMode::Steady;
-static DriftSeparatorMode g_stylePendingDriftSeparatorMode = DriftSeparatorMode::Steady;
-static DialMarksMode g_stylePendingDialMarksMode = DialMarksMode::On;
-static BarSecondsMode g_stylePendingBarSeconds = BarSecondsMode::Off;
-static BinSecondsMode g_stylePendingBinSeconds = BinSecondsMode::On;
+StyleConfig g_stylePending;
 static bool g_styleEditing = false;
 
 uint8_t styleMenuStep() {
@@ -75,36 +70,65 @@ DisplayMode styleMenuPreviewMode() {
     return g_stylePreviewMode;
 }
 
-InfoLineMode styleMenuPendingInfoLineMode() {
-    return g_stylePendingInfoLineMode;
-}
-
-SeparatorMode styleMenuPendingSeparatorMode() {
-    return g_stylePendingSeparatorMode;
-}
-
-DriftSeparatorMode styleMenuPendingDriftSeparatorMode() {
-    return g_stylePendingDriftSeparatorMode;
-}
-
-DialMarksMode styleMenuPendingDialMarksMode() {
-    return g_stylePendingDialMarksMode;
-}
-
-BarSecondsMode styleMenuPendingBarSeconds() {
-    return g_stylePendingBarSeconds;
-}
-
-BinSecondsMode styleMenuPendingBinSeconds() {
-    return g_stylePendingBinSeconds;
-}
-
 bool styleMenuIsEditing() {
     return g_styleEditing;
 }
 
 bool styleMenuInfoPreviewActive() {
     return g_stylePreviewMode == DisplayMode::Info && g_styleStep == 1;
+}
+
+// ---------------------------------------------------------------------------
+// Style-field helpers — centralise which pending/AppSettings field to
+// read, write, save per (DisplayMode × style-step).
+// ---------------------------------------------------------------------------
+
+static int16_t readField(const StyleConfig& cfg, StyleField field) {
+    switch (field) {
+        case StyleField::InfoLine:       return (int16_t)cfg.infoLine;
+        case StyleField::Separator:      return (int16_t)cfg.separator;
+        case StyleField::DriftSeparator: return (int16_t)cfg.driftSeparator;
+        case StyleField::DialMarks:      return (int16_t)cfg.dialMarks;
+        case StyleField::BarSeconds:     return (int16_t)cfg.barSeconds;
+        case StyleField::BinSeconds:     return (int16_t)cfg.binSeconds;
+        default:                         return 0;
+    }
+}
+
+static void writeField(StyleConfig& cfg, StyleField field, int16_t v) {
+    switch (field) {
+        case StyleField::InfoLine:       cfg.infoLine = clampInfoLineMode((int)v); break;
+        case StyleField::Separator:      cfg.separator = clampSeparatorMode((int)v); break;
+        case StyleField::DriftSeparator: cfg.driftSeparator = clampSeparatorMode((int)v); break;
+        case StyleField::DialMarks:      cfg.dialMarks = clampDialMarksMode((int)v); break;
+        case StyleField::BarSeconds:     cfg.barSeconds = clampBarSecondsMode((int)v); break;
+        case StyleField::BinSeconds:     cfg.binSeconds = clampBinSecondsMode((int)v); break;
+        default:                         break;
+    }
+}
+
+static void commitField(AppSettings& s, StyleField field, DisplayMode mode, int16_t v) {
+    switch (field) {
+        case StyleField::InfoLine:       s.infoLineMode = clampInfoLineMode((int)v); break;
+        case StyleField::Separator:      setSeparatorModeFor(s, mode, clampSeparatorMode((int)v)); break;
+        case StyleField::DriftSeparator: s.driftSeparator = clampSeparatorMode((int)v); break;
+        case StyleField::DialMarks:      s.dialMarks = clampDialMarksMode((int)v); break;
+        case StyleField::BarSeconds:     s.barSeconds = clampBarSecondsMode((int)v); break;
+        case StyleField::BinSeconds:     s.binSeconds = clampBinSecondsMode((int)v); break;
+        default:                         break;
+    }
+}
+
+static void saveField(SettingsStore& store, StyleField field, DisplayMode mode, int16_t v) {
+    switch (field) {
+        case StyleField::InfoLine:       store.saveInfoLineMode(clampInfoLineMode((int)v)); break;
+        case StyleField::Separator:      store.saveSeparatorMode(mode, clampSeparatorMode((int)v)); break;
+        case StyleField::DriftSeparator: store.saveSeparatorMode(DisplayMode::Drift, clampSeparatorMode((int)v)); break;
+        case StyleField::DialMarks:      store.saveDialMarksMode(clampDialMarksMode((int)v)); break;
+        case StyleField::BarSeconds:     store.saveBarSeconds(clampBarSecondsMode((int)v)); break;
+        case StyleField::BinSeconds:     store.saveBinSeconds(clampBinSecondsMode((int)v)); break;
+        default:                         break;
+    }
 }
 
 enum MenuIndex : uint8_t {
@@ -301,16 +325,24 @@ static time_t manualTimeEpochFromGlobals() {
     return mktime(&tm);
 }
 
+static const char* fieldValueName(StyleField field, int16_t value, bool drift) {
+    switch (field) {
+        case StyleField::InfoLine:       return infoLineValueName(value);
+        case StyleField::Separator:      return separatorValueName(value, false);
+        case StyleField::DriftSeparator: return separatorValueName(value, true);
+        case StyleField::DialMarks:      return dialMarksValueName(value);
+        case StyleField::BarSeconds:     return barSecondsValueName(value);
+        case StyleField::BinSeconds:     return binSecondsValueName(value);
+        default:                         return "?";
+    }
+}
+
 const char* menuValueName(uint8_t index, int16_t value, void* ctx) {
     if (index == MENU_STYLE) {
         if (g_styleStep == 0) return styleValueName(value);
-        if (g_stylePreviewMode == DisplayMode::Dial) return dialMarksValueName(value);
-        if (g_stylePreviewMode == DisplayMode::Bar) return barSecondsValueName(value);
-        if (g_stylePreviewMode == DisplayMode::Bin) return binSecondsValueName(value);
-        if (g_stylePreviewMode == DisplayMode::Info && g_styleStep == 1) {
-            return infoLineValueName(value);
-        }
-        return separatorValueName(value, g_stylePreviewMode == DisplayMode::Drift);
+        const StyleTrait& t = styleTraitFor(g_stylePreviewMode);
+        const StyleStepConfig* s = (g_styleStep == 1) ? &t.step1 : &t.step2;
+        return fieldValueName(s->field, value, g_stylePreviewMode == DisplayMode::Drift);
     }
 #if DIGIT_TRANSITIONS || SCREEN_TRANSITION
     if (index == MENU_ANIM) return animValueName(value);
@@ -348,47 +380,31 @@ static void commitBellModeMenu(void* ctx, int16_t v) {
     b->settingsStore.saveBellMode(mode);
 }
 static int16_t getDisplayModeMenu(void* ctx) {
-    if (g_styleStep == 1) {
-        if (styleMenuInfoPreviewActive()) return (int16_t)g_stylePendingInfoLineMode;
-        if (g_stylePreviewMode == DisplayMode::Drift) return (int16_t)g_stylePendingDriftSeparatorMode;
-        if (g_stylePreviewMode == DisplayMode::Dial) return (int16_t)g_stylePendingDialMarksMode;
-        if (g_stylePreviewMode == DisplayMode::Bar) return (int16_t)g_stylePendingBarSeconds;
-        if (g_stylePreviewMode == DisplayMode::Bin) return (int16_t)g_stylePendingBinSeconds;
-        return (int16_t)g_stylePendingSeparatorMode;
+    if (g_styleStep == 0) {
+        return (int16_t)static_cast<MenuBindings*>(ctx)->appSettings.displayMode;
     }
-    if (g_styleStep == 2) {
-        return (int16_t)g_stylePendingSeparatorMode;
-    }
-    return (int16_t)static_cast<MenuBindings*>(ctx)->appSettings.displayMode;
+    const StyleTrait& t = styleTraitFor(g_stylePreviewMode);
+    const StyleStepConfig* s = (g_styleStep == 1) ? &t.step1 : &t.step2;
+    return readField(g_stylePending, s->field);
 }
 static void previewDisplayModeMenu(void* ctx, int16_t v) {
     MenuBindings* b = static_cast<MenuBindings*>(ctx);
     if (!g_styleEditing) {
         g_styleEditing = true;
-        g_stylePendingInfoLineMode = b->appSettings.infoLineMode;
-        g_stylePendingSeparatorMode = b->appSettings.bigSeparator;
-        g_stylePendingDriftSeparatorMode = b->appSettings.driftSeparator;
-        g_stylePendingDialMarksMode = b->appSettings.dialMarks;
-        g_stylePendingBarSeconds = b->appSettings.barSeconds;
-        g_stylePendingBinSeconds = b->appSettings.binSeconds;
+        g_stylePending.infoLine = b->appSettings.infoLineMode;
+        g_stylePending.separator = b->appSettings.bigSeparator;
+        g_stylePending.driftSeparator = b->appSettings.driftSeparator;
+        g_stylePending.dialMarks = b->appSettings.dialMarks;
+        g_stylePending.barSeconds = b->appSettings.barSeconds;
+        g_stylePending.binSeconds = b->appSettings.binSeconds;
     }
     if (g_styleStep == 0) {
         g_stylePreviewMode = clampDisplayMode((int)v);
         b->displayMode = g_stylePreviewMode;
-    } else if (styleMenuInfoPreviewActive()) {
-        g_stylePendingInfoLineMode = clampInfoLineMode((int)v);
-    } else if (g_stylePreviewMode == DisplayMode::Info && g_styleStep == 2) {
-        g_stylePendingSeparatorMode = clampSeparatorMode((int)v);
-    } else if (g_stylePreviewMode == DisplayMode::Drift && g_styleStep == 1) {
-        g_stylePendingDriftSeparatorMode = clampDriftSeparatorMode((int)v);
-    } else if (g_stylePreviewMode == DisplayMode::Dial && g_styleStep == 1) {
-        g_stylePendingDialMarksMode = clampDialMarksMode((int)v);
-    } else if (g_stylePreviewMode == DisplayMode::Bar && g_styleStep == 1) {
-        g_stylePendingBarSeconds = clampBarSecondsMode((int)v);
-    } else if (g_stylePreviewMode == DisplayMode::Bin && g_styleStep == 1) {
-        g_stylePendingBinSeconds = clampBinSecondsMode((int)v);
-    } else if (g_styleStep == 1) {
-        g_stylePendingSeparatorMode = clampSeparatorMode((int)v);
+    } else {
+        const StyleTrait& t = styleTraitFor(g_stylePreviewMode);
+        const StyleStepConfig* s = (g_styleStep == 1) ? &t.step1 : &t.step2;
+        writeField(g_stylePending, s->field, v);
     }
 }
 static void commitDisplayModeMenu(void* ctx, int16_t v) {
@@ -401,62 +417,11 @@ static void commitDisplayModeMenu(void* ctx, int16_t v) {
         b->settingsStore.saveDisplayMode(mode);
         return;
     }
-
-    if (styleMenuInfoPreviewActive()) {
-        InfoLineMode info = clampInfoLineMode((int)v);
-        g_stylePendingInfoLineMode = info;
-        b->appSettings.infoLineMode = info;
-        b->settingsStore.saveInfoLineMode(info);
-        return;
-    }
-
-    if (g_stylePreviewMode == DisplayMode::Info && g_styleStep == 2) {
-        SeparatorMode separator = clampSeparatorMode((int)v);
-        g_stylePendingSeparatorMode = separator;
-        setSeparatorModeFor(b->appSettings, g_stylePreviewMode, separator);
-        b->settingsStore.saveSeparatorMode(DisplayMode::Info, separator);
-        return;
-    }
-
-    if (g_stylePreviewMode == DisplayMode::Drift && g_styleStep == 1) {
-        DriftSeparatorMode separator = clampDriftSeparatorMode((int)v);
-        g_stylePendingDriftSeparatorMode = separator;
-        b->appSettings.driftSeparator = separator;
-        b->settingsStore.saveDriftSeparatorMode(separator);
-        return;
-    }
-
-    if (g_stylePreviewMode == DisplayMode::Dial && g_styleStep == 1) {
-        DialMarksMode marks = clampDialMarksMode((int)v);
-        g_stylePendingDialMarksMode = marks;
-        b->appSettings.dialMarks = marks;
-        b->settingsStore.saveDialMarksMode(marks);
-        return;
-    }
-
-    if (g_stylePreviewMode == DisplayMode::Bar && g_styleStep == 1) {
-        BarSecondsMode secs = clampBarSecondsMode((int)v);
-        g_stylePendingBarSeconds = secs;
-        b->appSettings.barSeconds = secs;
-        b->settingsStore.saveBarSeconds(secs);
-        return;
-    }
-
-    if (g_stylePreviewMode == DisplayMode::Bin && g_styleStep == 1) {
-        BinSecondsMode secs = clampBinSecondsMode((int)v);
-        g_stylePendingBinSeconds = secs;
-        b->appSettings.binSeconds = secs;
-        b->settingsStore.saveBinSeconds(secs);
-        return;
-    }
-
-    if (g_styleStep == 1) {
-        SeparatorMode separator = clampSeparatorMode((int)v);
-        g_stylePendingSeparatorMode = separator;
-        setSeparatorModeFor(b->appSettings, g_stylePreviewMode, separator);
-        b->settingsStore.saveSeparatorMode(g_stylePreviewMode, separator);
-        return;
-    }
+    const StyleTrait& t = styleTraitFor(g_stylePreviewMode);
+    const StyleStepConfig* s = (g_styleStep == 1) ? &t.step1 : &t.step2;
+    writeField(g_stylePending, s->field, v);
+    commitField(b->appSettings, s->field, g_stylePreviewMode, v);
+    saveField(b->settingsStore, s->field, g_stylePreviewMode, v);
 }
 
 #if DIGIT_TRANSITIONS || SCREEN_TRANSITION
@@ -483,69 +448,43 @@ static void resetStyleMenuRange() {
 }
 static bool editCommitDisplayModeMenu(void* ctx, int16_t v) {
     (void)ctx;
+    const StyleTrait& t = styleTraitFor(g_stylePreviewMode);
     if (g_styleStep == 0) {
         g_stylePreviewMode = clampDisplayMode((int)v);
-        if (g_stylePreviewMode == DisplayMode::Info) {
+        const StyleTrait& t0 = styleTraitFor(g_stylePreviewMode);
+        if (t0.step1.label) {
             g_styleStep = 1;
-            MENU_ITEMS[MENU_STYLE].minValue = 0;
-            MENU_ITEMS[MENU_STYLE].maxValue = (int16_t)InfoLineMode::Alt;
-            return true;
-        }
-        if (g_stylePreviewMode == DisplayMode::Bar) {
-            g_styleStep = 1;
-            MENU_ITEMS[MENU_STYLE].minValue = 0;
-            MENU_ITEMS[MENU_STYLE].maxValue = (int16_t)BarSecondsMode::On;
-            return true;
-        }
-        if (g_stylePreviewMode == DisplayMode::Bin) {
-            g_styleStep = 1;
-            MENU_ITEMS[MENU_STYLE].minValue = 0;
-            MENU_ITEMS[MENU_STYLE].maxValue = (int16_t)BinSecondsMode::On;
-            return true;
-        }
-        if (g_stylePreviewMode == DisplayMode::LargeDigitsOnly ||
-            g_stylePreviewMode == DisplayMode::Drift ||
-            g_stylePreviewMode == DisplayMode::Dial) {
-            g_styleStep = 1;
-            MENU_ITEMS[MENU_STYLE].minValue = 0;
-            MENU_ITEMS[MENU_STYLE].maxValue = (int16_t)SeparatorMode::Pulse;
+            MENU_ITEMS[MENU_STYLE].minValue = t0.step1.min;
+            MENU_ITEMS[MENU_STYLE].maxValue = t0.step1.max;
             return true;
         }
         g_styleStep = 0;
         g_styleEditing = false;
         resetStyleMenuRange();
         return false;
-    } else if (styleMenuInfoPreviewActive()) {
-        g_stylePendingInfoLineMode = clampInfoLineMode((int)v);
-        g_styleStep = 2;
-        MENU_ITEMS[MENU_STYLE].minValue = 0;
-        MENU_ITEMS[MENU_STYLE].maxValue = (int16_t)SeparatorMode::Pulse;
-        return true;
-    } else if (g_stylePreviewMode == DisplayMode::Info && g_styleStep == 2) {
-        g_styleStep = 0;
-        g_styleEditing = false;
-        resetStyleMenuRange();
-    } else if (g_stylePreviewMode == DisplayMode::Drift && g_styleStep == 1) {
-        g_styleStep = 0;
-        g_styleEditing = false;
-        resetStyleMenuRange();
-    } else if (g_styleStep == 1) {
-        g_styleStep = 0;
-        g_styleEditing = false;
-        resetStyleMenuRange();
     }
+    if (t.step2.label && g_styleStep == 1) {
+        writeField(g_stylePending, t.step1.field, v);
+        g_styleStep = 2;
+        MENU_ITEMS[MENU_STYLE].minValue = t.step2.min;
+        MENU_ITEMS[MENU_STYLE].maxValue = t.step2.max;
+        return true;
+    }
+    g_styleStep = 0;
+    g_styleEditing = false;
+    resetStyleMenuRange();
     return false;
 }
 static void cancelDisplayModeMenu(void* ctx) {
     if (!g_styleEditing) return;
     MenuBindings* b = static_cast<MenuBindings*>(ctx);
     b->displayMode = b->appSettings.displayMode;
-    g_stylePendingInfoLineMode = b->appSettings.infoLineMode;
-    g_stylePendingSeparatorMode = b->appSettings.bigSeparator;
-    g_stylePendingDriftSeparatorMode = b->appSettings.driftSeparator;
-    g_stylePendingDialMarksMode = b->appSettings.dialMarks;
-    g_stylePendingBarSeconds = b->appSettings.barSeconds;
-    g_stylePendingBinSeconds = b->appSettings.binSeconds;
+    g_stylePending.infoLine = b->appSettings.infoLineMode;
+    g_stylePending.separator = b->appSettings.bigSeparator;
+    g_stylePending.driftSeparator = b->appSettings.driftSeparator;
+    g_stylePending.dialMarks = b->appSettings.dialMarks;
+    g_stylePending.barSeconds = b->appSettings.barSeconds;
+    g_stylePending.binSeconds = b->appSettings.binSeconds;
     g_styleStep = 0;
     g_styleEditing = false;
     resetStyleMenuRange();

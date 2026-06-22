@@ -62,11 +62,6 @@ enum class SeparatorMode : uint8_t {
     Pulse = 1
 };
 
-enum class DriftSeparatorMode : uint8_t {
-    Steady = 0,
-    Pulse = 1
-};
-
 enum class DialMarksMode : uint8_t {
     Off = 0,
     On = 1
@@ -114,7 +109,7 @@ struct AppSettings {
     NightMode nightMode = NightMode::Off;
     SeparatorMode bigSeparator = SeparatorMode::Steady;
     InfoLineMode infoLineMode = InfoLineMode::Seconds;
-    DriftSeparatorMode driftSeparator = DriftSeparatorMode::Steady;
+    SeparatorMode driftSeparator = SeparatorMode::Steady;
     DialMarksMode dialMarks = DialMarksMode::On;
     BarSecondsMode barSeconds = BarSecondsMode::Off;
     BinSecondsMode binSeconds = BinSecondsMode::On;
@@ -134,12 +129,6 @@ inline SeparatorMode clampSeparatorMode(int mode) {
     return mode <= (int)SeparatorMode::Steady ? SeparatorMode::Steady : SeparatorMode::Pulse;
 }
 
-inline DriftSeparatorMode clampDriftSeparatorMode(int mode) {
-    if (mode < (int)DriftSeparatorMode::Steady) return DriftSeparatorMode::Steady;
-    if (mode > (int)DriftSeparatorMode::Pulse) return DriftSeparatorMode::Pulse;
-    return static_cast<DriftSeparatorMode>(mode);
-}
-
 inline DialMarksMode clampDialMarksMode(int mode) {
     return mode <= (int)DialMarksMode::Off ? DialMarksMode::Off : DialMarksMode::On;
 }
@@ -154,6 +143,8 @@ inline BinSecondsMode clampBinSecondsMode(int mode) {
 
 inline SeparatorMode separatorModeFor(const AppSettings& settings, DisplayMode mode) {
     switch (mode) {
+        case DisplayMode::Drift:
+            return settings.driftSeparator;
         case DisplayMode::Info:
         case DisplayMode::LargeDigitsOnly:
         default: return settings.bigSeparator;
@@ -162,6 +153,7 @@ inline SeparatorMode separatorModeFor(const AppSettings& settings, DisplayMode m
 
 inline void setSeparatorModeFor(AppSettings& settings, DisplayMode mode, SeparatorMode separator) {
     switch (mode) {
+        case DisplayMode::Drift: settings.driftSeparator = separator; break;
         case DisplayMode::Info:
         case DisplayMode::LargeDigitsOnly: settings.bigSeparator = separator; break;
         default: break;
@@ -321,6 +313,57 @@ inline NightMode clampNightMode(int mode) {
         return NightMode::Mute;
     }
     return static_cast<NightMode>(mode);
+}
+
+// =============================================================================
+// Style traits — menu metadata for each display mode's sub-config(s)
+// =============================================================================
+
+enum class StyleField : uint8_t {
+    None,
+    InfoLine,
+    Separator,
+    DriftSeparator,
+    DialMarks,
+    BarSeconds,
+    BinSeconds
+};
+
+struct StyleStepConfig {
+    const char* label;   // menu label ("DATA", "MARKS", "COLON"); null means no step
+    int8_t min;
+    int8_t max;
+    StyleField field;
+};
+
+struct StyleTrait {
+    StyleStepConfig step1;
+    StyleStepConfig step2;   // only Info has two steps
+};
+
+struct StyleConfig {
+    InfoLineMode infoLine = InfoLineMode::Seconds;
+    SeparatorMode separator = SeparatorMode::Steady;
+    SeparatorMode driftSeparator = SeparatorMode::Steady;
+    DialMarksMode dialMarks = DialMarksMode::On;
+    BarSecondsMode barSeconds = BarSecondsMode::Off;
+    BinSecondsMode binSeconds = BinSecondsMode::On;
+};
+
+inline const StyleTrait& styleTraitFor(DisplayMode mode) {
+    static const StyleTrait TRAITS[] = {
+        /* Rnd            */ { {nullptr,         0, 0, StyleField::None}, {nullptr, 0, 0, StyleField::None} },
+        /* LargeDigitsOnly */ { {"COLON",         0, 1, StyleField::Separator}, {nullptr, 0, 0, StyleField::None} },
+        /* Info           */ { {"DATA",          0, 4, StyleField::InfoLine}, {"COLON", 0, 1, StyleField::Separator} },
+        /* Word           */ { {nullptr,         0, 0, StyleField::None}, {nullptr, 0, 0, StyleField::None} },
+        /* Roma           */ { {nullptr,         0, 0, StyleField::None}, {nullptr, 0, 0, StyleField::None} },
+        /* Dial           */ { {"MARKS",         0, 1, StyleField::DialMarks}, {nullptr, 0, 0, StyleField::None} },
+        /* Bar            */ { {"BAR",           0, 1, StyleField::BarSeconds}, {nullptr, 0, 0, StyleField::None} },
+        /* Bin            */ { {"BIN",           0, 1, StyleField::BinSeconds}, {nullptr, 0, 0, StyleField::None} },
+        /* Pong           */ { {nullptr,         0, 0, StyleField::None}, {nullptr, 0, 0, StyleField::None} },
+        /* Drift          */ { {"COLON",         0, 1, StyleField::DriftSeparator}, {nullptr, 0, 0, StyleField::None} },
+    };
+    return TRAITS[(uint8_t)mode];
 }
 
 #endif // APP_SETTINGS_H

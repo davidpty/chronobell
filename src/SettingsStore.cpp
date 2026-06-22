@@ -21,10 +21,6 @@ const char* SettingsStore::KEY_INFO_LINE_MODE = "info_line";
 const char* SettingsStore::KEY_TRANSITION_MODE = "anim";
 #endif
 const char* SettingsStore::KEY_SEPARATOR_BIG = "sep_big";
-const char* SettingsStore::KEY_SEPARATOR_SECONDS = "sep_sec";
-const char* SettingsStore::KEY_SEPARATOR_DECISECONDS = "sep_deci";
-const char* SettingsStore::KEY_SEPARATOR_DATE = "sep_date";
-const char* SettingsStore::KEY_SEPARATOR_WEEKDAY = "sep_weekday";
 const char* SettingsStore::KEY_SEPARATOR_DRIFT = "sep_drift";
 const char* SettingsStore::KEY_DIAL_MARKS = "dial_marks";
 const char* SettingsStore::KEY_BAR_SECONDS = "bar_secs";
@@ -67,7 +63,7 @@ AppSettings SettingsStore::load() {
     settings.transitionMode = clampTransitionMode(prefs.getUChar(KEY_TRANSITION_MODE, (uint8_t)TransitionMode::Morph));
 #endif
     settings.bigSeparator = clampSeparatorMode(prefs.getUChar(KEY_SEPARATOR_BIG, (uint8_t)SeparatorMode::Steady));
-    settings.driftSeparator = clampDriftSeparatorMode(prefs.getUChar(KEY_SEPARATOR_DRIFT, (uint8_t)DriftSeparatorMode::Steady));
+    settings.driftSeparator = clampSeparatorMode(prefs.getUChar(KEY_SEPARATOR_DRIFT, (uint8_t)SeparatorMode::Steady));
     settings.dialMarks = clampDialMarksMode(prefs.getUChar(KEY_DIAL_MARKS, (uint8_t)DialMarksMode::On));
     settings.barSeconds = clampBarSecondsMode(prefs.getUChar(KEY_BAR_SECONDS, (uint8_t)BarSecondsMode::Off));
     settings.binSeconds = clampBinSecondsMode(prefs.getUChar(KEY_BIN_SECONDS, (uint8_t)BinSecondsMode::On));
@@ -304,19 +300,12 @@ bool SettingsStore::saveSeparatorMode(DisplayMode displayMode, SeparatorMode mod
     switch (displayMode) {
         case DisplayMode::LargeDigitsOnly: key = KEY_SEPARATOR_BIG; break;
         case DisplayMode::Info: key = KEY_SEPARATOR_BIG; break;
+        case DisplayMode::Drift: key = KEY_SEPARATOR_DRIFT; break;
         default: return false;
     }
     Preferences prefs;
     if (!prefs.begin(PREFS_NAMESPACE, false)) return false;
     prefs.putUChar(key, (uint8_t)clampSeparatorMode((int)mode));
-    prefs.end();
-    return true;
-}
-
-bool SettingsStore::saveDriftSeparatorMode(DriftSeparatorMode mode) {
-    Preferences prefs;
-    if (!prefs.begin(PREFS_NAMESPACE, false)) return false;
-    prefs.putUChar(KEY_SEPARATOR_DRIFT, (uint8_t)clampDriftSeparatorMode((int)mode));
     prefs.end();
     return true;
 }

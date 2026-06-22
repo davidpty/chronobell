@@ -20,7 +20,6 @@ public:
     bool saveTransitionMode(TransitionMode mode);
 #endif
     bool saveSeparatorMode(DisplayMode displayMode, SeparatorMode mode);
-    bool saveDriftSeparatorMode(DriftSeparatorMode mode);
     bool saveDialMarksMode(DialMarksMode mode);
     bool saveBarSeconds(BarSecondsMode mode);
     bool saveBinSeconds(BinSecondsMode mode);
@@ -78,10 +77,6 @@ private:
     static const char* KEY_TRANSITION_MODE;
 #endif
     static const char* KEY_SEPARATOR_BIG;
-    static const char* KEY_SEPARATOR_SECONDS;
-    static const char* KEY_SEPARATOR_DECISECONDS;
-    static const char* KEY_SEPARATOR_DATE;
-    static const char* KEY_SEPARATOR_WEEKDAY;
     static const char* KEY_SEPARATOR_DRIFT;
     static const char* KEY_DIAL_MARKS;
     static const char* KEY_BAR_SECONDS;

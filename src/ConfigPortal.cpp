@@ -1404,7 +1404,7 @@ void ConfigPortal::handleApply() {
     } else if (field == "separator") {
         DisplayMode style = clampDisplayMode(_webServer.arg("style").toInt());
         if (style == DisplayMode::Drift) {
-            settings.driftSeparator = clampDriftSeparatorMode(value.toInt());
+            settings.driftSeparator = clampSeparatorMode(value.toInt());
         } else if (style == DisplayMode::LargeDigitsOnly || style == DisplayMode::Info) {
             setSeparatorModeFor(settings, style, clampSeparatorMode(value.toInt()));
         } else {
