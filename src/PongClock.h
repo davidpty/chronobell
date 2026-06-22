@@ -19,10 +19,11 @@ public:
         Rally = 0,
         LeadIn = 1,
         MissFlight = 2,
-        CenterTravel = 3,
-        CenterBallHold = 4,
-        ScoreHold = 5,
-        ResetPause = 6
+        MissFlash = 3,
+        CenterTravel = 4,
+        CenterBallHold = 5,
+        ScoreHold = 6,
+        ResetPause = 7
     };
 
     enum class PaddleTempo : uint8_t {
@@ -48,6 +49,11 @@ public:
         bool pendingScoreValid = false;
         uint8_t pendingScoreHour = 0;
         uint8_t pendingScoreMinute = 0;
+        bool leftScoreVisible = true;
+        bool rightScoreVisible = true;
+        uint8_t oldScoreHour = 0;
+        uint8_t oldScoreMinute = 0;
+        float scoreTransitionProgress = -1.0f;
     };
 
     struct ScoreLayout {
@@ -74,10 +80,11 @@ private:
     static constexpr int PONG_PADDLE_MAX_Y = PONG_PLAY_BOTTOM - PONG_PADDLE_HEIGHT + 1;
     static constexpr int PONG_BALL_START_X = 15;
     static constexpr int PONG_BALL_START_Y = 10;
-    static constexpr unsigned long PONG_CENTER_TRAVEL_MS = 900UL;
-    static constexpr unsigned long PONG_CENTER_BALL_HOLD_MS = 700UL;
-    static constexpr unsigned long PONG_SCORE_HOLD_MS = 650UL;
-    static constexpr unsigned long PONG_RESET_PAUSE_MS = 650UL;
+    static constexpr unsigned long PONG_CENTER_BALL_HOLD_MS = 2000UL;
+    static constexpr unsigned long PONG_SCORE_FLASH_MS = 1000UL;
+    static constexpr unsigned long PONG_SCORE_HOLD_BLANK_MS = 750UL;
+    static constexpr unsigned long PONG_SCORE_HOLD_MS = PONG_SCORE_FLASH_MS + PONG_SCORE_HOLD_BLANK_MS;
+    static constexpr unsigned long PONG_MISS_FLASH_MS = 3000UL;
     static constexpr uint8_t PONG_PHYSICS_DIVIDER = 1;
     static constexpr uint16_t PONG_LEFT_MIN_STEP_MS = 52;
     static constexpr uint16_t PONG_LEFT_STEP_JITTER_MS = 64;
@@ -113,6 +120,9 @@ private:
         int16_t ballDxF = PONG_VEL_SERVE;
         int16_t ballDyF = PONG_VEL_SERVE;
         uint16_t rallyHits = 0;
+        int8_t lossExitY = 0;
+        uint8_t oldScoreHour = 0;
+        uint8_t oldScoreMinute = 0;
         bool initialized = false;
     };
 
@@ -132,7 +142,7 @@ private:
     static int glyphWidth(uint8_t glyph);
     static int textWidth(const char* s);
     void syncSnapshot(TimeFormat format);
-    void resetBall(ClockTime time, unsigned long nowMs, TimeFormat format, bool afterMiss);
+    void resetBall(ClockTime time, unsigned long nowMs, TimeFormat format);
 };
 
 #endif // PONG_CLOCK_H

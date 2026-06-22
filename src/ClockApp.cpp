@@ -45,6 +45,7 @@ static const DisplayMode RANDOM_STYLE_POOL[] = {
     DisplayMode::Info,
     DisplayMode::Word,
     DisplayMode::Roma,
+    DisplayMode::Dial,
     DisplayMode::Bar,
     DisplayMode::Bin,
     DisplayMode::Pong,

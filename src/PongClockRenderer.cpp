@@ -2,15 +2,31 @@
 
 #include "Display.h"
 
-void PongClockRenderer::drawScore(Display& display, const PongClockEngine& engine, TimeFormat format) const {
+int PongClockRenderer::glyphWidth(uint8_t glyph) {
+    if (glyph >= 10) return 0;
+    int left = FONT_SMALL_COLS;
+    int right = -1;
+    for (int col = 0; col < 4; col++) {
+        for (int row = 0; row < SEC_FONT_HEIGHT; row++) {
+            if (FONT_SMALL[glyph][row][col]) {
+                if (col < left) left = col;
+                if (col > right) right = col;
+            }
+        }
+    }
+    return right >= left ? (right - left + 1) : 0;
+}
+
+void PongClockRenderer::drawScore(Display& display, const PongClockEngine& engine, TimeFormat format) {
+    const auto& pong = engine.snapshot();
     PongClockEngine::ScoreLayout layout = engine.scoreLayout(format);
+
     char leftBuf[4];
     char rightBuf[4];
-    snprintf(leftBuf, sizeof(leftBuf), "%u", (unsigned)engine.snapshot().scoreHour);
-    snprintf(rightBuf, sizeof(rightBuf), "%u", (unsigned)engine.snapshot().scoreMinute);
-
-    display.drawSmallText(leftBuf, layout.leftX, layout.topY);
-    display.drawSmallText(rightBuf, layout.rightX, layout.topY);
+    snprintf(leftBuf, sizeof(leftBuf), "%u", (unsigned)pong.scoreHour);
+    snprintf(rightBuf, sizeof(rightBuf), "%u", (unsigned)pong.scoreMinute);
+    if (pong.leftScoreVisible)  display.drawSmallText(leftBuf,  layout.leftX,  layout.topY);
+    if (pong.rightScoreVisible) display.drawSmallText(rightBuf, layout.rightX, layout.topY);
 }
 
 void PongClockRenderer::drawPaddles(Display& display, const PongClockEngine::Snapshot& pong) const {
@@ -34,7 +50,7 @@ void PongClockRenderer::drawBall(Display& display, const PongClockEngine::Snapsh
     }
 }
 
-void PongClockRenderer::render(Display& display, const PongClockEngine& engine, TimeFormat format) const {
+void PongClockRenderer::render(Display& display, const PongClockEngine& engine, TimeFormat format) {
     const auto& pong = engine.snapshot();
     drawScore(display, engine, format);
     drawPaddles(display, pong);
