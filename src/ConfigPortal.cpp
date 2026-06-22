@@ -314,7 +314,8 @@ void ConfigPortal::handleRoot() {
                     <option value="5">DIAL - Minimal analog dial</option>
                     <option value="6">BAR - Progress bar clock</option>
                     <option value="7">BIN - Binary clock</option>
-                    <option value="8">DRIFT - Irregular BIG-style clock</option>
+                    <option value="8">PONG - a clock that plays the game</option>
+                    <option value="9">DRIFT - Irregular BIG-style clock</option>
                 </select>
             </div>
 
@@ -588,11 +589,11 @@ void ConfigPortal::handleRoot() {
             const style = Number(document.getElementById('style').value);
             const row = document.getElementById('separatorRow');
             const select = document.getElementById('separator');
-            const configurable = style === 1 || style === 2 || style === 8;
+            const configurable = style === 1 || style === 2 || style === 9;
             row.classList.toggle('hidden', !configurable);
             if (!configurable) return;
 
-            const options = style === 7
+            const options = style === 9
                 ? [[0, 'SOLID - Always on, position shows drift'],
                    [1, 'BLINK - Both dots blink, position shows drift']]
                 : [[0, 'SOLID - Always visible'],
@@ -604,7 +605,7 @@ void ConfigPortal::handleRoot() {
                 el.textContent = option[1];
                 select.appendChild(el);
             });
-            select.value = String(style === 7 ? driftSeparatorSetting : separatorSetting);
+            select.value = String(style === 9 ? driftSeparatorSetting : separatorSetting);
         }
 
         function syncDialMarksRow() {
@@ -652,7 +653,7 @@ void ConfigPortal::handleRoot() {
         function applySeparator(value) {
             const style = Number(document.getElementById('style').value);
             const parsed = Number(value);
-            if (style === 7) {
+            if (style === 9) {
                 driftSeparatorSetting = parsed;
             } else {
                 separatorSetting = parsed;

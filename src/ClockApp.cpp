@@ -35,6 +35,7 @@ static const DisplayMode QUICK_STYLE_POOL[] = {
     DisplayMode::Dial,
     DisplayMode::Bar,
     DisplayMode::Bin,
+    DisplayMode::Pong,
     DisplayMode::Drift,
 };
 
@@ -48,6 +49,7 @@ static const DisplayMode RANDOM_STYLE_POOL[] = {
     DisplayMode::Roma,
     DisplayMode::Bar,
     DisplayMode::Bin,
+    DisplayMode::Pong,
 };
 
 static const uint8_t RANDOM_STYLE_POOL_COUNT =

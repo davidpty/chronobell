@@ -7,6 +7,8 @@
 #include "Config.h"
 #include "AppSettings.h"
 #include "MenuController.h"
+#include "RtcClock.h"
+#include "PongClock.h"
 #include "fonts.h"
 #if SCREEN_TRANSITION
 #include "ScreenTransition.h"
@@ -17,6 +19,7 @@ class DriftTimeModel;
 class MenuRenderer;
 class NewYearController;
 class NewYearRenderer;
+class PongClockRenderer;
 class SettingsStore;
 class TimeProvider;
 class TimerController;
@@ -105,6 +108,7 @@ public:
     void drawCenteredMediumText(const char* s, int y);
     void drawCenteredSmallText(const char* s, int y);
     void drawCenteredBigText(const char* s, int y);
+    void drawPongTime(ClockTime time);
 
     // Guest WiFi alternating SSID / password display
     void setGuestWifiController(GuestWifiController* c);
@@ -132,6 +136,7 @@ private:
     MenuRenderer*   _menuRenderer   = nullptr;
     TimerRenderer*  _timerRenderer  = nullptr;
     NewYearRenderer* _newYearRenderer = nullptr;
+    PongClockRenderer* _pongRenderer = nullptr;
 
     MD_MAX72XX& _leds;
     MenuController& _menu;
@@ -163,6 +168,8 @@ private:
     int8_t _userBrightness = 4;
     int8_t _brightness     = 4;
     bool   _enabled = true;
+
+    PongClockEngine _pong;
 
     // Guest WiFi alternating display state
     unsigned long _guestWifiViewStartMs = 0;

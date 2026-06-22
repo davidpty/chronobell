@@ -7,6 +7,7 @@
 #include "MenuRenderer.h"
 #include "NewYearController.h"
 #include "NewYearRenderer.h"
+#include "PongClockRenderer.h"
 #include "RtcClock.h"
 #include "SettingsStore.h"
 #include "TimeProvider.h"
@@ -50,6 +51,7 @@ void Display::begin() {
     _menuRenderer   = new MenuRenderer();
     _timerRenderer  = new TimerRenderer();
     _newYearRenderer = new NewYearRenderer();
+    _pongRenderer = new PongClockRenderer();
 
     _clockRenderer->init(*this, _timeProvider);
     _clockRenderer->setTimeFormat(_timeFormat);
@@ -141,6 +143,12 @@ void Display::setNewYearController(NewYearController* c) {
     if (_newYearRenderer && _newYear) {
         _newYearRenderer->init(*this, *_newYear);
     }
+}
+
+void Display::drawPongTime(ClockTime time) {
+    unsigned long nowMs = millis();
+    _pong.update(time, nowMs, _timeFormat ? *_timeFormat : TimeFormat::Hours24);
+    _pongRenderer->render(*this, _pong, _timeFormat ? *_timeFormat : TimeFormat::Hours24);
 }
 
 DateStyle Display::currentDateStyle() const {
@@ -241,6 +249,9 @@ void Display::showTime() {
         case DisplayMode::Bin:
             _clockRenderer->drawBinaryTime(hours, minutes, seconds);
             break;
+        case DisplayMode::Pong:
+            drawPongTime(time);
+            break;
         case DisplayMode::Drift:
             if (_driftTimeModel) {
                 unsigned long nowMs = millis();
@@ -305,6 +316,10 @@ void Display::drawStylePreview(DisplayMode mode) {
         _clockRenderer->setInfoLineMode(&pendingInfo);
         _clockRenderer->drawPreview(mode, time, dialMarksMode == DialMarksMode::On);
         _clockRenderer->setInfoLineMode(restoreInfo);
+        return;
+    }
+    if (mode == DisplayMode::Pong) {
+        drawPongTime(time);
         return;
     }
     if (mode == DisplayMode::Drift && _driftTimeModel) {
@@ -812,7 +827,7 @@ void Display::drawGuestWifiText(bool showSsid) {
 
     // Single line fits
     if (fullWidth <= COLS_PER_ROW) {
-        drawCenteredSmallText(text, 6);
+        drawCenteredSmallText(text, 5);
         return;
     }
 
@@ -850,8 +865,8 @@ void Display::drawGuestWifiText(bool showSsid) {
     int w2 = textWidth(line2, true, 1, 2);
 
     if (w1 <= COLS_PER_ROW && w2 <= COLS_PER_ROW) {
-        drawCenteredSmallText(line1, 2);
-        drawCenteredSmallText(line2, 11);
+        drawCenteredSmallText(line1, 1);
+        drawCenteredSmallText(line2, 10);
     }
     // If either line overflows, nothing is drawn (text was displayable
     // at fetch time, so this is defensive only)
