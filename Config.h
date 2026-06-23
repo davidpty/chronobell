@@ -82,7 +82,7 @@
 #define BLINK_ON_MS                                 900                                 // Blink visible duration (menu, timer alert, etc.)
 #define BLINK_OFF_MS                                100                                 // Blink blank duration (menu, timer alert, etc.)
 
-#define LAST_STYLE_TIMEOUT_MINUTES                  360                                 // Reset remembered clock view to configured View after N idle min (0=off)
+#define LAST_STYLE_TIMEOUT_MINUTES                  720                                 // Reset remembered clock view to configured View after N idle min (0=off)
 #define LAST_DATEVIEW_TIMEOUT_MINUTES               15                                  // Reset remembered date view to configured after N idle min (0=off)
 
 // ---------------------------------------------------------------------------
