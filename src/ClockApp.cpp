@@ -41,6 +41,8 @@ static const DisplayMode QUICK_STYLE_POOL[] = {
 static const uint8_t QUICK_STYLE_POOL_COUNT =
     sizeof(QUICK_STYLE_POOL) / sizeof(QUICK_STYLE_POOL[0]);
 
+// DRIFT intentionally excluded — interactive time-warping style unsuited
+// for automatic random cycling (needs user participation).
 static const DisplayMode RANDOM_STYLE_POOL[] = {
     DisplayMode::LargeDigitsOnly,
     DisplayMode::Info,
