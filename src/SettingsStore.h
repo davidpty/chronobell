@@ -55,6 +55,9 @@ public:
     bool clearPendingNetwork();
     bool saveHotspotState(bool enabled, unsigned long expiryEpoch);
     bool loadHotspotState(bool& enabled, unsigned long& expiryEpoch);
+    bool saveTemporaryStyle(DisplayMode mode, time_t epoch);
+    bool loadTemporaryStyle(DisplayMode& mode, time_t& epoch);
+    bool clearTemporaryStyle();
 
 private:
     static const char* PREFS_NAMESPACE;
@@ -96,6 +99,8 @@ private:
     static const char* KEY_STOPWATCH_ELAPSED;
     static const char* KEY_STOPWATCH_START_EPOCH;
     static const char* KEY_STOPWATCH_VIEW_ACTIVE;
+    static const char* KEY_TEMP_STYLE_LABEL;
+    static const char* KEY_TEMP_STYLE_EPOCH;
 };
 
 #endif // SETTINGS_STORE_H

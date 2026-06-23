@@ -273,6 +273,32 @@ void ClockApp::loadSettings() {
     LOGLN(timeFormatLabel(_appSettings.timeFormat));
     LOG("Night mode loaded: ");
     LOGLN(nightModeLabel(_appSettings.nightMode));
+
+    if (LAST_STYLE_TIMEOUT_MINUTES > 0) {
+        DisplayMode savedLabel;
+        time_t tempEpoch;
+        if (_settingsStore.loadTemporaryStyle(savedLabel, tempEpoch)) {
+            time_t now;
+            if (_timeProvider.currentEpoch(now)) {
+                time_t elapsed = now - tempEpoch;
+                unsigned long timeoutSecs = (unsigned long)LAST_STYLE_TIMEOUT_MINUTES * 60UL;
+                if ((unsigned long)elapsed < timeoutSecs) {
+                    savedLabel = clampDisplayMode((int)savedLabel);
+                    DisplayMode mode = isRandomDisplayMode(savedLabel)
+                        ? pickRandomConcreteDisplayMode(DisplayMode::Rnd)
+                        : savedLabel;
+                    _overrideState.active = true;
+                    _overrideState.mode = mode;
+                    _overrideState.sourceMode = _savedDisplayMode;
+                    _overrideState.expiresAt = millis() + (timeoutSecs - (unsigned long)elapsed) * 1000UL;
+                    _stylePreviewLabel = savedLabel;
+                    _displayMode = _overrideState.mode;
+                    LOG("Restored temporary style: ");
+                    LOGLN(displayModeLabel(savedLabel));
+                }
+            }
+        }
+    }
 }
 
 void ClockApp::loadTimerSettings() {
@@ -561,9 +587,11 @@ void ClockApp::syncDisplayModeSelection() {
         if ((int32_t)(now - _overrideState.expiresAt) >= 0 ||
             _savedDisplayMode != _overrideState.sourceMode) {
             _overrideState.active = false;
+            _settingsStore.clearTemporaryStyle();
         }
     } else if (LAST_STYLE_TIMEOUT_MINUTES <= 0) {
         _overrideState.active = false;
+        _settingsStore.clearTemporaryStyle();
     }
 
     DisplayMode baseMode = _savedDisplayMode;
@@ -665,6 +693,12 @@ void ClockApp::cycleTemporaryDisplayMode(int direction) {
     _stylePreviewPrevMode = (DisplayMode)0xFF;
     LOG("Temporary clock style: ");
     LOGLN(displayModeLabel(mode));
+    time_t epoch;
+    if (_timeProvider.currentEpoch(epoch)) {
+        _settingsStore.saveTemporaryStyle(_stylePreviewLabel, epoch);
+    } else {
+        _settingsStore.saveTemporaryStyle(_stylePreviewLabel, 0);
+    }
 }
 
 void ClockApp::cycleTemporaryDateStyle(int direction) {

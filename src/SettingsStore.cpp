@@ -39,6 +39,8 @@ const char* SettingsStore::KEY_COUNTDOWN_VIEW_ACTIVE = "cdview";
 const char* SettingsStore::KEY_STOPWATCH_ELAPSED = "sw_elapsed";
 const char* SettingsStore::KEY_STOPWATCH_START_EPOCH = "sw_start_ep";
 const char* SettingsStore::KEY_STOPWATCH_VIEW_ACTIVE = "sw_view";
+const char* SettingsStore::KEY_TEMP_STYLE_LABEL = "ovr_label";
+const char* SettingsStore::KEY_TEMP_STYLE_EPOCH = "ovr_epoch";
 
 AppSettings SettingsStore::load() {
     AppSettings settings;
@@ -217,6 +219,37 @@ bool SettingsStore::loadHotspotState(bool& enabled, unsigned long& expiryEpoch) 
     expiryEpoch = prefs.getULong(KEY_HOTSPOT_EXPIRY, 0);
     prefs.end();
     return enabled;
+}
+
+bool SettingsStore::saveTemporaryStyle(DisplayMode mode, time_t epoch) {
+    Preferences prefs;
+    if (!prefs.begin(PREFS_NAMESPACE, false)) return false;
+    prefs.putUChar(KEY_TEMP_STYLE_LABEL, (uint8_t)mode);
+    prefs.putULong(KEY_TEMP_STYLE_EPOCH, (unsigned long)epoch);
+    prefs.end();
+    return true;
+}
+
+bool SettingsStore::loadTemporaryStyle(DisplayMode& mode, time_t& epoch) {
+    Preferences prefs;
+    if (!prefs.begin(PREFS_NAMESPACE, true)) {
+        mode = DisplayMode::LargeDigitsOnly;
+        epoch = 0;
+        return false;
+    }
+    epoch = (time_t)prefs.getULong(KEY_TEMP_STYLE_EPOCH, 0);
+    mode = (DisplayMode)prefs.getUChar(KEY_TEMP_STYLE_LABEL, (uint8_t)DisplayMode::LargeDigitsOnly);
+    prefs.end();
+    return epoch > 0;
+}
+
+bool SettingsStore::clearTemporaryStyle() {
+    Preferences prefs;
+    if (!prefs.begin(PREFS_NAMESPACE, false)) return false;
+    prefs.remove(KEY_TEMP_STYLE_LABEL);
+    prefs.remove(KEY_TEMP_STYLE_EPOCH);
+    prefs.end();
+    return true;
 }
 
 bool SettingsStore::saveDisplayMode(DisplayMode mode) {
