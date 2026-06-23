@@ -26,6 +26,7 @@ static bool sameDate(const ClockDate& a, const ClockDate& b) {
 }
 
 static const DisplayMode QUICK_STYLE_POOL[] = {
+    DisplayMode::Rnd,
     DisplayMode::LargeDigitsOnly,
     DisplayMode::Info,
     DisplayMode::Word,
@@ -53,12 +54,6 @@ static const DisplayMode RANDOM_STYLE_POOL[] = {
 
 static const uint8_t RANDOM_STYLE_POOL_COUNT =
     sizeof(RANDOM_STYLE_POOL) / sizeof(RANDOM_STYLE_POOL[0]);
-
-static int randomStyleIntervalMinutes() {
-    int minutes = RND_STYLE_INTERVAL_MINUTES;
-    if (minutes < 1 || minutes > 1440) return 1440;
-    return minutes;
-}
 
 static void appendJsonString(String& out, const String& value) {
     out += '"';
@@ -365,6 +360,25 @@ void ClockApp::render() {
     syncDateStyleSelection();
     applyEffectiveDisplayBrightness();
 
+    if (_styleNamePreviewEndMs > 0 && _overrideState.active) {
+        unsigned long now = millis();
+        if (now < _styleNamePreviewEndMs) {
+            DisplayMode m = _displayMode;
+            if (_stylePreviewPrevMode != m) {
+#if SCREEN_TRANSITION
+                if (_appSettings.transitionMode == TransitionMode::Morph)
+                    _display.requestScreenTransition();
+#endif
+                _stylePreviewPrevMode = m;
+            }
+            _display.clearBuffer();
+            _display.drawCenteredMediumText(displayModeLabel(_stylePreviewLabel), 3);
+            _display.renderBuffer();
+            return;
+        }
+        _styleNamePreviewEndMs = 0;
+    }
+
     if (_displayMode == DisplayMode::Drift) {
         if (_lastDisplayModeSeen != DisplayMode::Drift) {
             ClockTime time;
@@ -556,8 +570,11 @@ void ClockApp::syncDisplayModeSelection() {
         bool haveDate = _timeProvider.currentDate(currentDate);
         ClockTime currentTime;
         bool haveTime = _timeProvider.currentTime(currentTime);
+        uint16_t intervalMin = rndIntervalMinutes(_appSettings.rndInterval);
+        if (intervalMin < 1) intervalMin = 1;
+        if (intervalMin > 1440) intervalMin = 1440;
         uint8_t currentSlot = haveTime
-            ? (uint8_t)((currentTime.hours * 60 + currentTime.minutes) / randomStyleIntervalMinutes())
+            ? (uint8_t)((currentTime.hours * 60 + currentTime.minutes) / intervalMin)
             : 0;
 
         if (!_randomState.valid) {
@@ -614,9 +631,10 @@ void ClockApp::cycleTemporaryDisplayMode(int direction) {
     }
 
     syncDisplayModeSelection();
+    DisplayMode lookup = _overrideState.active ? _stylePreviewLabel : _displayMode;
     int currentIndex = -1;
     for (uint8_t i = 0; i < QUICK_STYLE_POOL_COUNT; i++) {
-        if (QUICK_STYLE_POOL[i] == _displayMode) {
+        if (QUICK_STYLE_POOL[i] == lookup) {
             currentIndex = (int)i;
             break;
         }
@@ -627,6 +645,10 @@ void ClockApp::cycleTemporaryDisplayMode(int direction) {
 
     int nextIndex = (currentIndex + direction + QUICK_STYLE_POOL_COUNT) % QUICK_STYLE_POOL_COUNT;
     DisplayMode mode = QUICK_STYLE_POOL[nextIndex];
+    _stylePreviewLabel = mode;
+    if (mode == DisplayMode::Rnd) {
+        mode = pickRandomConcreteDisplayMode(DisplayMode::Rnd);
+    }
     if (_overrideState.active && mode == _overrideState.mode) {
         return;
     }
@@ -637,6 +659,8 @@ void ClockApp::cycleTemporaryDisplayMode(int direction) {
     _overrideState.expiresAt =
         millis() + (unsigned long)LAST_STYLE_TIMEOUT_MINUTES * 60000UL;
     _displayMode = _overrideState.mode;
+    _styleNamePreviewEndMs = millis() + 1500;
+    _stylePreviewPrevMode = (DisplayMode)0xFF;
     LOG("Temporary clock style: ");
     LOGLN(displayModeLabel(mode));
 }

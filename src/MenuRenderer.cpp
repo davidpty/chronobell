@@ -97,6 +97,8 @@ void MenuRenderer::drawMenuName(const MenuItem& it, int y) {
             label = "MARKS";
         } else if (styleMenuPreviewMode() == DisplayMode::Bar) {
             label = "BAR";
+        } else if (styleMenuPreviewMode() == DisplayMode::Rnd) {
+            label = "CYCLE";
         } else {
             label = styleMenuInfoPreviewActive() ? "DATA" : "COLON";
         }

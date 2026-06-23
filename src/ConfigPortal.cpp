@@ -4,6 +4,7 @@
 
 #include "Config.h"
 #include "ConfigPortal.h"
+#include "AppSettings.h"
 #include <WiFi.h>
 #include <time.h>
 
@@ -167,6 +168,7 @@ void ConfigPortal::handleRoot() {
     String initialDialMarks = String((int)_settings.dialMarks);
     String initialBarSeconds = String((int)_settings.barSeconds);
     String initialBinSeconds = String((int)_settings.binSeconds);
+    String initialRndInterval = String((int)_settings.rndInterval);
     String initialDateStyle = String((int)_settings.dateStyle);
     String initialTimeFormat = String((int)_settings.timeFormat);
     String initialNightMode = String((int)_settings.nightMode);
@@ -354,6 +356,24 @@ void ConfigPortal::handleRoot() {
                 </select>
             </div>
 
+            <div class="setting-row hidden" id="rndIntervalRow">
+                <div class="setting-label">CYCLE</div>
+                <select id="rndInterval" onchange="applyRndInterval(this.value)">
+                    <option value="0">1 min</option>
+                    <option value="1">5 min</option>
+                    <option value="2">10 min</option>
+                    <option value="3">15 min</option>
+                    <option value="4">30 min</option>
+                    <option value="5">60 min</option>
+                    <option value="6">90 min</option>
+                    <option value="7">2 hours</option>
+                    <option value="8">4 hours</option>
+                    <option value="9">6 hours</option>
+                    <option value="10">12 hours</option>
+                    <option value="11">24 hours</option>
+                </select>
+            </div>
+
             <div class="setting-row">
                 <div class="setting-label">Date</div>
                 <select id="datestyle" onchange="applySetting('datestyle', this.value)">
@@ -516,6 +536,7 @@ void ConfigPortal::handleRoot() {
         let dialMarksSetting = Number("__INITIAL_DIALMARKS__");
         let barSecondsSetting = Number("__INITIAL_BARSECONDS__");
         let binSecondsSetting = Number("__INITIAL_BINSECONDS__");
+        let rndIntervalSetting = Number("__INITIAL_RNDINTERVAL__");
         let infoLineSetting = 0;
         let timerState = {};
         const timerDisplaySvg = document.getElementById('timerDisplaySvg');
@@ -642,28 +663,40 @@ void ConfigPortal::handleRoot() {
             select.value = String(binSecondsSetting);
         }
 
+        function syncRndIntervalRow() {
+            const style = Number(document.getElementById('style').value);
+            const row = document.getElementById('rndIntervalRow');
+            const select = document.getElementById('rndInterval');
+            row.classList.toggle('hidden', style !== 0);
+            select.value = String(rndIntervalSetting);
+        }
+
         function onStyleChange(value) {
             syncInfoLineRow();
             syncSeparatorRow();
             syncDialMarksRow();
             syncBarSecondsRow();
             syncBinSecondsRow();
+            syncRndIntervalRow();
             const infoLine = document.getElementById('infoLine');
             const separator = document.getElementById('separator');
             const dialMarks = document.getElementById('dialMarks');
             const barSeconds = document.getElementById('barSeconds');
             const binSeconds = document.getElementById('binSeconds');
+            const rndInterval = document.getElementById('rndInterval');
             if (infoLine) infoLine.disabled = true;
             separator.disabled = true;
             dialMarks.disabled = true;
             if (barSeconds) barSeconds.disabled = true;
             if (binSeconds) binSeconds.disabled = true;
+            if (rndInterval) rndInterval.disabled = true;
             applySetting('style', value).finally(function() {
                 if (infoLine) infoLine.disabled = false;
                 separator.disabled = false;
                 dialMarks.disabled = false;
                 if (barSeconds) barSeconds.disabled = false;
                 if (binSeconds) binSeconds.disabled = false;
+                if (rndInterval) rndInterval.disabled = false;
             });
         }
 
@@ -697,6 +730,11 @@ void ConfigPortal::handleRoot() {
         function applyBinSeconds(value) {
             binSecondsSetting = Number(value);
             return applySetting('binseconds', value);
+        }
+
+        function applyRndInterval(value) {
+            rndIntervalSetting = Number(value);
+            return applySetting('rndinterval', value);
         }
 
         function htmlEscape(value) {
@@ -794,6 +832,7 @@ void ConfigPortal::handleRoot() {
             syncSeparatorRow();
             syncDialMarksRow();
             syncBarSecondsRow();
+            syncRndIntervalRow();
         }
 
         function stopPendingPoll() {
@@ -891,8 +930,12 @@ void ConfigPortal::handleRoot() {
                 if (data.dialMarks !== undefined) {
                     dialMarksSetting = Number(data.dialMarks);
                 }
+                if (data.rndInterval !== undefined) {
+                    rndIntervalSetting = Number(data.rndInterval);
+                }
                 syncSeparatorRow();
                 syncDialMarksRow();
+                syncRndIntervalRow();
 
                 updateHotspotFromStatus(data);
                 if (data.timer) {
@@ -1170,6 +1213,7 @@ void ConfigPortal::handleRoot() {
     html.replace("__INITIAL_DIALMARKS__", initialDialMarks);
     html.replace("__INITIAL_BARSECONDS__", initialBarSeconds);
     html.replace("__INITIAL_BINSECONDS__", initialBinSeconds);
+    html.replace("__INITIAL_RNDINTERVAL__", initialRndInterval);
     html.replace("__INITIAL_INFOLINE__", String((int)_settings.infoLineMode));
 #if DIGIT_TRANSITIONS || SCREEN_TRANSITION
     html.replace("__INITIAL_ANIM__", String((int)_settings.transitionMode));
@@ -1417,6 +1461,8 @@ void ConfigPortal::handleApply() {
         settings.barSeconds = clampBarSecondsMode(value.toInt());
     } else if (field == "binseconds") {
         settings.binSeconds = clampBinSecondsMode(value.toInt());
+    } else if (field == "rndinterval") {
+        settings.rndInterval = clampRndIntervalMode(value.toInt());
     } else if (field == "datestyle") {
         settings.dateStyle = clampDateStyle(value.toInt());
     } else if (field == "timefmt") {
@@ -1478,7 +1524,7 @@ void ConfigPortal::handleApply() {
 #if DIGIT_TRANSITIONS || SCREEN_TRANSITION
         || field == "anim"
 #endif
-        || field == "separator" || field == "dialmarks" || field == "barseconds" || field == "datestyle" || field == "timefmt" || field == "timezone" || field == "timeMode" || field == "manualtime" || field == "bellmode" || field == "brightness")) {
+        || field == "separator" || field == "dialmarks" || field == "barseconds" || field == "binseconds" || field == "rndinterval" || field == "datestyle" || field == "timefmt" || field == "timezone" || field == "timeMode" || field == "manualtime" || field == "bellmode" || field == "brightness")) {
         _previewCb(_previewContext, field);
     }
 
@@ -1529,6 +1575,8 @@ void ConfigPortal::handleStatus() {
     json += (int)_settings.barSeconds;
     json += ",\"binSeconds\":";
     json += (int)_settings.binSeconds;
+    json += ",\"rndInterval\":";
+    json += (int)_settings.rndInterval;
     json += ",\"hotspotActive\":";
     json += hotspotActive ? "true" : "false";
     json += ",\"hotspotRemaining\":";

@@ -25,6 +25,7 @@ const char* SettingsStore::KEY_SEPARATOR_DRIFT = "sep_drift";
 const char* SettingsStore::KEY_DIAL_MARKS = "dial_marks";
 const char* SettingsStore::KEY_BAR_SECONDS = "bar_secs";
 const char* SettingsStore::KEY_BIN_SECONDS = "bin_secs";
+const char* SettingsStore::KEY_RND_INTERVAL = "rnd_intvl";
 const char* SettingsStore::KEY_MANUAL_TIME_ENABLED = "manual_enabled";
 const char* SettingsStore::KEY_MANUAL_EPOCH = "manual_epoch";
 const char* SettingsStore::MENU_PREFS_NAMESPACE = "menu";
@@ -67,6 +68,7 @@ AppSettings SettingsStore::load() {
     settings.dialMarks = clampDialMarksMode(prefs.getUChar(KEY_DIAL_MARKS, (uint8_t)DialMarksMode::On));
     settings.barSeconds = clampBarSecondsMode(prefs.getUChar(KEY_BAR_SECONDS, (uint8_t)BarSecondsMode::Off));
     settings.binSeconds = clampBinSecondsMode(prefs.getUChar(KEY_BIN_SECONDS, (uint8_t)BinSecondsMode::On));
+    settings.rndInterval = clampRndIntervalMode(prefs.getUChar(KEY_RND_INTERVAL, (uint8_t)RndIntervalMode::Min15));
     settings.manualTime.enabled = prefs.getBool(KEY_MANUAL_TIME_ENABLED, false);
     settings.manualTime.epoch = prefs.getULong(KEY_MANUAL_EPOCH, 0);
     if (settings.network.ssid.length() == 0) {
@@ -103,6 +105,7 @@ bool SettingsStore::save(const AppSettings& settings) {
     prefs.putUChar(KEY_DIAL_MARKS, (uint8_t)settings.dialMarks);
     prefs.putUChar(KEY_BAR_SECONDS, (uint8_t)settings.barSeconds);
     prefs.putUChar(KEY_BIN_SECONDS, (uint8_t)settings.binSeconds);
+    prefs.putUChar(KEY_RND_INTERVAL, (uint8_t)settings.rndInterval);
     prefs.putBool(KEY_MANUAL_TIME_ENABLED, settings.manualTime.enabled);
     prefs.putULong(KEY_MANUAL_EPOCH, settings.manualTime.epoch);
 
@@ -330,6 +333,14 @@ bool SettingsStore::saveBinSeconds(BinSecondsMode mode) {
     Preferences prefs;
     if (!prefs.begin(PREFS_NAMESPACE, false)) return false;
     prefs.putUChar(KEY_BIN_SECONDS, (uint8_t)clampBinSecondsMode((int)mode));
+    prefs.end();
+    return true;
+}
+
+bool SettingsStore::saveRndInterval(RndIntervalMode mode) {
+    Preferences prefs;
+    if (!prefs.begin(PREFS_NAMESPACE, false)) return false;
+    prefs.putUChar(KEY_RND_INTERVAL, (uint8_t)clampRndIntervalMode((int)mode));
     prefs.end();
     return true;
 }

@@ -91,6 +91,7 @@ static int16_t readField(const StyleConfig& cfg, StyleField field) {
         case StyleField::DialMarks:      return (int16_t)cfg.dialMarks;
         case StyleField::BarSeconds:     return (int16_t)cfg.barSeconds;
         case StyleField::BinSeconds:     return (int16_t)cfg.binSeconds;
+        case StyleField::RndInterval:    return (int16_t)cfg.rndInterval;
         default:                         return 0;
     }
 }
@@ -103,6 +104,7 @@ static void writeField(StyleConfig& cfg, StyleField field, int16_t v) {
         case StyleField::DialMarks:      cfg.dialMarks = clampDialMarksMode((int)v); break;
         case StyleField::BarSeconds:     cfg.barSeconds = clampBarSecondsMode((int)v); break;
         case StyleField::BinSeconds:     cfg.binSeconds = clampBinSecondsMode((int)v); break;
+        case StyleField::RndInterval:    cfg.rndInterval = clampRndIntervalMode((int)v); break;
         default:                         break;
     }
 }
@@ -115,6 +117,7 @@ static void commitField(AppSettings& s, StyleField field, DisplayMode mode, int1
         case StyleField::DialMarks:      s.dialMarks = clampDialMarksMode((int)v); break;
         case StyleField::BarSeconds:     s.barSeconds = clampBarSecondsMode((int)v); break;
         case StyleField::BinSeconds:     s.binSeconds = clampBinSecondsMode((int)v); break;
+        case StyleField::RndInterval:    s.rndInterval = clampRndIntervalMode((int)v); break;
         default:                         break;
     }
 }
@@ -127,6 +130,7 @@ static void saveField(SettingsStore& store, StyleField field, DisplayMode mode, 
         case StyleField::DialMarks:      store.saveDialMarksMode(clampDialMarksMode((int)v)); break;
         case StyleField::BarSeconds:     store.saveBarSeconds(clampBarSecondsMode((int)v)); break;
         case StyleField::BinSeconds:     store.saveBinSeconds(clampBinSecondsMode((int)v)); break;
+        case StyleField::RndInterval:    store.saveRndInterval(clampRndIntervalMode((int)v)); break;
         default:                         break;
     }
 }
@@ -236,6 +240,15 @@ static const char* binSecondsValueName(int16_t value) {
     return "?";
 }
 
+static const char* rndIntervalValueName(int16_t value) {
+    static const char* const NAMES[] = {
+        "1", "5", "10", "15", "30", "60", "90", "2H",
+        "4H", "6H", "12H", "24H"
+    };
+    if (value >= 0 && value < (int16_t)RND_INTERVAL_COUNT) return NAMES[value];
+    return "?";
+}
+
 const char* dateStyleValueName(int16_t value) {
     static const char* const NAMES[] = {
         "DATE", "YEAR", "MOON", "ZOD", "CZOD", nullptr
@@ -333,6 +346,7 @@ static const char* fieldValueName(StyleField field, int16_t value, bool drift) {
         case StyleField::DialMarks:      return dialMarksValueName(value);
         case StyleField::BarSeconds:     return barSecondsValueName(value);
         case StyleField::BinSeconds:     return binSecondsValueName(value);
+        case StyleField::RndInterval:    return rndIntervalValueName(value);
         default:                         return "?";
     }
 }
@@ -397,6 +411,7 @@ static void previewDisplayModeMenu(void* ctx, int16_t v) {
         g_stylePending.dialMarks = b->appSettings.dialMarks;
         g_stylePending.barSeconds = b->appSettings.barSeconds;
         g_stylePending.binSeconds = b->appSettings.binSeconds;
+        g_stylePending.rndInterval = b->appSettings.rndInterval;
     }
     if (g_styleStep == 0) {
         g_stylePreviewMode = clampDisplayMode((int)v);
@@ -485,6 +500,7 @@ static void cancelDisplayModeMenu(void* ctx) {
     g_stylePending.dialMarks = b->appSettings.dialMarks;
     g_stylePending.barSeconds = b->appSettings.barSeconds;
     g_stylePending.binSeconds = b->appSettings.binSeconds;
+    g_stylePending.rndInterval = b->appSettings.rndInterval;
     g_styleStep = 0;
     g_styleEditing = false;
     resetStyleMenuRange();

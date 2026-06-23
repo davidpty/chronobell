@@ -23,6 +23,7 @@ public:
     bool saveDialMarksMode(DialMarksMode mode);
     bool saveBarSeconds(BarSecondsMode mode);
     bool saveBinSeconds(BinSecondsMode mode);
+    bool saveRndInterval(RndIntervalMode mode);
     int8_t loadBrightness(int8_t defaultBrightness);
     bool saveBrightness(int8_t brightness);
     uint8_t loadMenuIndex(uint8_t itemCount, uint8_t defaultIndex = 0);
@@ -81,6 +82,7 @@ private:
     static const char* KEY_DIAL_MARKS;
     static const char* KEY_BAR_SECONDS;
     static const char* KEY_BIN_SECONDS;
+    static const char* KEY_RND_INTERVAL;
     static const char* KEY_MANUAL_TIME_ENABLED;
     static const char* KEY_MANUAL_EPOCH;
     static const char* MENU_PREFS_NAMESPACE;

@@ -77,6 +77,21 @@ enum class BinSecondsMode : uint8_t {
     On = 1
 };
 
+enum class RndIntervalMode : uint8_t {
+    Min1 = 0,
+    Min5 = 1,
+    Min10 = 2,
+    Min15 = 3,
+    Min30 = 4,
+    Min60 = 5,
+    Min90 = 6,
+    Min120 = 7,
+    H4 = 8,
+    H6 = 9,
+    H12 = 10,
+    H24 = 11
+};
+
 #if DIGIT_TRANSITIONS || SCREEN_TRANSITION
 enum class TransitionMode : uint8_t {
     Off = 0,
@@ -113,6 +128,7 @@ struct AppSettings {
     DialMarksMode dialMarks = DialMarksMode::On;
     BarSecondsMode barSeconds = BarSecondsMode::Off;
     BinSecondsMode binSeconds = BinSecondsMode::On;
+    RndIntervalMode rndInterval = RndIntervalMode::Min15;
 #if DIGIT_TRANSITIONS || SCREEN_TRANSITION
     TransitionMode transitionMode = TransitionMode::Morph;
 #endif
@@ -139,6 +155,23 @@ inline BarSecondsMode clampBarSecondsMode(int mode) {
 
 inline BinSecondsMode clampBinSecondsMode(int mode) {
     return mode <= (int)BinSecondsMode::Off ? BinSecondsMode::Off : BinSecondsMode::On;
+}
+
+static const uint16_t RND_INTERVAL_VALUES[] = {
+    1, 5, 10, 15, 30, 60, 90, 120, 240, 360, 720, 1440
+};
+enum { RND_INTERVAL_COUNT = 12 };
+
+inline uint16_t rndIntervalMinutes(RndIntervalMode mode) {
+    uint8_t idx = (uint8_t)mode;
+    if (idx >= RND_INTERVAL_COUNT) idx = 3;
+    return RND_INTERVAL_VALUES[idx];
+}
+
+inline RndIntervalMode clampRndIntervalMode(int mode) {
+    if (mode < 0) return RndIntervalMode::Min1;
+    if (mode >= RND_INTERVAL_COUNT) return RndIntervalMode::H24;
+    return static_cast<RndIntervalMode>(mode);
 }
 
 inline SeparatorMode separatorModeFor(const AppSettings& settings, DisplayMode mode) {
@@ -326,7 +359,8 @@ enum class StyleField : uint8_t {
     DriftSeparator,
     DialMarks,
     BarSeconds,
-    BinSeconds
+    BinSeconds,
+    RndInterval
 };
 
 struct StyleStepConfig {
@@ -348,11 +382,12 @@ struct StyleConfig {
     DialMarksMode dialMarks = DialMarksMode::On;
     BarSecondsMode barSeconds = BarSecondsMode::Off;
     BinSecondsMode binSeconds = BinSecondsMode::On;
+    RndIntervalMode rndInterval = RndIntervalMode::Min15;
 };
 
 inline const StyleTrait& styleTraitFor(DisplayMode mode) {
     static const StyleTrait TRAITS[] = {
-        /* Rnd            */ { {nullptr,         0, 0, StyleField::None}, {nullptr, 0, 0, StyleField::None} },
+        /* Rnd            */ { {"CYCLE",         0, 11, StyleField::RndInterval}, {nullptr, 0, 0, StyleField::None} },
         /* LargeDigitsOnly */ { {"COLON",         0, 1, StyleField::Separator}, {nullptr, 0, 0, StyleField::None} },
         /* Info           */ { {"DATA",          0, 4, StyleField::InfoLine}, {"COLON", 0, 1, StyleField::Separator} },
         /* Word           */ { {nullptr,         0, 0, StyleField::None}, {nullptr, 0, 0, StyleField::None} },

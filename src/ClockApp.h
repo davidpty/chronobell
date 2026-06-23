@@ -162,6 +162,10 @@ private:
     OverrideState    _overrideState;
     RandomModeState  _randomState;
 
+    unsigned long _styleNamePreviewEndMs = 0;
+    DisplayMode  _stylePreviewPrevMode   = (DisplayMode)0xFF;
+    DisplayMode  _stylePreviewLabel      = DisplayMode::LargeDigitsOnly;
+
     BellMode    _bellMode          = BellMode::Off;
     TimeFormat  _timeFormat        = TimeFormat::Hours24;
     NightMode   _nightMode         = NightMode::Off;
