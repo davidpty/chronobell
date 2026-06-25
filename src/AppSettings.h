@@ -364,7 +364,7 @@ enum class StyleField : uint8_t {
 };
 
 struct StyleStepConfig {
-    const char* label;   // menu label ("DATA", "MARKS", "COLON"); null means no step
+    const char* label;   // menu label ("INFO", "MARKS", "COLON"); null means no step
     int8_t min;
     int8_t max;
     StyleField field;
@@ -389,7 +389,7 @@ inline const StyleTrait& styleTraitFor(DisplayMode mode) {
     static const StyleTrait TRAITS[] = {
         /* Rnd            */ { {"CYCLE",         0, 11, StyleField::RndInterval}, {nullptr, 0, 0, StyleField::None} },
         /* LargeDigitsOnly */ { {"COLON",         0, 1, StyleField::Separator}, {nullptr, 0, 0, StyleField::None} },
-        /* Info           */ { {"DATA",          0, 4, StyleField::InfoLine}, {"COLON", 0, 1, StyleField::Separator} },
+        /* Info           */ { {"INFO",          0, 4, StyleField::InfoLine}, {"COLON", 0, 1, StyleField::Separator} },
         /* Word           */ { {nullptr,         0, 0, StyleField::None}, {nullptr, 0, 0, StyleField::None} },
         /* Roma           */ { {nullptr,         0, 0, StyleField::None}, {nullptr, 0, 0, StyleField::None} },
         /* Dial           */ { {"MARKS",         0, 1, StyleField::DialMarks}, {nullptr, 0, 0, StyleField::None} },

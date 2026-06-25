@@ -10,7 +10,7 @@ static int8_t retuneSlatOffset(uint8_t slat) {
 }
 
 void ScreenTransition::clearFrame(uint32_t frame[TOTAL_ROWS]) {
-    memset(frame, 0, sizeof(uint32_t) * 16);
+    memset(frame, 0, sizeof(uint32_t) * TOTAL_ROWS);
 }
 
 void ScreenTransition::copyFrame(uint32_t destination[TOTAL_ROWS], const uint32_t source[TOTAL_ROWS]) {

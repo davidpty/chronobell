@@ -311,7 +311,7 @@ void ConfigPortal::handleRoot() {
                 <select id="style" onchange="onStyleChange(this.value)">
                     <option value="0" selected>RND - Daily random style</option>
                     <option value="1">BIG - Large HH:MM, no seconds</option>
-                    <option value="2">DATA - Seconds, date, wday, or alternate</option>
+                    <option value="2">INFO - Seconds, date, wday, or alternate</option>
                     <option value="3">WORD - Mixed-size word clock display</option>
                     <option value="4">ROMA - Roman numeral clock</option>
                     <option value="5">DIAL - Minimal analog dial</option>
@@ -323,7 +323,7 @@ void ConfigPortal::handleRoot() {
             </div>
 
             <div class="setting-row hidden" id="infoLineRow">
-                <div class="setting-label">DATA</div>
+                <div class="setting-label">INFO</div>
                 <select id="infoLine" onchange="applyInfoLine(this.value)"></select>
             </div>
 
@@ -1513,8 +1513,13 @@ void ConfigPortal::handleApply() {
         return;
     }
 
-    _settingsStore.save(settings);
-    _settings = settings;
+    bool saved = _settingsStore.save(settings);
+    if (saved) {
+        _settings = settings;
+        if (field == "style") {
+            _settingsStore.clearTemporaryStyle();
+        }
+    }
 
     if (_saveCb) {
         (void)_saveCb(_saveContext, false, tzChanged, manualTimeChanged, "", "");

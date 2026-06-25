@@ -93,6 +93,9 @@ public:
     void renderBuffer();
     void applyBurstBoost(int8_t boost);
     void requestScreenTransition();
+#if DIGIT_TRANSITIONS || SCREEN_TRANSITION
+    bool animationsEnabled() const;
+#endif
     String snapshotSvg() const;
 
     // Tabular digit helpers for live time/timer displays. These keep every

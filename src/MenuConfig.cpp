@@ -186,7 +186,7 @@ const char* bellValueName(int16_t value) {
 
 const char* styleValueName(int16_t value) {
     static const char* const NAMES[] = {
-        "RND", "BIG", "DATA", "WORD", "ROMA", "DIAL", "BAR", "BIN", "PONG", "DRIFT", nullptr
+        "RND", "BIG", "INFO", "WORD", "ROMA", "DIAL", "BAR", "BIN", "PONG", "DRIFT", nullptr
     };
     for (uint8_t i = 0; NAMES[i]; i++) {
         if ((int16_t)i == value) return NAMES[i];
@@ -429,7 +429,9 @@ static void commitDisplayModeMenu(void* ctx, int16_t v) {
         g_stylePreviewMode = mode;
         b->appSettings.displayMode = mode;
         b->displayMode = mode;
-        b->settingsStore.saveDisplayMode(mode);
+        if (b->settingsStore.saveDisplayMode(mode)) {
+            b->settingsStore.clearTemporaryStyle();
+        }
         return;
     }
     const StyleTrait& t = styleTraitFor(g_stylePreviewMode);

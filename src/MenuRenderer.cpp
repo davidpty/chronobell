@@ -100,7 +100,7 @@ void MenuRenderer::drawMenuName(const MenuItem& it, int y) {
         } else if (styleMenuPreviewMode() == DisplayMode::Rnd) {
             label = "CYCLE";
         } else {
-            label = styleMenuInfoPreviewActive() ? "DATA" : "COLON";
+            label = styleMenuInfoPreviewActive() ? "INFO" : "COLON";
         }
     }
     int w = _display->menuTextWidth(label, FONT_SMALL_COLS, 1);

@@ -99,6 +99,8 @@ private:
     InfoLineMode* _infoLineMode = nullptr;
     unsigned long _infoAltStartMs = 0;
     bool _infoAltStartValid = false;
+    InfoLineMode _infoAltLastMode = InfoLineMode::Date;
+    bool _infoAltLastModeValid = false;
     bool _driftStyleActive = false;
     BarSecondsMode _barSeconds = BarSecondsMode::Off;
     BinSecondsMode _binSeconds = BinSecondsMode::On;

@@ -84,6 +84,12 @@ void Display::requestScreenTransition() {
 #endif
 }
 
+#if DIGIT_TRANSITIONS || SCREEN_TRANSITION
+bool Display::animationsEnabled() const {
+    return _appSettings && _appSettings->transitionMode == TransitionMode::Morph;
+}
+#endif
+
 void Display::applyBurstBoost(int8_t boost) {
     int8_t base = _brightness;
     if (boost > 0 && base == 0) base = 1;

@@ -655,18 +655,27 @@ void ClockRenderer::drawInfoTime(ClockTime time) {
         if (interval < 1) interval = 1;
         if (interval > 3600) interval = 3600;
         unsigned long nowMs = millis();
+        InfoLineMode resolvedMode;
         if (!_infoAltStartValid) {
             _infoAltStartMs = nowMs;
             _infoAltStartValid = true;
-            mode = InfoLineMode::Date;
+            resolvedMode = InfoLineMode::Date;
         } else {
             unsigned long elapsedSeconds = (nowMs - _infoAltStartMs) / 1000UL;
-            mode = (((elapsedSeconds / (unsigned long)interval) & 1UL) == 0UL)
+            resolvedMode = (((elapsedSeconds / (unsigned long)interval) & 1UL) == 0UL)
                 ? InfoLineMode::Date
                 : InfoLineMode::Weekday;
         }
+        if (!_infoAltLastModeValid) {
+            _infoAltLastMode = resolvedMode;
+            _infoAltLastModeValid = true;
+        } else if (_infoAltLastMode != resolvedMode) {
+            _infoAltLastMode = resolvedMode;
+        }
+        mode = resolvedMode;
     } else {
         _infoAltStartValid = false;
+        _infoAltLastModeValid = false;
     }
 
     int hours = effectiveHours(time.hours);
