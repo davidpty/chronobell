@@ -92,7 +92,7 @@
 // DATA style tuning
 // ---------------------------------------------------------------------------
 
-#define INFO_ALT_INTERVAL_SECONDS                   10                                  // ALT switches between DATE and WDAY every N seconds after entering ALT (valid 1-3600)
+#define INFO_ALT_INTERVAL_SECONDS                   20                                  // ALT switches between DATE and WDAY every N seconds after entering ALT (valid 1-3600)
 
 // ---------------------------------------------------------------------------
 // BAR clock tuning
