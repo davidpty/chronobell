@@ -180,7 +180,7 @@
 
 #define DISPLAY_FLIP                                0                                   // 1 = rotate buffer 180° for upside-down mount
 
-#define DISPLAY_TEST                                3                                   // Seconds to show boot test pattern (0 = skip)
+#define DISPLAY_TEST                                0                                   // Seconds to show boot test pattern (0 = skip)
 #define DISPLAY_TEST_BLINK_MS                       10                                  // Inverted text blink interval during test (0 = steady)
 
 // ---------------------------------------------------------------------------
