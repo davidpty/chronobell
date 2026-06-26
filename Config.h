@@ -35,6 +35,9 @@
 #define SCREEN_TRANSITION                           1                                   // 0=remove engine, 1=include screen retune engine
 #define SCREEN_TRANSITION_MS                        450                                 // whole-screen transition duration
 
+#define REGION_TRANSITION                           1                                   // 0=remove engine, 1=include region centered-wipe engine
+#define REGION_TRANSITION_MS                        450                                 // region transition duration in ms
+
 #define FEATURE_NEW_YEAR                            1                                   // NYE countdown/sparkles/celebration from 21:00 to 00:02
 
 // ---------------------------------------------------------------------------
@@ -176,7 +179,9 @@
 // ---------------------------------------------------------------------------
 
 #define DISPLAY_FLIP                                0                                   // 1 = rotate buffer 180° for upside-down mount
-#define DISPLAY_TEST                                0                                   // Seconds to light all LEDs at boot (0 = skip)
+
+#define DISPLAY_TEST                                3                                   // Seconds to show boot test pattern (0 = skip)
+#define DISPLAY_TEST_BLINK_MS                       10                                  // Inverted text blink interval during test (0 = steady)
 
 // ---------------------------------------------------------------------------
 // Touch sensor tuning (CAP1188)

@@ -183,6 +183,15 @@ void Display::showTime() {
 #if DIGIT_TRANSITIONS
     digit_transition::set_transition_mode(_appSettings ? _appSettings->transitionMode : TransitionMode::Morph);
 #endif
+#if REGION_TRANSITION
+    {
+        bool animOn = true;
+#if DIGIT_TRANSITIONS || SCREEN_TRANSITION
+        if (_appSettings) animOn = (_appSettings->transitionMode == TransitionMode::Morph);
+#endif
+        _clockRenderer->setAnimationsEnabled(animOn);
+    }
+#endif
 
     bool wasInGuestWifi = _wasGuestWifiView;
     _wasGuestWifiView = false;
@@ -303,6 +312,15 @@ void Display::drawStylePreview(DisplayMode mode) {
 #if DIGIT_TRANSITIONS
     digit_transition::set_transition_mode(_appSettings ? _appSettings->transitionMode : TransitionMode::Morph);
 #endif
+#if REGION_TRANSITION
+    {
+        bool animOn = true;
+#if DIGIT_TRANSITIONS || SCREEN_TRANSITION
+        if (_appSettings) animOn = (_appSettings->transitionMode == TransitionMode::Morph);
+#endif
+        _clockRenderer->setAnimationsEnabled(animOn);
+    }
+#endif
     SeparatorMode separatorMode;
     SeparatorMode driftSeparatorMode;
     DialMarksMode dialMarksMode;
@@ -353,14 +371,52 @@ void Display::drawStylePreview(DisplayMode mode) {
 }
 
 void Display::runTest(uint8_t seconds) {
-    LOGF("Display test %ds\n", (int)seconds);
-    for (int col = 0; col < MAX7219_NUM_MODULES * 8; col++) {
-        _leds.setColumn(col, 0xFF);
+    LOGF("Display test %ds blink %dms\n", (int)seconds, DISPLAY_TEST_BLINK_MS);
+
+    bool wasSuppressed = !_enabled;
+    if (wasSuppressed) {
+        _leds.control(MD_MAX72XX::SHUTDOWN, MD_MAX72XX::OFF);
+        _leds.control(MD_MAX72XX::INTENSITY, 0);
     }
-    _leds.update();
-    delay(seconds * 1000);
-    _leds.clear();
-    _leds.update();
+
+    int chronoW = textWidth("CHRONO", true, 1, 2);
+    int bellW   = textWidth("BELL",   true, 1, 2);
+    int chronoX = (COLS_PER_ROW - chronoW) / 2;
+    int bellX   = (COLS_PER_ROW - bellW) / 2;
+    int chronoY = 2;
+    int bellY   = chronoY + SEC_FONT_HEIGHT + 1;
+
+    unsigned long startMs = millis();
+    unsigned long lastBlinkMs = startMs;
+    bool textVisible = true;
+
+    while (true) {
+        unsigned long nowMs = millis();
+        if (nowMs - startMs >= (unsigned long)seconds * 1000UL) break;
+
+#if DISPLAY_TEST_BLINK_MS > 0
+        if (nowMs - lastBlinkMs >= (unsigned long)DISPLAY_TEST_BLINK_MS) {
+            textVisible = !textVisible;
+            lastBlinkMs = nowMs;
+        }
+#endif
+
+        memset(pixelBuffer, 1, sizeof(pixelBuffer));
+
+        if (textVisible) {
+            drawInvertedSmallText("CHRONO", chronoX, chronoY);
+            drawInvertedSmallText("BELL", bellX, bellY);
+        }
+
+        flushBufferToLeds();
+        delay(1);
+    }
+
+    memset(pixelBuffer, 0, sizeof(pixelBuffer));
+    if (wasSuppressed) {
+        _brightness = 0;
+    }
+    flushBufferToLeds();
 }
 
 // =============================================================================
@@ -757,6 +813,35 @@ void Display::drawSmallChar(char c, int x, int y) {
 
 void Display::drawSmallText(const char* s, int x, int y) {
     drawText(s, x, y, true, 1, 2);
+}
+
+void Display::drawInvertedSmallText(const char* s, int x, int y) {
+    bool inWord = false;
+    while (*s) {
+        if (*s == ' ') {
+            if (inWord) {
+                x += 2;
+                inWord = false;
+            }
+        } else {
+            if (inWord) {
+                x += 1;
+            }
+            uint8_t i = charToGlyphIndex(*s);
+            int left, right;
+            glyphBounds(*s, true, left, right);
+            for (int r = 0; r < SEC_FONT_HEIGHT; r++) {
+                for (int col = left; col <= right; col++) {
+                    if (FONT_SMALL[i][r][col]) {
+                        setPixel(x + col - left, y + r, false);
+                    }
+                }
+            }
+            x += (right - left + 1);
+            inWord = true;
+        }
+        s++;
+    }
 }
 
 void Display::drawBigText(const char* s, int x, int y) {

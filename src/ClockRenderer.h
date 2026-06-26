@@ -5,6 +5,7 @@
 
 #include "AppSettings.h"
 #include "DigitTransition.h"
+#include "RegionTransition.h"
 #include "RtcClock.h"
 
 class Display;
@@ -43,6 +44,8 @@ public:
     // Edit-mode preview phase (see MenuRenderer).
     void drawPreview(DisplayMode mode, ClockTime time, bool dialMarksVisible = true);
     void setDriftStyleActive(bool active);
+
+    void setAnimationsEnabled(bool enabled) { _animationsEnabled = enabled; }
 
     // Used by Display to fetch the live deciseconds digit (0-9) for the decisecond display.
     uint8_t currentClockDeciseconds() const;
@@ -97,8 +100,6 @@ private:
     TimeProvider* _timeProvider = nullptr;
     TimeFormat* _timeFormat = nullptr;
     InfoLineMode* _infoLineMode = nullptr;
-    unsigned long _infoAltStartMs = 0;
-    bool _infoAltStartValid = false;
     InfoLineMode _infoAltLastMode = InfoLineMode::Date;
     bool _infoAltLastModeValid = false;
     bool _driftStyleActive = false;
@@ -106,6 +107,13 @@ private:
     BinSecondsMode _binSeconds = BinSecondsMode::On;
     SeparatorMode _separatorMode = SeparatorMode::Steady;
     SeparatorMode _driftSeparatorMode = SeparatorMode::Steady;
+    bool _animationsEnabled = true;
+#if REGION_TRANSITION
+    RegionTransition _regionTransition;
+    uint32_t _savedInfoRows[5] = {};
+    int _lastInfoTextWidth = 0;
+    bool _hasSavedInfoRow = false;
+#endif
 #if DIGIT_TRANSITIONS
     digit_transition::DigitCellState _bigDigitStates[4];
     digit_transition::DigitCellState _mediumDigitStates[4];

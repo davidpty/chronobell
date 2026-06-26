@@ -649,34 +649,63 @@ void ClockRenderer::drawBigTime(int hours, int minutes, int seconds) {
 }
 
 void ClockRenderer::drawInfoTime(ClockTime time) {
+    unsigned long nowMs = millis();
     InfoLineMode mode = _infoLineMode ? *_infoLineMode : InfoLineMode::Seconds;
+    bool modeJustChanged = false;
+
     if (mode == InfoLineMode::Alt) {
         int interval = INFO_ALT_INTERVAL_SECONDS;
         if (interval < 1) interval = 1;
         if (interval > 3600) interval = 3600;
-        unsigned long nowMs = millis();
-        InfoLineMode resolvedMode;
-        if (!_infoAltStartValid) {
-            _infoAltStartMs = nowMs;
-            _infoAltStartValid = true;
-            resolvedMode = InfoLineMode::Date;
-        } else {
-            unsigned long elapsedSeconds = (nowMs - _infoAltStartMs) / 1000UL;
-            resolvedMode = (((elapsedSeconds / (unsigned long)interval) & 1UL) == 0UL)
-                ? InfoLineMode::Date
-                : InfoLineMode::Weekday;
-        }
+
+        unsigned long secs = (unsigned long)time.hours * 3600UL
+                           + (unsigned long)time.minutes * 60UL
+                           + (unsigned long)time.seconds;
+        InfoLineMode resolvedMode = ((secs / (unsigned long)interval) & 1UL)
+            ? InfoLineMode::Weekday
+            : InfoLineMode::Date;
+
         if (!_infoAltLastModeValid) {
             _infoAltLastMode = resolvedMode;
             _infoAltLastModeValid = true;
         } else if (_infoAltLastMode != resolvedMode) {
             _infoAltLastMode = resolvedMode;
+            modeJustChanged = true;
         }
         mode = resolvedMode;
     } else {
-        _infoAltStartValid = false;
         _infoAltLastModeValid = false;
     }
+
+#if REGION_TRANSITION
+    if (_animationsEnabled && modeJustChanged && _hasSavedInfoRow
+        && (mode == InfoLineMode::Date || mode == InfoLineMode::Weekday)) {
+        ClockDate d;
+        int newWidth = 0;
+        if (_timeProvider->currentDate(d)) {
+            if (mode == InfoLineMode::Date) {
+                int m = (d.month < 1 || d.month > 12) ? 1 : d.month;
+                static const char* const MONTHS[] = {"JAN","FEB","MAR","APR","MAY","JUN",
+                                                     "JUL","AUG","SEP","OCT","NOV","DEC"};
+                char line[16];
+                snprintf(line, sizeof(line), "%s %d", MONTHS[m - 1], d.date);
+                newWidth = Display::textWidth(line, true, 1, 2);
+            } else {
+                int day = (d.day < 1 || d.day > 7) ? 1 : d.day;
+                static const char* const WEEKDAYS[] = {"SUN","MON","TUE","WED","THU","FRI","SAT"};
+                newWidth = Display::textWidth(WEEKDAYS[day - 1], true, 1, 2);
+            }
+        } else {
+            newWidth = Display::textWidth(mode == InfoLineMode::Date ? "NO DATE" : "---", true, 1, 2);
+        }
+        _regionTransition.start(nowMs, 0, 11, COLS_PER_ROW, SEC_FONT_HEIGHT,
+                                _savedInfoRows, newWidth > _lastInfoTextWidth);
+        _lastInfoTextWidth = newWidth;
+    }
+    if (!_animationsEnabled) {
+        _regionTransition.reset();
+    }
+#endif
 
     int hours = effectiveHours(time.hours);
     switch (mode) {
@@ -696,6 +725,23 @@ void ClockRenderer::drawInfoTime(ClockTime time) {
             drawSeconds(time.seconds);
             break;
     }
+
+#if REGION_TRANSITION
+    if (_regionTransition.isActive()) {
+        _regionTransition.render(nowMs, *_display);
+    }
+    for (int row = 0; row < SEC_FONT_HEIGHT; row++) {
+        uint32_t bits = 0;
+        int absY = 11 + row;
+        for (int col = 0; col < COLS_PER_ROW; col++) {
+            if (_display->getPixel(col, absY)) {
+                bits |= (1UL << col);
+            }
+        }
+        _savedInfoRows[row] = bits;
+    }
+    _hasSavedInfoRow = true;
+#endif
 }
 
 void ClockRenderer::drawDriftSeparator(int x, int y, int offsetMinutes, bool freshChange, bool separatorVisible, int driftDirection) {

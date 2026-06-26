@@ -134,6 +134,7 @@ private:
     void flushBufferToLeds();
     void flushBar(int bufferRow, bool flipX, bool flipY, int colOffset);
     void drawMediumChar(char c, int x, int y);
+    void drawInvertedSmallText(const char* s, int x, int y);
 
 
     // --- Owned child renderers (constructed in ctor) ---
