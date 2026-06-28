@@ -93,11 +93,11 @@ Default firmware config in `Config.h`:
 #define CHRONOMSG_MAX_MESSAGES 5
 ```
 
-The display stays in the current clock mode. If an unread active message exists, the bottom-left pixel blinks in bursts. The center pad shows the selected unread message immediately; a long-press on center permanently dismisses it. Dismissed IDs are sent to the router message endpoint (`?msg&dismiss=<id>`) and kept in RAM to filter re-display until the next poll.
+The display stays in the current clock mode. If an unread active message exists, the bottom-left pixel blinks in bursts. A short press on center shows the selected unread message immediately; a long-press on center dismisses it and advances to the next unread message if one exists. Dismissed IDs are sent to the router message endpoint (`?msg&dismiss=<id>`) and kept in RAM to filter re-display until the next poll.
 
 Message text is normalized before display: whitespace is trimmed/collapsed, letters are uppercased, common accents are folded to ASCII, unsupported characters become spaces, and only the existing small proportional font is used. Each line renders independently — if it fits, it's centered; if it overflows, it scrolls seamlessly with a 4-pixel gap between repeats (3 overlapping copies, no blank frames). There is no `mode` field; the firmware decides per line.
 
-Expected endpoint response:
+Expected `?msg` response:
 
 ```json
 {
@@ -121,7 +121,16 @@ Expected endpoint response:
         "dismissible": true
       }
     }
-  ],
+  ]
+}
+```
+
+Expected `?wifi` response:
+
+```json
+{
+  "device": "chronobell",
+  "now": 1782580100,
   "guestwifi": {
     "ssid": "NEXO-GUEST",
     "password": "XKQPVJTHZNLD"
@@ -355,7 +364,7 @@ Open `Config.h` to adjust these:
 | `DISPLAY_FLIP` | `0` | Set to `1` if your display is mounted upside-down |
 | `CAP1188_TOUCH_THRESHOLD` | `0x35` | Touch sensitivity - lower numbers trip more easily |
 | `NIGHT_DIM_START_HOUR` | `19` (7 PM) | When night dimming starts |
-| `GUEST_WIFI_ENABLED` | `0` | Set to `1` to compile guest WiFi in |
+| `GUEST_WIFI_ENABLED` | `1` | Set to `0` to compile guest WiFi out |
 | `CHRONOMSG_URL` | `http://192.168.8.1/cgi-bin/chronomsg` | Base CGI endpoint; append `?msg` or `?wifi` |
 | `CHRONOMSG_POLL_INTERVAL_SEC` | `60` | Message poll interval in seconds |
 | `CHRONOMSG_SCROLL_STEP_MS` | `140` | Scroll animation step interval |
