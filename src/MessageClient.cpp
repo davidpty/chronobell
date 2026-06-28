@@ -1,5 +1,7 @@
 #include "MessageClient.h"
 
+#if CHRONOMSG_ENABLED
+
 #include <WiFi.h>
 #include <WiFiClient.h>
 #include <ctype.h>
@@ -515,12 +517,28 @@ bool MessageClient::dismissCurrentOrHide() {
         xSemaphoreGive(_mutex);
         return false;
     }
-    MessageSlot& slot = _slots[_previewSlot];
+    int start = _previewSlot;
+    MessageSlot& slot = _slots[start];
     if (slot.msg.dismissible) {
         String dismissedId = slot.msg.id;
         rememberDismissedLocked(dismissedId);
         queueDismissalLocked(dismissedId);
         slot = MessageSlot();
+
+        int next = -1;
+        for (int i = 1; i < CHRONOMSG_MAX_MESSAGES; ++i) {
+            int idx = (start + i) % CHRONOMSG_MAX_MESSAGES;
+            if (_slots[idx].msg.valid && _slots[idx].unread) {
+                next = idx;
+                break;
+            }
+        }
+        if (next >= 0) {
+            _manualPreview = true;
+            startPreviewLocked(next, millis());
+            xSemaphoreGive(_mutex);
+            return true;
+        }
     }
     hidePreviewLocked();
     xSemaphoreGive(_mutex);
@@ -538,7 +556,7 @@ void MessageClient::queueDismissalLocked(const String& id) {
 
 bool MessageClient::sendDismissal(const String& id) {
     if (id.length() == 0 || WiFi.status() != WL_CONNECTED) return false;
-    String url = String(CHRONOMSG_URL) + "?dismiss=" + id;
+    String url = String(CHRONOMSG_URL) + "?msg&dismiss=" + id;
     ParsedHttpUrl parsed;
     if (!parseHttpUrl(url.c_str(), parsed)) return false;
     WiFiClient client;
@@ -756,7 +774,7 @@ void MessageClient::taskLoop() {
             vTaskDelay(pdMS_TO_TICKS(250));
             continue;
         }
-        if (lastPollMs == 0 || (now - lastPollMs) >= CHRONOMSG_POLL_INTERVAL_MS) {
+        if (lastPollMs == 0 || (now - lastPollMs) >= (uint32_t)CHRONOMSG_POLL_INTERVAL_SEC * 1000UL) {
             lastPollMs = now;
             while (_pendingDismissalCount > 0) {
                 sendDismissal(_pendingDismissalIds[0]);
@@ -780,8 +798,9 @@ void MessageClient::taskLoop() {
 bool MessageClient::pollOnce(ChronoMessage* out, uint8_t& count) {
     count = 0;
     if (WiFi.status() != WL_CONNECTED) return false;
+    String url = String(CHRONOMSG_URL) + "?msg";
     ParsedHttpUrl parsed;
-    if (!parseHttpUrl(CHRONOMSG_URL, parsed)) return false;
+    if (!parseHttpUrl(url.c_str(), parsed)) return false;
 
     WiFiClient client;
     client.setTimeout(LOCAL_HTTP_CONNECT_TIMEOUT_MS);
@@ -823,3 +842,5 @@ bool MessageClient::pollOnce(ChronoMessage* out, uint8_t& count) {
     LOGF("ChronoMsg: parsed %u message(s)\n", (unsigned)count);
     return true;
 }
+
+#endif

@@ -5,6 +5,7 @@
 #include <MD_MAX72xx.h>
 #include <time.h>
 
+#include "Config.h"
 #include "AppSettings.h"
 #include "BellController.h"
 #include "DriftTimeModel.h"
@@ -21,8 +22,12 @@
 #include "WiFiManagerLite.h"
 #include "WiFiSync.h"
 #include "Display.h"
+#if GUEST_WIFI_ENABLED
 #include "GuestWifiController.h"
+#endif
+#if CHRONOMSG_ENABLED
 #include "MessageClient.h"
+#endif
 
 // C-ABI function-pointer aliases used by the .ino's trampolines.
 using OnTouchFn       = void (*)(uint8_t pad);
@@ -87,13 +92,19 @@ public:
     void tickRtc();
     void tickTimer();
     void tickBell();
+#if GUEST_WIFI_ENABLED
     void tickGuestWifi();
+#endif
+#if CHRONOMSG_ENABLED
     void tickMessages();
+#endif
     void pollLongPress();
     void tickMenu();
 
+#if GUEST_WIFI_ENABLED
     // Public accessor for guest wifi state (used by timer controller callback)
     bool isGuestWifiAvailable() const { return _guestWifi.isTextAvailable(); }
+#endif
 
     // -- Callback handlers (called from the .ino's trampolines) -------------
     void onTouchLeft(uint8_t pad);
@@ -116,7 +127,9 @@ public:
     bool isBellBusy() const;
     void stopBell();
     void configureTouchRepeat(uint8_t pad, OnTouchFn onRepeat, uint32_t initialDelayMs, uint32_t rateMs);
+#if GUEST_WIFI_ENABLED
     void wireGuestWifiCallback(TimerController::GuestWifiAvailableFn fn);
+#endif
     void onTouchLeftRepeat(uint8_t pad);
     void onTouchRightRepeat(uint8_t pad);
     bool onSettingsSaved(bool wifiChanged, bool tzChanged, bool manualTimeChanged, const String& wifiSsid, const String& wifiPassword);
@@ -138,8 +151,12 @@ private:
     MD_MAX72XX       _leds;
     WiFiManagerLite  _wifiManager;
     WiFiSync         _wifiSync;
+#if GUEST_WIFI_ENABLED
     GuestWifiController _guestWifi;
+#endif
+#if CHRONOMSG_ENABLED
     MessageClient   _messageClient;
+#endif
     DriftTimeModel  _driftTimeModel;
     NewYearController _newYearController;
     Display          _display;

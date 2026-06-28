@@ -1,6 +1,6 @@
 # ChronoBell
 
-ChronoBell is a compact LED clock with a clear display, simple touch controls, a classic bell sound, and handy extras for everyday spaces. It also shows short local messages and guest WiFi details, while Drift slowly moves the displayed time away from real time and back again as a quiet experiment in how time is perceived.
+ChronoBell is a compact LED clock with a bright, easy-to-read display, simple touch controls, a classic bell sound, and a few thoughtful extras for shared spaces. It can show short local messages and guest WiFi details, while Drift adds a calm visual twist by easing the displayed time away from real time and back again.
 
 ![ChronoBell](chronobell.png) ![Config Portal](chronoportal.png)
 
@@ -87,13 +87,13 @@ ChronoBell can poll a LAN HTTP endpoint for generic active messages. This is int
 Default firmware config in `Config.h`:
 
 ```cpp
-#define CHRONOMSG_ENABLED true
+#define CHRONOMSG_ENABLED 1
 #define CHRONOMSG_URL "http://192.168.8.1/cgi-bin/chronomsg"
-#define CHRONOMSG_POLL_INTERVAL_MS 60000
+#define CHRONOMSG_POLL_INTERVAL_SEC 60
 #define CHRONOMSG_MAX_MESSAGES 5
 ```
 
-The display stays in the current clock mode. If an unread active message exists, the bottom-left pixel blinks in bursts. The center pad shows the selected unread message immediately; a long-press on center permanently dismisses it. Dismissed IDs are sent to the router endpoint (`?dismiss=<id>`) and kept in RAM to filter re-display until the next poll.
+The display stays in the current clock mode. If an unread active message exists, the bottom-left pixel blinks in bursts. The center pad shows the selected unread message immediately; a long-press on center permanently dismisses it. Dismissed IDs are sent to the router message endpoint (`?msg&dismiss=<id>`) and kept in RAM to filter re-display until the next poll.
 
 Message text is normalized before display: whitespace is trimmed/collapsed, letters are uppercased, common accents are folded to ASCII, unsupported characters become spaces, and only the existing small proportional font is used. Each line renders independently — if it fits, it's centered; if it overflows, it scrolls seamlessly with a 4-pixel gap between repeats (3 overlapping copies, no blank frames). There is no `mode` field; the firmware decides per line.
 
@@ -121,7 +121,11 @@ Expected endpoint response:
         "dismissible": true
       }
     }
-  ]
+  ],
+  "guestwifi": {
+    "ssid": "NEXO-GUEST",
+    "password": "XKQPVJTHZNLD"
+  }
 }
 ```
 
@@ -156,11 +160,11 @@ Test the endpoint:
 
 ```sh
 /usr/bin/chronomsg add DOMAIN "AVAILABLE"
-/usr/bin/chronomsg serve
-wget -qO- http://192.168.8.1/cgi-bin/chronomsg
+wget -qO- "http://192.168.8.1/cgi-bin/chronomsg?msg"
+wget -qO- "http://192.168.8.1/cgi-bin/chronomsg?wifi"
 ```
 
-`chronomsg` stores state under `$BASE` (default `/etc/chronomsg/`), including message files, the combined JSON payload, domain-check state, a cron lock, and dismissed IDs. State persists across reboots; the tool recreates missing directories on use.
+`chronomsg` stores state under `$BASE` (default `/etc/chronomsg/`), including message files, the cached message payload, domain-check state, guest QR seed/config state, a cron lock, and dismissed IDs. State persists across reboots; the tool recreates missing directories on use.
 
 Useful commands:
 
@@ -189,7 +193,12 @@ Useful commands:
 /usr/bin/chronomsg cron remove check-domain
 ```
 
-The CGI endpoint only serves cached messages. It never runs RDAP, WHOIS, `curl`, or `wget` during ChronoBell polling, so a slow registrar or network error cannot block the display.
+The CGI endpoint is query-driven:
+
+- `?msg` serves the cached message JSON and accepts `dismiss=<id>`
+- `?wifi` serves the guest WiFi JSON
+
+It never runs RDAP, WHOIS, `curl`, or `wget` during ChronoBell polling, so a slow registrar or network error cannot block the display.
 
 Domain checks run from cron or manually:
 
@@ -346,9 +355,9 @@ Open `Config.h` to adjust these:
 | `DISPLAY_FLIP` | `0` | Set to `1` if your display is mounted upside-down |
 | `CAP1188_TOUCH_THRESHOLD` | `0x35` | Touch sensitivity - lower numbers trip more easily |
 | `NIGHT_DIM_START_HOUR` | `19` (7 PM) | When night dimming starts |
-| `GUEST_WIFI_URL` | *(see file)* | Guest WiFi password URL; set to `""` to disable |
-| `CHRONOMSG_URL` | `http://192.168.8.1/cgi-bin/chronomsg` | Message polling endpoint |
-| `CHRONOMSG_POLL_INTERVAL_MS` | `60000` | Message poll interval |
+| `GUEST_WIFI_ENABLED` | `0` | Set to `1` to compile guest WiFi in |
+| `CHRONOMSG_URL` | `http://192.168.8.1/cgi-bin/chronomsg` | Base CGI endpoint; append `?msg` or `?wifi` |
+| `CHRONOMSG_POLL_INTERVAL_SEC` | `60` | Message poll interval in seconds |
 | `CHRONOMSG_SCROLL_STEP_MS` | `140` | Scroll animation step interval |
 | `CHRONOMSG_SCROLL_REPEAT_GAP_PX` | `4` | Pixel gap between scroll repeats |
 | `CHRONOMSG_MIN_SCROLL_CYCLES` | `2` | Minimum full scroll cycles for auto-preview |

@@ -10,9 +10,11 @@
 #include "RtcClock.h"
 #include "PongClock.h"
 #include "fonts.h"
-#include "MessageClient.h"
 #if SCREEN_TRANSITION
 #include "ScreenTransition.h"
+#endif
+#if CHRONOMSG_ENABLED
+#include "MessageClient.h"
 #endif
 
 class ClockRenderer;
@@ -115,12 +117,18 @@ public:
     void drawCenteredBigText(const char* s, int y);
     void drawPongTime(ClockTime time);
 
-    // Guest WiFi alternating SSID / password display
+// Guest WiFi alternating SSID / password display
+#if GUEST_WIFI_ENABLED
     void setGuestWifiController(GuestWifiController* c);
+#endif
     void setNewYearController(NewYearController* c);
+#if GUEST_WIFI_ENABLED
     void drawGuestWifiText(bool showSsid);
+#endif
+#if CHRONOMSG_ENABLED
     void drawChronoMessage(const ChronoMessage& message, unsigned long nowMs, unsigned long previewStartMs);
     void drawUnreadMessageIndicator(int count, int priority, unsigned long nowMs);
+#endif
 
     static int charWidth(char c, bool small);
     static int charWidthBig(char c);
@@ -153,7 +161,9 @@ private:
     TimeProvider& _timeProvider;
     SettingsStore& _settings;
     WiFiManagerLite& _wifiManager;
+#if GUEST_WIFI_ENABLED
     GuestWifiController* _guestWifi = nullptr;
+#endif
     NewYearController* _newYear = nullptr;
 
     void* _menuBindings = nullptr;
@@ -181,8 +191,10 @@ private:
     PongClockEngine _pong;
 
     // Guest WiFi alternating display state
+#if GUEST_WIFI_ENABLED
     unsigned long _guestWifiViewStartMs = 0;
     bool _wasGuestWifiView = false;
+#endif
 };
 
 #endif // DISPLAY_H

@@ -116,8 +116,12 @@ void ClockApp::beginControllers() {
     _bellController.begin();
     _timeProvider.begin(_rtcClock, _wifiSync.getNtpClient());
     _menuController.begin(MENU_ITEMS, MENU_ITEM_COUNT);
+#if GUEST_WIFI_ENABLED
     _guestWifi.begin();
+#endif
+#if CHRONOMSG_ENABLED
     _messageClient.begin(&_timeProvider);
+#endif
 
     _menuController.setContext(&_menuBindings);
     _menuController.setSettingsStore(&_settingsStore);
@@ -127,7 +131,9 @@ void ClockApp::beginControllers() {
     _display.setDriftTimeModel(&_driftTimeModel);
     _display.setTimeFormat(&_timeFormat);
     _display.setDateStyle(&_activeDateStyle);
+#if GUEST_WIFI_ENABLED
     _display.setGuestWifiController(&_guestWifi);
+#endif
     _display.setNewYearController(&_newYearController);
 
     _wifiManager.setOtaDisplayCallback(handleOtaDisplay, this);
@@ -389,11 +395,13 @@ void ClockApp::render() {
     syncDateStyleSelection();
     applyEffectiveDisplayBrightness();
 
+#if CHRONOMSG_ENABLED
     ChronoMessage previewMessage;
     if (_messageClient.currentPreview(previewMessage)) {
         _display.drawChronoMessage(previewMessage, millis(), _messageClient.previewStartMs());
         return;
     }
+#endif
 
     if (_styleNamePreviewEndMs > 0 && _overrideState.active) {
         unsigned long now = millis();
@@ -430,9 +438,11 @@ void ClockApp::render() {
 
     _display.showTime();
 
+#if CHRONOMSG_ENABLED
     if (!_messageClient.isPreviewVisible() && _messageClient.hasUnread()) {
         _display.drawUnreadMessageIndicator(_messageClient.unreadCount(), _messageClient.highestPriority(), millis());
     }
+#endif
 }
 
 // =============================================================================
@@ -482,6 +492,7 @@ void ClockApp::tickBell() {
     updateBellSchedule();
 }
 
+#if GUEST_WIFI_ENABLED
 void ClockApp::tickGuestWifi() {
     if (_guestWifi.isDisabled()) {
         return;
@@ -504,10 +515,13 @@ void ClockApp::tickGuestWifi() {
 
     _guestWifi.tick(h, m, d.year, d.month, d.date);
 }
+#endif
 
+#if CHRONOMSG_ENABLED
 void ClockApp::tickMessages() {
     _messageClient.update();
 }
+#endif
 
 void ClockApp::pollLongPress() {
     bool t4Pressed = _touchController.isPressed(4);
@@ -832,10 +846,12 @@ void ClockApp::onTouchLeft(uint8_t pad) {
         return;
     }
     _nightModeController.noteUserActivity();
+#if CHRONOMSG_ENABLED
     if (_messageClient.isPreviewVisible()) {
         _messageClient.showPrevUnread();
         return;
     }
+#endif
     if (_timerController.isCountdownExpired()) {
         _timerController.onLeft();
         return;
@@ -863,10 +879,12 @@ void ClockApp::onTouchRight(uint8_t pad) {
         return;
     }
     _nightModeController.noteUserActivity();
+#if CHRONOMSG_ENABLED
     if (_messageClient.isPreviewVisible()) {
         _messageClient.showNextUnread();
         return;
     }
+#endif
     if (_timerController.isDateView()) {
         cycleTemporaryDateStyle(1);
         return;
@@ -893,6 +911,7 @@ void ClockApp::onTouchMiddleShort(uint8_t pad) {
         return;
     }
     _nightModeController.noteUserActivity();
+#if CHRONOMSG_ENABLED
     if (_messageClient.isPreviewVisible()) {
         _messageClient.hidePreview();
     } else {
@@ -902,16 +921,19 @@ void ClockApp::onTouchMiddleShort(uint8_t pad) {
             }
         }
     }
+#endif
     _timerController.onMiddleShort();
 }
 
 void ClockApp::onTouchMiddleLong(uint8_t pad) {
     (void)pad;
+#if CHRONOMSG_ENABLED
     if (_messageClient.isPreviewVisible()) {
         LOGLN("T4 1.5s: dismiss message");
         _messageClient.dismissCurrentOrHide();
         return;
     }
+#endif
 
     if (_menuController.isActive()) {
         LOGLN("T4 1.5s: cancel & exit menu");
@@ -944,9 +966,11 @@ void ClockApp::onTouchMenuOk(uint8_t pad) {
     _menuController.onOk();
 }
 
+#if GUEST_WIFI_ENABLED
 void ClockApp::wireGuestWifiCallback(TimerController::GuestWifiAvailableFn fn) {
     _timerController.setGuestWifiAvailableCallback(fn);
 }
+#endif
 
 void ClockApp::configureTouchRepeat(uint8_t pad, OnTouchFn onRepeat, uint32_t initialDelayMs, uint32_t rateMs) {
     _touchController.setPadRepeat(pad, onRepeat, initialDelayMs, rateMs);
@@ -1139,12 +1163,14 @@ String ClockApp::timerStatusJson() const {
     ClockDate date;
     bool timeValid = getCurrentClockTime(time.hours, time.minutes, time.seconds);
     bool dateValid = _timeProvider.currentDate(date);
+#if GUEST_WIFI_ENABLED
     bool guestAvailable = _guestWifi.isTextAvailable();
     bool showSsid = false;
     if (guestAvailable) {
         unsigned long elapsed = millis() % ((GUEST_WIFI_SSID_SHOW_SECONDS + GUEST_WIFI_PASS_SHOW_SECONDS) * 1000UL);
         showSsid = elapsed < (unsigned long)GUEST_WIFI_SSID_SHOW_SECONDS * 1000UL;
     }
+#endif
 
     String json = "{";
     json += "\"view\":";
@@ -1152,8 +1178,10 @@ String ClockApp::timerStatusJson() const {
         appendJsonString(json, "stopwatch");
     } else if (_timerController.isCountdownExpired() || _timerController.isCountdownView()) {
         appendJsonString(json, "countdown");
+#if GUEST_WIFI_ENABLED
     } else if (_timerController.isGuestWifiView()) {
         appendJsonString(json, "guest");
+#endif
     } else if (_timerController.isDateView()) {
         appendJsonString(json, "date");
     } else {
@@ -1182,6 +1210,7 @@ String ClockApp::timerStatusJson() const {
     json += ",\"dateStyle\":";
     json += (int)_activeDateStyle;
 
+#if GUEST_WIFI_ENABLED
     json += ",\"guestAvailable\":";
     json += guestAvailable ? "true" : "false";
     json += ",\"guestShowSsid\":";
@@ -1194,6 +1223,7 @@ String ClockApp::timerStatusJson() const {
     appendJsonString(json, guestTextCopied ? guestSsid : "");
     json += ",\"guestPassword\":";
     appendJsonString(json, guestTextCopied ? guestPassword : "");
+#endif
 
     uint64_t stopwatchMs = _timerController.stopwatchMs();
     uint32_t countdownMs = _timerController.countdownMs();

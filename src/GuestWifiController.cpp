@@ -1,5 +1,7 @@
 #include "GuestWifiController.h"
 
+#if GUEST_WIFI_ENABLED
+
 #include <WiFi.h>
 #include <WiFiClient.h>
 #include <cstring>
@@ -120,6 +122,153 @@ bool readHttpResponse(WiFiClient& client, String& body, unsigned long startMs) {
     return body.length() > 0;
 }
 
+int skipJsonWhitespace(const String& json, int pos) {
+    while (pos >= 0 && pos < (int)json.length()) {
+        char c = json[pos];
+        if (c != ' ' && c != '\t' && c != '\r' && c != '\n') break;
+        pos++;
+    }
+    return pos;
+}
+
+int findMatchingJsonChar(const String& json, int openPos, char openChar, char closeChar) {
+    if (openPos < 0 || openPos >= (int)json.length() || json[openPos] != openChar) return -1;
+    int depth = 0;
+    bool inString = false;
+    bool escaped = false;
+    for (int i = openPos; i < (int)json.length(); ++i) {
+        char c = json[i];
+        if (inString) {
+            if (escaped) {
+                escaped = false;
+            } else if (c == '\\') {
+                escaped = true;
+            } else if (c == '"') {
+                inString = false;
+            }
+            continue;
+        }
+        if (c == '"') {
+            inString = true;
+        } else if (c == openChar) {
+            depth++;
+        } else if (c == closeChar) {
+            depth--;
+            if (depth == 0) return i;
+        }
+    }
+    return -1;
+}
+
+int findJsonKeyValueStart(const String& json, const char* key, int start = 0, int end = -1) {
+    if (!key) return -1;
+    if (end < 0 || end > (int)json.length()) end = (int)json.length();
+    String pattern = "\"";
+    pattern += key;
+    pattern += "\"";
+    int pos = start;
+    while (pos >= 0 && pos < end) {
+        pos = json.indexOf(pattern, pos);
+        if (pos < 0 || pos >= end) return -1;
+        int afterKey = pos + pattern.length();
+        int colon = skipJsonWhitespace(json, afterKey);
+        if (colon < end && json[colon] == ':') {
+            return skipJsonWhitespace(json, colon + 1);
+        }
+        pos = afterKey;
+    }
+    return -1;
+}
+
+String parseJsonStringAt(const String& json, int quotePos) {
+    String out;
+    if (quotePos < 0 || quotePos >= (int)json.length() || json[quotePos] != '"') return out;
+    for (int i = quotePos + 1; i < (int)json.length(); ++i) {
+        char c = json[i];
+        if (c == '"') break;
+        if (c == '\\' && i + 1 < (int)json.length()) {
+            char e = json[++i];
+            switch (e) {
+                case '"': out += '"'; break;
+                case '\\': out += '\\'; break;
+                case '/': out += '/'; break;
+                case 'b': out += '\b'; break;
+                case 'f': out += '\f'; break;
+                case 'n': out += '\n'; break;
+                case 'r': out += '\r'; break;
+                case 't': out += '\t'; break;
+                case 'u':
+                    out += ' ';
+                    i += 4;
+                    break;
+                default:
+                    out += e;
+                    break;
+            }
+        } else {
+            out += c;
+        }
+    }
+    return out;
+}
+
+String jsonStringField(const String& obj, const char* key, const char* fallback, size_t maxLen) {
+    int value = findJsonKeyValueStart(obj, key);
+    if (value < 0 || value >= (int)obj.length() || obj[value] != '"') {
+        return fallback ? String(fallback) : String();
+    }
+    String out = parseJsonStringAt(obj, value);
+    if (out.length() > maxLen) {
+        out = out.substring(0, maxLen);
+    }
+    return out;
+}
+
+bool textFitsDisplay(const char* text);
+
+bool parseGuestWifiBody(const String& body, char* ssidOut, size_t ssidLen, char* passwordOut, size_t passwordLen) {
+    int value = findJsonKeyValueStart(body, "guestwifi");
+    if (value < 0 || value >= (int)body.length() || body[value] != '{') {
+        LOGLN("Guest WiFi: missing guestwifi object");
+        return false;
+    }
+    int end = findMatchingJsonChar(body, value, '{', '}');
+    if (end < 0) {
+        LOGLN("Guest WiFi: malformed guestwifi object");
+        return false;
+    }
+
+    String obj = body.substring(value, end + 1);
+    String ssid = jsonStringField(obj, "ssid", "", ssidLen > 0 ? ssidLen - 1 : 0);
+    String password = jsonStringField(obj, "password", "", passwordLen > 0 ? passwordLen - 1 : 0);
+    ssid.trim();
+    password.trim();
+    if (ssid.length() == 0 || password.length() == 0) {
+        LOGLN("Guest WiFi: missing ssid/password");
+        return false;
+    }
+
+    ssidOut[0] = '\0';
+    passwordOut[0] = '\0';
+    size_t copiedSsidLen = ssid.length();
+    if (copiedSsidLen >= ssidLen) copiedSsidLen = ssidLen - 1;
+    memcpy(ssidOut, ssid.c_str(), copiedSsidLen);
+    ssidOut[copiedSsidLen] = '\0';
+
+    size_t copiedPasswordLen = password.length();
+    if (copiedPasswordLen >= passwordLen) copiedPasswordLen = passwordLen - 1;
+    memcpy(passwordOut, password.c_str(), copiedPasswordLen);
+    passwordOut[copiedPasswordLen] = '\0';
+
+    if (!textFitsDisplay(ssidOut) || !textFitsDisplay(passwordOut)) {
+        LOGLN("Guest WiFi: text too wide for display, rejected");
+        ssidOut[0] = '\0';
+        passwordOut[0] = '\0';
+        return false;
+    }
+    return true;
+}
+
 bool textFitsDisplay(const char* text) {
     if (text[0] == '\0') return true;
 
@@ -161,9 +310,9 @@ bool textFitsDisplay(const char* text) {
 void GuestWifiController::begin() {
     _ssid[0] = '\0';
     _password[0] = '\0';
-    _disabled = (GUEST_WIFI_URL[0] == '\0');
+    _disabled = (CHRONOMSG_URL[0] == '\0');
     if (_disabled) {
-        LOGLN("Guest WiFi: disabled (URL is empty)");
+        LOGLN("Guest WiFi: disabled (ChronoMsg URL is empty)");
         return;
     }
 
@@ -268,45 +417,7 @@ bool GuestWifiController::fetchBlocking(const char* url, char* ssidOut, size_t s
         return false;
     }
 
-    ssidOut[0] = '\0';
-    passwordOut[0] = '\0';
-
-    int newlinePos = body.indexOf('\n');
-    if (newlinePos == -1) {
-        // Single line — treat as password only (backward compat)
-        body.trim();
-        size_t len = body.length();
-        if (len >= passwordLen) {
-            len = passwordLen - 1;
-        }
-        memcpy(passwordOut, body.c_str(), len);
-        passwordOut[len] = '\0';
-    } else {
-        // Two lines: first = SSID, second = password
-        String ssidStr = body.substring(0, newlinePos);
-        ssidStr.trim();
-        size_t copiedSsidLen = ssidStr.length();
-        if (copiedSsidLen >= ssidLen) {
-            copiedSsidLen = ssidLen - 1;
-        }
-        memcpy(ssidOut, ssidStr.c_str(), copiedSsidLen);
-        ssidOut[copiedSsidLen] = '\0';
-
-        String passStr = body.substring(newlinePos + 1);
-        passStr.trim();
-        size_t passLen = passStr.length();
-        if (passLen >= passwordLen) {
-            passLen = passwordLen - 1;
-        }
-        memcpy(passwordOut, passStr.c_str(), passLen);
-        passwordOut[passLen] = '\0';
-    }
-
-    // Both strings must fit the display (each is shown full-screen)
-    if (!textFitsDisplay(ssidOut) || !textFitsDisplay(passwordOut)) {
-        LOGLN("Guest WiFi: text too wide for display, rejected");
-        ssidOut[0] = '\0';
-        passwordOut[0] = '\0';
+    if (!parseGuestWifiBody(body, ssidOut, ssidLen, passwordOut, passwordLen)) {
         return false;
     }
 
@@ -374,7 +485,8 @@ void GuestWifiController::taskLoop() {
         if (shouldFetch) {
             char ssid[LOCAL_DISPLAY_TEXT_MAX_LEN];
             char password[LOCAL_DISPLAY_TEXT_MAX_LEN];
-            bool ok = fetchBlocking(GUEST_WIFI_URL, ssid, sizeof(ssid), password, sizeof(password));
+            String url = String(CHRONOMSG_URL) + "?wifi";
+            bool ok = fetchBlocking(url.c_str(), ssid, sizeof(ssid), password, sizeof(password));
             applyFetchResult(ok, reason, ssid, password);
         }
 
@@ -434,3 +546,5 @@ void GuestWifiController::tick(int hours, int minutes, int year, int month, int 
         return;
     }
 }
+
+#endif

@@ -13,7 +13,9 @@
 #include "TimeProvider.h"
 #include "TimerController.h"
 #include "TimerRenderer.h"
+#if GUEST_WIFI_ENABLED
 #include "GuestWifiController.h"
+#endif
 #include "WiFiManagerLite.h"
 #include "MenuConfig.h"
 #include "fonts.h"
@@ -140,9 +142,11 @@ void Display::setDateStyle(DateStyle* dateStyle) {
     _dateStyle = dateStyle;
 }
 
+#if GUEST_WIFI_ENABLED
 void Display::setGuestWifiController(GuestWifiController* c) {
     _guestWifi = c;
 }
+#endif
 
 void Display::setNewYearController(NewYearController* c) {
     _newYear = c;
@@ -193,9 +197,6 @@ void Display::showTime() {
     }
 #endif
 
-    bool wasInGuestWifi = _wasGuestWifiView;
-    _wasGuestWifiView = false;
-
     if (_menu.isActive()) {
         _menuRenderer->renderMenu();
         renderBuffer();
@@ -212,6 +213,9 @@ void Display::showTime() {
         return;
     }
 
+#if GUEST_WIFI_ENABLED
+    bool wasInGuestWifi = _wasGuestWifiView;
+    _wasGuestWifiView = false;
     if (_timer.isGuestWifiView()) {
         clearBuffer();
         _wasGuestWifiView = true;
@@ -231,6 +235,7 @@ void Display::showTime() {
         renderBuffer();
         return;
     }
+#endif
 
     if (_timer.isStopwatchView() || _timer.isCountdownView()) {
         _timerRenderer->renderTimerScreen();
@@ -535,6 +540,7 @@ void Display::noteScreenIdentity() {
         identity = 0x100;
     } else if (_timer.isDateView()) {
         identity = 0x200 | (uint8_t)currentDateStyle();
+#if GUEST_WIFI_ENABLED
     } else if (_timer.isGuestWifiView()) {
         identity = 0x300;
         unsigned long period = (unsigned long)GUEST_WIFI_SSID_SHOW_SECONDS * 1000UL +
@@ -543,18 +549,21 @@ void Display::noteScreenIdentity() {
             unsigned long elapsed = millis() - _guestWifiViewStartMs;
             contentHash = (elapsed % period) < (unsigned long)GUEST_WIFI_SSID_SHOW_SECONDS * 1000UL ? 1U : 2U;
         }
-    } else if (_timer.isStopwatchView()) {
-        identity = 0x400;
-    } else if (_timer.isCountdownView() || _timer.isCountdownExpired()) {
-        identity = 0x500;
-    } else if (_newYear && _newYear->isActive() && _newYear->takesOverDisplay()) {
-        identity = 0x580 | (uint8_t)_newYear->phase();
+#endif
     } else {
-        DisplayMode mode = _displayMode ? *_displayMode : DisplayMode::LargeDigitsOnly;
-        identity = 0x600 | (uint8_t)mode;
-        if (mode == DisplayMode::Word || mode == DisplayMode::Roma) {
-            ClockTime t = _timeProvider.displayTime();
-            contentHash = (uint16_t)(t.hours * 60U + t.minutes);
+        if (_timer.isStopwatchView()) {
+            identity = 0x400;
+        } else if (_timer.isCountdownView() || _timer.isCountdownExpired()) {
+            identity = 0x500;
+        } else if (_newYear && _newYear->isActive() && _newYear->takesOverDisplay()) {
+            identity = 0x580 | (uint8_t)_newYear->phase();
+        } else {
+            DisplayMode mode = _displayMode ? *_displayMode : DisplayMode::LargeDigitsOnly;
+            identity = 0x600 | (uint8_t)mode;
+            if (mode == DisplayMode::Word || mode == DisplayMode::Roma) {
+                ClockTime t = _timeProvider.displayTime();
+                contentHash = (uint16_t)(t.hours * 60U + t.minutes);
+            }
         }
     }
 
@@ -888,6 +897,7 @@ void Display::showOtaUpdate(bool active, unsigned int progress, unsigned int tot
     renderBuffer();
 }
 
+#if GUEST_WIFI_ENABLED
 void Display::drawGuestWifiText(bool showSsid) {
     if (!_guestWifi || !_guestWifi->isTextAvailable()) {
         return;
@@ -903,14 +913,11 @@ void Display::drawGuestWifiText(bool showSsid) {
     if (text[0] == '\0') return;
 
     int fullWidth = textWidth(text, true, 1, 2);
-
-    // Single line fits
     if (fullWidth <= COLS_PER_ROW) {
         drawCenteredSmallText(text, 5);
         return;
     }
 
-    // Split at proportional midpoint
     size_t len = strlen(text);
     int halfTarget = fullWidth / 2;
 
@@ -920,9 +927,14 @@ void Display::drawGuestWifiText(bool showSsid) {
     for (size_t i = 0; i < len; i++) {
         char c = text[i];
         if (c == ' ') {
-            if (inWord) { cum += 2; inWord = false; }
+            if (inWord) {
+                cum += 2;
+                inWord = false;
+            }
         } else {
-            if (inWord) cum += 1;
+            if (inWord) {
+                cum += 1;
+            }
             cum += charWidth(c, true);
             inWord = true;
         }
@@ -947,10 +959,10 @@ void Display::drawGuestWifiText(bool showSsid) {
         drawCenteredSmallText(line1, 1);
         drawCenteredSmallText(line2, 10);
     }
-    // If either line overflows, nothing is drawn (text was displayable
-    // at fetch time, so this is defensive only)
 }
+#endif
 
+#if CHRONOMSG_ENABLED
 static void drawSmallTextAt(Display& display, const String& text, int x, int y) {
     display.drawSmallText(text.c_str(), x, y);
 }
@@ -1034,3 +1046,4 @@ void Display::drawUnreadMessageIndicator(int count, int priority, unsigned long 
     setPixel(bx, by, true);
     renderBuffer();
 }
+#endif

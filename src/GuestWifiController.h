@@ -4,6 +4,7 @@
 #include <Arduino.h>
 #include "Config.h"
 
+#if GUEST_WIFI_ENABLED
 class GuestWifiController {
 public:
     void begin();
@@ -47,5 +48,6 @@ private:
     bool _fetchInProgress = false;
     FetchReason _fetchReason = FetchReason::Boot;
 };
+#endif
 
 #endif

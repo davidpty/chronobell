@@ -8,8 +8,11 @@ LOCK_FILE="${CHRONOMSG_LOCK_FILE:-$BASE/check-domain.lock}"
 LOG_FILE="${CHRONOMSG_LOG_FILE:-$BASE/chronomsg.log}"
 CRON_FILE="${CHRONOMSG_CRON_FILE:-/etc/crontabs/root}"
 GQR_STATE="${CHRONOMSG_GQR_STATE:-$BASE/guestqr-state}"
+GQR_CONFIG="${CHRONOMSG_GQR_CONFIG:-$BASE/guestqr-config}"
+GQR_SEED="${CHRONOMSG_GQR_SEED:-$BASE/guestqr-seed}"
 GQR_SSID="${CHRONOMSG_GQR_SSID:-NEXO-GUEST}"
 GQR_SECTION="${CHRONOMSG_GQR_SECTION:-guest2g}"
+GQR_ROTATE="${CHRONOMSG_GQR_ROTATE:-weekly}"
 GQR_LENGTH="${CHRONOMSG_GQR_LENGTH:-12}"
 GQR_ALPHABET="${CHRONOMSG_GQR_ALPHABET:-ABCDEFGHJKLNPQRTUVXYZ}"
 GQR_OUTDIR="${CHRONOMSG_GQR_OUTDIR:-/www/qr}"
@@ -42,6 +45,117 @@ json_escape() {
     safe_text "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
 }
 
+json_escape_raw() {
+    printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
+}
+
+guestqr_default_config() {
+    rotate="$GQR_ROTATE"
+    ssid="$GQR_SSID"
+    section="$GQR_SECTION"
+    length="$GQR_LENGTH"
+    alphabet="$GQR_ALPHABET"
+    outdir="$GQR_OUTDIR"
+}
+
+guestqr_load_config() {
+    guestqr_default_config
+    [ -f "$GQR_CONFIG" ] || return 0
+    rotate="$(sed -n '1p' "$GQR_CONFIG" 2>/dev/null)"
+    ssid="$(sed -n '2p' "$GQR_CONFIG" 2>/dev/null)"
+    section="$(sed -n '3p' "$GQR_CONFIG" 2>/dev/null)"
+    length="$(sed -n '4p' "$GQR_CONFIG" 2>/dev/null)"
+    alphabet="$(sed -n '5p' "$GQR_CONFIG" 2>/dev/null)"
+    outdir="$(sed -n '6p' "$GQR_CONFIG" 2>/dev/null)"
+    [ -n "$rotate" ] || rotate="$GQR_ROTATE"
+    [ -n "$ssid" ] || ssid="$GQR_SSID"
+    [ -n "$section" ] || section="$GQR_SECTION"
+    [ -n "$length" ] || length="$GQR_LENGTH"
+    [ -n "$alphabet" ] || alphabet="$GQR_ALPHABET"
+    [ -n "$outdir" ] || outdir="$GQR_OUTDIR"
+}
+
+guestqr_save_config() {
+    ensure_base
+    tmp="$GQR_CONFIG.$$"
+    {
+        printf '%s\n' "$rotate"
+        printf '%s\n' "$ssid"
+        printf '%s\n' "$section"
+        printf '%s\n' "$length"
+        printf '%s\n' "$alphabet"
+        printf '%s\n' "$outdir"
+    } > "$tmp" || {
+        rm -f "$tmp"
+        return 1
+    }
+    mv "$tmp" "$GQR_CONFIG"
+    chmod 600 "$GQR_CONFIG" 2>/dev/null || true
+}
+
+guestqr_resolve_seed() {
+    seed_value="${1:-}"
+    if [ -n "$seed_value" ]; then
+        printf '%s' "$seed_value"
+        return 0
+    fi
+    if [ -f "$GQR_SEED" ]; then
+        sed -n '1p' "$GQR_SEED" 2>/dev/null
+        return 0
+    fi
+    tr -dc 'a-z0-9' < /dev/urandom | head -c 24 2>/dev/null || printf 'chronomsg-default-seed'
+}
+
+guestqr_save_seed() {
+    ensure_base
+    tmp="$GQR_SEED.$$"
+    printf '%s\n' "$1" > "$tmp" || {
+        rm -f "$tmp"
+        return 1
+    }
+    mv "$tmp" "$GQR_SEED"
+    chmod 600 "$GQR_SEED" 2>/dev/null || true
+}
+
+guestqr_state_stamp() {
+    printf '%s|%s|%s|%s|%s|%s' "$rotate" "$ssid" "$section" "$length" "$alphabet" "$seed"
+}
+
+guestqr_current_password() {
+    key="$(guestqr_period_key "$rotate")"
+    guestqr_derive_password "$seed" "$key" "$length" "$alphabet"
+}
+
+guestwifi_json_fragment() {
+    guestqr_load_config
+    [ -f "$GQR_CONFIG" ] || guestqr_save_config
+    password=""
+    if have_cmd uci; then
+        live_ssid="$(uci get wireless."$section".ssid 2>/dev/null || true)"
+        live_password="$(uci get wireless."$section".key 2>/dev/null || true)"
+        if [ -n "$live_password" ]; then
+            [ -n "$live_ssid" ] && ssid="$live_ssid"
+            password="$live_password"
+        fi
+    fi
+    if [ -z "$password" ]; then
+        seed="$(guestqr_resolve_seed)"
+        [ -n "$seed" ] || seed="chronomsg-default-seed"
+        [ -f "$GQR_SEED" ] || guestqr_save_seed "$seed"
+        password="$(guestqr_current_password)"
+    fi
+    printf ',"guestwifi":{"ssid":"%s","password":"%s"}' "$(json_escape_raw "$ssid")" "$(json_escape_raw "$password")"
+}
+
+query_param_value() {
+    query="${QUERY_STRING:-}"
+    key="$1"
+    case "$query" in
+        *"$key="*) printf '%s' "$query" | sed "s/.*$key=//; s/&.*//" ;;
+        *) printf '' ;;
+    esac
+}
+
 bool_value() {
     case "${1:-false}" in
         1|true|TRUE|yes|YES|on|ON) printf true ;;
@@ -60,9 +174,20 @@ message_file_for_id() {
     printf '%s/%s.json' "$MSG_DIR" "$(safe_id "$1")"
 }
 
-write_empty_payload() {
+write_message_payload() {
     now="$(now_epoch)"
-    printf '{"device":"chronobell","now":%s,"messages":[]}\n' "$now" > "$OUT"
+    {
+        printf '{"device":"chronobell","now":%s,"messages":[]}\n' "$now"
+    } > "$OUT"
+}
+
+write_wifi_payload() {
+    now="$(now_epoch)"
+    {
+        printf '{"device":"chronobell","now":%s' "$now"
+        guestwifi_json_fragment
+        printf '}\n'
+    } > "$OUT"
 }
 
 is_dismissed() {
@@ -88,6 +213,7 @@ is_message_valid() {
 
 rebuild_payload() {
     ensure_base
+    guestqr_load_config
     now="$(now_epoch)"
     tmp="$OUT.$$"
     printf '{"device":"chronobell","now":%s,"messages":[' "$now" > "$tmp" || {
@@ -137,21 +263,38 @@ $id"
 serve_payload() {
     cgi="${1:-false}"
     ensure_base
+    mode=""
     if [ "$cgi" = true ]; then
-        dismiss_id=""
-        case "$QUERY_STRING" in
-            *dismiss=*) dismiss_id="$(printf '%s' "$QUERY_STRING" | sed 's/.*dismiss=//; s/&.*//')" ;;
+        first_param="${QUERY_STRING%%&*}"
+        case "$first_param" in
+            msg) mode=msg ;;
+            wifi) mode=wifi ;;
         esac
+    fi
+    if [ -z "$mode" ]; then
+        if [ "$cgi" = true ]; then
+            printf 'Status: 400 Bad Request\r\n'
+            printf 'Content-Type: text/plain\r\n'
+            printf 'Cache-Control: no-store\r\n'
+            printf '\r\n'
+            printf 'usage: ?msg or ?wifi\n'
+        else
+            printf 'usage: ?msg or ?wifi\n'
+        fi
+        return 0
+    fi
+    if [ "$mode" = msg ]; then
+        dismiss_id="$(query_param_value dismiss)"
         if [ -n "$dismiss_id" ]; then
             dismiss_id="$(safe_id "$dismiss_id")"
             if [ -n "$dismiss_id" ] && ! is_dismissed "$dismiss_id"; then
                 printf '%s\n' "$dismiss_id" >> "$DISMISSED_FILE"
             fi
         fi
+        rebuild_payload >/dev/null 2>&1 || write_message_payload
+    else
+        write_wifi_payload
     fi
-    rebuild_payload >/dev/null 2>&1 || {
-        write_empty_payload
-    }
     if [ "$cgi" = true ]; then
         printf 'Content-Type: application/json\r\n'
         printf 'Cache-Control: no-store\r\n'
@@ -160,8 +303,13 @@ serve_payload() {
     if [ -f "$OUT" ]; then
         cat "$OUT"
     else
-        now="$(now_epoch)"
-        printf '{"device":"chronobell","now":%s,"messages":[]}\n' "$now"
+        if [ "$mode" = msg ]; then
+            now="$(now_epoch)"
+            printf '{"device":"chronobell","now":%s,"messages":[]}\n' "$now"
+        else
+            now="$(now_epoch)"
+            printf '{"device":"chronobell","now":%s,"guestwifi":{"ssid":"","password":""}}\n' "$now"
+        fi
     fi
 }
 
@@ -891,6 +1039,9 @@ guestqr_run() {
     done
 
     [ -z "$seed" ] && seed=$(tr -dc 'a-z0-9' < /dev/urandom | head -c 24 2>/dev/null || printf 'chronomsg-default-seed')
+    ensure_base
+    guestqr_save_config
+    guestqr_save_seed "$seed"
 
     gqr_lock="$BASE/guestqr.lock"
     if [ -f "$gqr_lock" ]; then
@@ -908,9 +1059,11 @@ guestqr_run() {
 
     state_file="$GQR_STATE"
     key=$(guestqr_period_key "$rotate")
-    stored=$(cat "$state_file" 2>/dev/null || echo '')
+    stamp="$(guestqr_state_stamp)"
+    stored_key="$(sed -n '1p' "$state_file" 2>/dev/null || echo '')"
+    stored_stamp="$(sed -n '2p' "$state_file" 2>/dev/null || echo '')"
 
-    if [ "$stored" = "$key" ]; then
+    if [ "$stored_key" = "$key" ] && [ "$stored_stamp" = "$stamp" ]; then
         rm -f "$gqr_lock"
         trap - EXIT HUP INT TERM
         return 0
@@ -926,8 +1079,6 @@ guestqr_run() {
     fi
 
     mkdir -p "$outdir"
-    printf '%s\n%s\n' "$ssid" "$password" > "$outdir/guest.txt"
-
     if [ "$no_html" = false ]; then
         display_pass=$(printf '%s' "$password" | sed 's/.\{4\}/& /g;s/ $//')
         qrdata="WIFI:T:WPA;S:${ssid};P:${password};;"
@@ -1044,8 +1195,8 @@ PAGE
         chmod 644 "$outdir/guestwifi.svg" "$outdir/index.html" "$outdir/gl_home.html" 2>/dev/null || true
     fi
 
-    chmod 644 "$outdir/guest.txt"
-    printf '%s\n' "$key" > "$state_file"
+    printf '%s\n%s\n' "$key" "$stamp" > "$state_file"
+    chmod 600 "$state_file" 2>/dev/null || true
     rm -f "$gqr_lock"
     trap - EXIT HUP INT TERM
 }

@@ -188,6 +188,7 @@ void TimerController::update() {
         return;
     }
 
+#if GUEST_WIFI_ENABLED
     if (_view == TimerView::GuestWifi) {
 #if GUEST_WIFI_VIEW_TIMEOUT_SECONDS * 1000UL > 0
         if (now - _viewActivityMs >= GUEST_WIFI_VIEW_TIMEOUT_SECONDS * 1000UL) {
@@ -197,6 +198,7 @@ void TimerController::update() {
 #endif
         return;
     }
+#endif
 
     if (_view == TimerView::Stopwatch && !_stopwatchRunning &&
         now - _viewActivityMs >= MENU_TIMEOUT_SHORT_SECONDS * 1000UL) {
@@ -228,9 +230,11 @@ void TimerController::update() {
     }
 }
 
+#if GUEST_WIFI_ENABLED
 void TimerController::setGuestWifiAvailableCallback(GuestWifiAvailableFn fn) {
     _guestWifiAvailable = fn;
 }
+#endif
 
 void TimerController::noteActivity() {
     _viewActivityMs = millis();
@@ -373,22 +377,31 @@ void TimerController::onMiddleShort() {
         return;
     }
 
-    bool guestAvailable = _guestWifiAvailable && _guestWifiAvailable();
     TimerView nextView;
 
     if (_view == TimerView::Clock) {
         nextView = _lastNonClockView;
-        if (nextView == TimerView::GuestWifi && !guestAvailable) {
+#if GUEST_WIFI_ENABLED
+        if (nextView == TimerView::GuestWifi && !(_guestWifiAvailable && _guestWifiAvailable())) {
             nextView = TimerView::Date;
         }
+#endif
     } else {
         switch (_view) {
             case TimerView::Date:
-                nextView = guestAvailable ? TimerView::GuestWifi : TimerView::Stopwatch;
+#if GUEST_WIFI_ENABLED
+                nextView = (_guestWifiAvailable && _guestWifiAvailable())
+                    ? TimerView::GuestWifi
+                    : TimerView::Stopwatch;
+#else
+                nextView = TimerView::Stopwatch;
+#endif
                 break;
+#if GUEST_WIFI_ENABLED
             case TimerView::GuestWifi:
                 nextView = TimerView::Stopwatch;
                 break;
+#endif
             case TimerView::Stopwatch:
                 nextView = TimerView::Countdown;
                 break;
@@ -439,9 +452,11 @@ bool TimerController::isDateView() const {
     return _view == TimerView::Date;
 }
 
+#if GUEST_WIFI_ENABLED
 bool TimerController::isGuestWifiView() const {
     return _view == TimerView::GuestWifi;
 }
+#endif
 
 bool TimerController::isStopwatchView() const {
     return _view == TimerView::Stopwatch;

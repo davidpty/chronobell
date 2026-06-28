@@ -6,6 +6,8 @@
 
 #include "Config.h"
 
+#if CHRONOMSG_ENABLED
+
 struct ChronoMessage {
     String id;
     String source;
@@ -111,5 +113,7 @@ private:
     uint32_t _previewStartMs = 0;
     uint32_t _previewEndMs = 0;
 };
+
+#endif
 
 #endif

@@ -19,8 +19,8 @@
  */
 
 #include <Arduino.h>
-#include "src/ClockApp.h"
 #include "Config.h"
+#include "src/ClockApp.h"
 
 ClockApp app;
 
@@ -64,9 +64,11 @@ static void onQueueBellAlert(uint8_t g)      { app.queueBellAlert(g); }
 static bool onBellBusy()                     { return app.isBellBusy(); }
 static void onStopBell()                     { app.stopBell(); }
 
+#if GUEST_WIFI_ENABLED
 // GuestWifi availability callback: returns true if a guest password has been
 // fetched and is ready to display.
 static bool onGuestWifiAvailable()           { return app.isGuestWifiAvailable(); }
+#endif
 
 // -----------------------------------------------------------------------------
 // Boot sequence
@@ -91,7 +93,9 @@ void setup() {
                              MENU_LONG_PRESS_MS, MENU_REPEAT_RATE_MS);
     app.configureTouchRepeat(8, onTouchPad8Repeat,
                              MENU_LONG_PRESS_MS, MENU_REPEAT_RATE_MS);
+#if GUEST_WIFI_ENABLED
     app.wireGuestWifiCallback(onGuestWifiAvailable);
+#endif
 
     // --- Init hardware ---
     app.initSerialAndPins();
@@ -112,7 +116,9 @@ void setup() {
 
     // --- Network sync (NTP) ---
     app.wifiBootSync();
+#if GUEST_WIFI_ENABLED
     app.tickGuestWifi();   // Boot fetch for guest wifi password
+#endif
     app.reloadSettings();
     app.applyManualTime();
     app.applyDisplayBrightness();
@@ -138,8 +144,12 @@ void loop() {
     // --- App logic ---
     app.tickTimer();
     app.tickBell();
+#if GUEST_WIFI_ENABLED
     app.tickGuestWifi();
+#endif
+#if CHRONOMSG_ENABLED
     app.tickMessages();
+#endif
     app.pollLongPress();
     app.tickMenu();
 

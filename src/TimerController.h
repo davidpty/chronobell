@@ -3,13 +3,20 @@
 
 #include <Arduino.h>
 #include <time.h>
+#include "Config.h"
 
 enum class TimerView : uint8_t {
     Clock = 0,
     Date = 1,
+#if GUEST_WIFI_ENABLED
     GuestWifi = 2,
     Stopwatch = 3,
     Countdown = 4
+#endif
+#if !GUEST_WIFI_ENABLED
+    Stopwatch = 2,
+    Countdown = 3
+#endif
 };
 
 class TimerController {
@@ -53,19 +60,22 @@ public:
     void onMiddleShort();
     void acknowledgeAlert(bool forceCountdownView);
 
-    typedef bool (*GuestWifiAvailableFn)();
-
     bool isCountdownExpired() const;
     bool isClockView() const;
     bool isDateView() const;
+#if GUEST_WIFI_ENABLED
+    typedef bool (*GuestWifiAvailableFn)();
     bool isGuestWifiView() const;
+#endif
     bool isStopwatchView() const;
     bool isCountdownView() const;
 
     void showDateView();
     void showClockPreview();
     void dismissView();
+#if GUEST_WIFI_ENABLED
     void setGuestWifiAvailableCallback(GuestWifiAvailableFn fn);
+#endif
     bool stopwatchRunning() const;
     bool countdownRunning() const;
     uint64_t stopwatchMs() const;
@@ -118,7 +128,9 @@ private:
     QueueAlertCallback _queueAlert = nullptr;
     BellBusyCallback _bellBusy = nullptr;
     StopBellCallback _stopBell = nullptr;
+#if GUEST_WIFI_ENABLED
     GuestWifiAvailableFn _guestWifiAvailable = nullptr;
+#endif
     CurrentEpochCallback _currentEpoch = nullptr;
     SaveTargetEpochCallback _saveTargetEpoch = nullptr;
     ClearTargetEpochCallback _clearTargetEpoch = nullptr;
