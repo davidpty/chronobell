@@ -191,9 +191,9 @@
 #define CHRONOMSG_MAX_RESPONSE_BYTES                2048
 #define CHRONOMSG_MAX_ID_LEN                        64
 #define CHRONOMSG_TASK_STACK_WORDS                  8192
-#define CHRONOMSG_DEFAULT_DURATION_SEC              6
-#define CHRONOMSG_MIN_DURATION_SEC                  3
-#define CHRONOMSG_MAX_DURATION_SEC                  15
+#define CHRONOMSG_DEFAULT_DURATION_SEC              10
+#define CHRONOMSG_MIN_DURATION_SEC                  5
+#define CHRONOMSG_MAX_DURATION_SEC                  60
 #define CHRONOMSG_SCROLL_STEP_MS                    140
 #define CHRONOMSG_SCROLL_REPEAT_GAP_PX              4
 #define CHRONOMSG_MIN_SCROLL_CYCLES                 2

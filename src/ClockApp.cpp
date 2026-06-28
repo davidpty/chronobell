@@ -522,24 +522,7 @@ void ClockApp::pollLongPress() {
     if (heldMs < MENU_LONG_PRESS_MS) return;
 
     _t4LongPressHandled = true;
-
-    if (_messageClient.isPreviewVisible()) {
-        LOGLN("T4 1.5s: dismiss message");
-        _messageClient.dismissCurrentOrHide();
-        return;
-    }
-
-    if (_menuController.isActive()) {
-        LOGLN("T4 1.5s: cancel & exit menu");
-        if (_menuController.isEdit()) {
-            _menuController.cancelEdit();
-        }
-        _menuController.exit();
-        return;
-    }
-
-    LOGLN("T4 1.5s: enter menu");
-    _menuController.enterBrowse();
+    onTouchMiddleLong(4);
 }
 
 void ClockApp::tickMenu() {
@@ -922,6 +905,27 @@ void ClockApp::onTouchMiddleShort(uint8_t pad) {
     _timerController.onMiddleShort();
 }
 
+void ClockApp::onTouchMiddleLong(uint8_t pad) {
+    (void)pad;
+    if (_messageClient.isPreviewVisible()) {
+        LOGLN("T4 1.5s: dismiss message");
+        _messageClient.dismissCurrentOrHide();
+        return;
+    }
+
+    if (_menuController.isActive()) {
+        LOGLN("T4 1.5s: cancel & exit menu");
+        if (_menuController.isEdit()) {
+            _menuController.cancelEdit();
+        }
+        _menuController.exit();
+        return;
+    }
+
+    LOGLN("T4 1.5s: enter menu");
+    _menuController.enterBrowse();
+}
+
 void ClockApp::onTouchMenuPrev(uint8_t pad) {
     (void)pad;
     if (!_menuController.isActive()) return;
@@ -1101,6 +1105,10 @@ void ClockApp::onWebPreview(const String& field) {
     }
     if (field == "timer:middle") {
         onTouchMiddleShort(0);
+        return;
+    }
+    if (field == "timer:middle-long") {
+        onTouchMiddleLong(0);
         return;
     }
     if (field == "timer:right") {

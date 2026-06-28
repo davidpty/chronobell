@@ -99,6 +99,7 @@ public:
     void onTouchLeft(uint8_t pad);
     void onTouchRight(uint8_t pad);
     void onTouchMiddleShort(uint8_t pad);
+    void onTouchMiddleLong(uint8_t pad);
     void saveCountdownPreset(uint8_t presetIndex);
     bool currentEpoch(time_t& epoch) const;
     bool saveCountdownTargetEpoch(time_t targetEpoch);

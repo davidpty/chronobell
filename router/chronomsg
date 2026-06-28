@@ -588,7 +588,7 @@ publish_redemption() {
         --ttl 86400 \
         --repeat true \
         --duration 8 \
-        --interval 60 \
+        --interval 180 \
         --detail "$domain may be expiring" >/dev/null
 }
 

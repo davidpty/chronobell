@@ -30,7 +30,7 @@ ChronoBell is a compact LED clock with a clear display, simple touch controls, a
 - **Manual time** - Switch from atomic (NTP + RTC) to manual and step through HH→MM→SS→Month→Day→Year. Persists across reboots.
 - **Config portal** - Scan WiFi networks, pick a timezone, tune display and bell settings, upload firmware - all from a browser.
 - **New Year's Eve feature** - On Dec 31 from 9 PM, tiny sparkles appear and grow more frequent. At 23:50 the countdown begins, at midnight the display cycles through "HAPPY NEW YEAR" with 12 bell strikes.
-- **Local messages** - Router-side scripts can send short notices like `BACKUP DONE`, `SERVER DOWN`, or `DOMAIN / BUY NOW`.
+- **Local messages** - Router-side scripts can send short notices like `BACKUP DONE`, `SERVER DOWN`, or `DOMAIN / AVAILABLE`.
 - **Timekeeping** - NTP syncs every 60 minutes when WiFi is available. The RTC keeps time when it's not. Manual mode bypasses both.
 - **OTA updates** - Push firmware over the air at `chronobell.local`.
 
@@ -110,7 +110,7 @@ Expected endpoint response:
       "type": "alert",
       "priority": 9,
       "title": "DOMAIN",
-      "body": "BUY NOW",
+      "body": "AVAILABLE",
       "created": 1782580000,
       "expires": 1782666400,
       "display": {
@@ -155,7 +155,7 @@ chmod +x /www/cgi-bin/chronomsg
 Test the endpoint:
 
 ```sh
-/usr/bin/chronomsg add DOMAIN "BUY NOW"
+/usr/bin/chronomsg add DOMAIN "AVAILABLE"
 /usr/bin/chronomsg serve
 wget -qO- http://192.168.8.1/cgi-bin/chronomsg
 ```
@@ -167,7 +167,7 @@ Useful commands:
 ```sh
 /usr/bin/chronomsg serve
 /usr/bin/chronomsg serve --cgi
-/usr/bin/chronomsg add DOMAIN "BUY NOW"
+/usr/bin/chronomsg add DOMAIN "AVAILABLE"
 
 /usr/bin/chronomsg add \
   --id domain-drop-comonoclaroquesi \
@@ -175,7 +175,7 @@ Useful commands:
   --type alert \
   --priority 9 \
   --title DOMAIN \
-  --body "BUY NOW" \
+  --body "AVAILABLE" \
   --ttl 86400 \
   --repeat true \
   --duration 8 \
@@ -198,14 +198,14 @@ Domain checks run from cron or manually:
 /usr/bin/chronomsg check-domain comonoclaroquesi.com
 ```
 
-The domain checker is conservative. It tries WHOIS first, then falls back to RDAP if WHOIS fails or returns ambiguous results. WHOIS `redemptionPeriod` or `pendingDelete` creates a priority 7 `DOMAIN / REDEMPTION` alert. WHOIS or RDAP no-match creates a priority 9 `DOMAIN / BUY NOW` alert. Registered domains with name servers or registrar fields create no alert. Ambiguous status creates a lower-priority `DOMAIN / CHECK` alert. Network errors update state to `ERROR`.
+The domain checker is conservative. It tries WHOIS first, then falls back to RDAP if WHOIS fails or returns ambiguous results. WHOIS `redemptionPeriod` or `pendingDelete` creates a priority 7 `DOMAIN / REDEMPTION` alert, using the same repeat timing as the other priority 7 domain message. WHOIS or RDAP no-match creates a priority 9 `DOMAIN / AVAILABLE` alert. Registered domains with name servers or registrar fields create no alert. Ambiguous status creates a lower-priority `DOMAIN / CHECK` alert. Network errors update state to `ERROR`.
 
 Manual tests:
 
 ```sh
 rm -rf /etc/chronomsg
 /usr/bin/chronomsg serve
-/usr/bin/chronomsg add DOMAIN "BUY NOW"
+/usr/bin/chronomsg add DOMAIN "AVAILABLE"
 /usr/bin/chronomsg serve
 /usr/bin/chronomsg clear <id>
 /usr/bin/chronomsg add --ttl 1 TEST EXPIRE

@@ -275,7 +275,7 @@ void ConfigPortal::handleRoot() {
         .pixel-dot.off { fill: #ff3a3a; fill-opacity: 0.08; }
         .pixel-dot.on { fill: #ff3a3a; fill-opacity: 1; }
         .button-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.45em; width: 100%; }
-        .button-card { appearance: none; min-width: 4.5em; padding: 0.46em 0.5em; border: 2px solid #cc0000; border-radius: 0.25em; background: transparent; color: #cc0000; font-family: 'Courier New', monospace; font-size: 1.1em; font-weight: bold; text-transform: uppercase; cursor: pointer; text-align: center; transition: all 0.15s; }
+        .button-card { appearance: none; min-width: 4.5em; padding: 0.46em 0.5em; border: 2px solid #cc0000; border-radius: 0.25em; background: transparent; color: #cc0000; font-family: 'Courier New', monospace; font-size: 1.1em; font-weight: bold; text-transform: uppercase; cursor: pointer; text-align: center; transition: all 0.15s; touch-action: none; user-select: none; }
         .button-card:active { background: #cc0000; color: #000000; box-shadow: 0 0 1em #cc0000; }
         @media (hover: hover) { .button-card:hover { background: #cc0000; color: #000000; box-shadow: 0 0 1em #cc0000; } }
         @media (max-width: 520px) {
@@ -574,18 +574,75 @@ void ConfigPortal::handleRoot() {
                 .then(function(data) {
                     if (data && data.timer) {
                         updateTimerDisplay(data.timer);
-                    } else {
-                        return loadTimerStatus();
                     }
+                    return Promise.all([loadTimerStatus(), loadSettings(false)]);
                 })
-                .catch(function() { return loadTimerStatus(); });
+                .catch(function() {
+                    return Promise.all([loadTimerStatus(), loadSettings(false)]);
+                });
+        }
+
+        function bindHoldAction(button, shortAction, longAction) {
+            if (!button) return;
+            let holdTimer = null;
+            let held = false;
+            let suppressClick = false;
+
+            function clearHoldTimer() {
+                if (holdTimer) {
+                    clearTimeout(holdTimer);
+                    holdTimer = null;
+                }
+            }
+
+            function startHold(e) {
+                if (e && e.pointerType === 'mouse' && e.button !== 0) return;
+                held = false;
+                suppressClick = false;
+                clearHoldTimer();
+                holdTimer = setTimeout(function() {
+                    held = true;
+                    sendTimerAction(longAction);
+                }, 1500);
+                if (button.setPointerCapture && e && e.pointerId !== undefined) {
+                    try { button.setPointerCapture(e.pointerId); } catch (err) {}
+                }
+                if (e && e.preventDefault) e.preventDefault();
+            }
+
+            function endHold(e) {
+                clearHoldTimer();
+                if (!held) {
+                    sendTimerAction(shortAction);
+                }
+                suppressClick = true;
+                if (button.releasePointerCapture && e && e.pointerId !== undefined) {
+                    try { button.releasePointerCapture(e.pointerId); } catch (err) {}
+                }
+                if (e && e.preventDefault) e.preventDefault();
+            }
+
+            button.addEventListener('pointerdown', startHold);
+            button.addEventListener('pointerup', endHold);
+            button.addEventListener('pointercancel', clearHoldTimer);
+            button.addEventListener('pointerleave', clearHoldTimer);
+            button.addEventListener('contextmenu', function(e) { e.preventDefault(); });
+            button.onclick = function(e) {
+                if (suppressClick) {
+                    suppressClick = false;
+                    return;
+                }
+                clearHoldTimer();
+                sendTimerAction(shortAction);
+                if (e && e.preventDefault) e.preventDefault();
+            };
         }
 
         if (timerPrevBtn) {
             timerPrevBtn.onclick = function() { sendTimerAction('prev'); };
         }
         if (timerModeBtn) {
-            timerModeBtn.onclick = function() { sendTimerAction('mode'); };
+            bindHoldAction(timerModeBtn, 'mode', 'middle-long');
         }
         if (timerNextBtn) {
             timerNextBtn.onclick = function() { sendTimerAction('next'); };
@@ -1411,6 +1468,8 @@ void ConfigPortal::handleTimer() {
             _previewCb(_previewContext, "timer:left");
         } else if (action == "mode" || action == "middle") {
             _previewCb(_previewContext, "timer:middle");
+        } else if (action == "middle-long" || action == "long" || action == "hold") {
+            _previewCb(_previewContext, "timer:middle-long");
         } else if (action == "next" || action == "right") {
             _previewCb(_previewContext, "timer:right");
         }
