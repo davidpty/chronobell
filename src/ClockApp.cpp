@@ -117,6 +117,7 @@ void ClockApp::beginControllers() {
     _timeProvider.begin(_rtcClock, _wifiSync.getNtpClient());
     _menuController.begin(MENU_ITEMS, MENU_ITEM_COUNT);
     _guestWifi.begin();
+    _messageClient.begin(&_timeProvider);
 
     _menuController.setContext(&_menuBindings);
     _menuController.setSettingsStore(&_settingsStore);
@@ -388,6 +389,12 @@ void ClockApp::render() {
     syncDateStyleSelection();
     applyEffectiveDisplayBrightness();
 
+    ChronoMessage previewMessage;
+    if (_messageClient.currentPreview(previewMessage)) {
+        _display.drawChronoMessage(previewMessage, millis(), _messageClient.previewStartMs());
+        return;
+    }
+
     if (_styleNamePreviewEndMs > 0 && _overrideState.active) {
         unsigned long now = millis();
         if (now < _styleNamePreviewEndMs) {
@@ -422,6 +429,10 @@ void ClockApp::render() {
     }
 
     _display.showTime();
+
+    if (!_messageClient.isPreviewVisible() && _messageClient.hasUnread()) {
+        _display.drawUnreadMessageIndicator(_messageClient.unreadCount(), _messageClient.highestPriority(), millis());
+    }
 }
 
 // =============================================================================
@@ -476,6 +487,11 @@ void ClockApp::tickGuestWifi() {
         return;
     }
 
+    if (!_guestWifi.bootFetchDone()) {
+        _guestWifi.tick(0, 0, 0, 0, 0);
+        return;
+    }
+
     int h = 0, m = 0, s = 0;
     if (!getCurrentClockTime(h, m, s)) {
         return;
@@ -487,6 +503,10 @@ void ClockApp::tickGuestWifi() {
     }
 
     _guestWifi.tick(h, m, d.year, d.month, d.date);
+}
+
+void ClockApp::tickMessages() {
+    _messageClient.update();
 }
 
 void ClockApp::pollLongPress() {
@@ -502,6 +522,12 @@ void ClockApp::pollLongPress() {
     if (heldMs < MENU_LONG_PRESS_MS) return;
 
     _t4LongPressHandled = true;
+
+    if (_messageClient.isPreviewVisible()) {
+        LOGLN("T4 1.5s: dismiss message");
+        _messageClient.dismissCurrentOrHide();
+        return;
+    }
 
     if (_menuController.isActive()) {
         LOGLN("T4 1.5s: cancel & exit menu");
@@ -823,6 +849,10 @@ void ClockApp::onTouchLeft(uint8_t pad) {
         return;
     }
     _nightModeController.noteUserActivity();
+    if (_messageClient.isPreviewVisible()) {
+        _messageClient.showPrevUnread();
+        return;
+    }
     if (_timerController.isCountdownExpired()) {
         _timerController.onLeft();
         return;
@@ -850,6 +880,10 @@ void ClockApp::onTouchRight(uint8_t pad) {
         return;
     }
     _nightModeController.noteUserActivity();
+    if (_messageClient.isPreviewVisible()) {
+        _messageClient.showNextUnread();
+        return;
+    }
     if (_timerController.isDateView()) {
         cycleTemporaryDateStyle(1);
         return;
@@ -876,6 +910,15 @@ void ClockApp::onTouchMiddleShort(uint8_t pad) {
         return;
     }
     _nightModeController.noteUserActivity();
+    if (_messageClient.isPreviewVisible()) {
+        _messageClient.hidePreview();
+    } else {
+        if (_timerController.isClockView() && _messageClient.hasUnread()) {
+            if (_messageClient.showCurrentNow()) {
+                return;
+            }
+        }
+    }
     _timerController.onMiddleShort();
 }
 
@@ -1135,10 +1178,14 @@ String ClockApp::timerStatusJson() const {
     json += guestAvailable ? "true" : "false";
     json += ",\"guestShowSsid\":";
     json += showSsid ? "true" : "false";
+    char guestSsid[LOCAL_DISPLAY_TEXT_MAX_LEN];
+    char guestPassword[LOCAL_DISPLAY_TEXT_MAX_LEN];
+    bool guestTextCopied = guestAvailable &&
+        _guestWifi.copyText(guestSsid, sizeof(guestSsid), guestPassword, sizeof(guestPassword));
     json += ",\"guestSsid\":";
-    appendJsonString(json, guestAvailable ? _guestWifi.ssid() : "");
+    appendJsonString(json, guestTextCopied ? guestSsid : "");
     json += ",\"guestPassword\":";
-    appendJsonString(json, guestAvailable ? _guestWifi.password() : "");
+    appendJsonString(json, guestTextCopied ? guestPassword : "");
 
     uint64_t stopwatchMs = _timerController.stopwatchMs();
     uint32_t countdownMs = _timerController.countdownMs();

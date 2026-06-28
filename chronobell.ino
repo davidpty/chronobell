@@ -139,6 +139,7 @@ void loop() {
     app.tickTimer();
     app.tickBell();
     app.tickGuestWifi();
+    app.tickMessages();
     app.pollLongPress();
     app.tickMenu();
 

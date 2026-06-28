@@ -12,6 +12,8 @@ ChronoBell is a compact ESP32 clock with a 32x16 LED display, touch controls, co
 
 **Guest WiFi on screen** - Fetches a guest network password at boot and shows it on the clock. No phone needed. Good for lobbies, cafes, offices.
 
+**Local messages** - Polls a router-hosted JSON endpoint for short generic notifications, keeps the clock as the primary view, and shows an unread pixel plus brief small-font previews.
+
 **Set time manually or let it self-correct** - It can set itself from WiFi and keep time on a battery-backed clock chip when offline. Or switch to manual mode and step through hour, minute, second, month, day, and year from the menu.
 
 **Two ways to configure** - Tap the menu to change any setting on the device. Or press the BOOT button or flip HOTSPOT to ON in the menu to open the setup portal in your browser for WiFi, timezone, brightness - even firmware updates.
@@ -28,6 +30,7 @@ ChronoBell is a compact ESP32 clock with a 32x16 LED display, touch controls, co
 - **Manual time** - Switch from atomic (NTP + RTC) to manual and step through HH→MM→SS→Month→Day→Year. Persists across reboots.
 - **Config portal** - Scan WiFi networks, pick a timezone, tune display and bell settings, upload firmware - all from a browser.
 - **New Year's Eve feature** - On Dec 31 from 9 PM, tiny sparkles appear and grow more frequent. At 23:50 the countdown begins, at midnight the display cycles through "HAPPY NEW YEAR" with 12 bell strikes.
+- **Local messages** - Router-side scripts can publish generic JSON messages such as `BACKUP DONE`, `SERVER DOWN`, or `DOMAIN / BUY NOW`.
 - **Timekeeping** - NTP syncs every 60 minutes when WiFi is available. The RTC keeps time when it's not. Manual mode bypasses both.
 - **OTA updates** - Push firmware over the air at `chronobell.local`.
 
@@ -74,6 +77,151 @@ The timer screen has two jobs:
 Stopwatch and countdown both keep their state across reboots. The center button moves between the clock, date, guest WiFi, stopwatch, and countdown screens. On the countdown screen, the right button changes the preset and the left button starts or pauses the timer.
 
 When a countdown finishes, ChronoBell shows a blinking `00:00`, plays a short alert pattern, and stays on the countdown screen until you acknowledge it.
+
+---
+
+## Local JSON Messages
+
+ChronoBell can poll a LAN HTTP endpoint for generic active messages. This is intentionally not domain-specific: any router script can produce messages, and the clock only consumes display-ready title/body text plus priority and scheduling fields.
+
+Default firmware config in `Config.h`:
+
+```cpp
+#define CHRONOMSG_ENABLED true
+#define CHRONOMSG_URL "http://192.168.8.1/qr/msg"
+#define CHRONOMSG_POLL_INTERVAL_MS 60000
+#define CHRONOMSG_MAX_MESSAGES 5
+```
+
+The display stays in the current clock mode. If an unread active message exists, the top-right pixel blinks over the clock. The center pad shows the selected unread message immediately; tapping center while the message is visible dismisses it if `display.dismissible` is true. Dismissed IDs are kept in RAM until reboot.
+
+Message text is normalized before display: whitespace is trimmed/collapsed, letters are uppercased, common accents are folded to ASCII, unsupported characters become spaces, and only the existing small proportional font is used. Messages render as one centered line or two centered lines when they fit; scrolling is used only for overflowing text or explicit `display.mode: "scroll"`.
+
+Expected endpoint response:
+
+```json
+{
+  "device": "chronobell",
+  "now": 1782580100,
+  "messages": [
+    {
+      "id": "domain-drop-comonoclaroquesi",
+      "source": "domain-watch",
+      "type": "alert",
+      "priority": 9,
+      "title": "DOMAIN",
+      "body": "BUY NOW",
+      "created": 1782580000,
+      "expires": 1782666400,
+      "display": {
+        "mode": "flash",
+        "repeat": true,
+        "duration": 8,
+        "interval": 60,
+        "indicator": true,
+        "dismissible": true
+      }
+    }
+  ]
+}
+```
+
+Priority behavior:
+
+| Priority | Indicator | Automatic preview |
+|----------|-----------|-------------------|
+| 0-4 | Slow blink | None unless center is tapped |
+| 5-6 | Slow blink | First calm preview, repeat every 10 minutes if `repeat` |
+| 7-8 | Medium blink | Preview soon, repeat every 3 minutes if `repeat` |
+| 9 | Fast blink | Preview as soon as practical, repeat every 60 seconds if `repeat` |
+
+If `display.interval` is present, it overrides the priority repeat interval. Preview duration defaults to 6 seconds and is clamped to 3-15 seconds.
+
+### Router Message Endpoint
+
+The `router/chronomsg` script is a self-contained POSIX shell tool for GL.iNet/OpenWrt routers. Install it as `/usr/bin/chronomsg` and expose `/www/qr/msg` as a tiny CGI wrapper:
+
+```sh
+scp router/chronomsg root@192.168.8.1:/usr/bin/chronomsg
+ssh root@192.168.8.1
+chmod +x /usr/bin/chronomsg
+mkdir -p /www/qr
+cat > /www/qr/msg <<'EOF'
+#!/bin/sh
+exec /usr/bin/chronomsg serve --cgi
+EOF
+chmod +x /www/qr/msg
+```
+
+Test the endpoint:
+
+```sh
+/usr/bin/chronomsg add DOMAIN "BUY NOW"
+/usr/bin/chronomsg serve
+wget -qO- http://192.168.8.1/qr/msg
+```
+
+`chronomsg` stores temporary state under `/tmp/chronomsg/`, including message files, the combined JSON payload, domain-check state, a cron lock, and a small log. Losing this state on router reboot is acceptable; the tool recreates missing directories and always serves valid JSON.
+
+Useful commands:
+
+```sh
+/usr/bin/chronomsg serve
+/usr/bin/chronomsg serve --cgi
+/usr/bin/chronomsg add DOMAIN "BUY NOW"
+
+/usr/bin/chronomsg add \
+  --id domain-drop-comonoclaroquesi \
+  --source domain-watch \
+  --type alert \
+  --priority 9 \
+  --title DOMAIN \
+  --body "BUY NOW" \
+  --ttl 86400 \
+  --mode flash \
+  --repeat true \
+  --duration 8 \
+  --interval 60 \
+  --detail "comonoclaroquesi.com may be available"
+
+/usr/bin/chronomsg clear domain-drop-comonoclaroquesi
+/usr/bin/chronomsg list
+/usr/bin/chronomsg rebuild
+/usr/bin/chronomsg check-domain comonoclaroquesi.com
+/usr/bin/chronomsg install-cron comonoclaroquesi.com
+/usr/bin/chronomsg uninstall-cron
+```
+
+The `/qr/msg` endpoint only serves cached messages. It never runs RDAP, WHOIS, `curl`, or `wget` during ChronoBell polling, so a slow registrar or network error cannot block the display.
+
+Domain checks run from cron or manually:
+
+```sh
+/usr/bin/chronomsg install-cron comonoclaroquesi.com
+/etc/init.d/cron restart
+/usr/bin/chronomsg check-domain comonoclaroquesi.com
+```
+
+The domain checker is conservative. It tries RDAP first through `curl` or `wget`, then falls back to `whois` if available. RDAP `404` or clear WHOIS no-match output creates the priority 9 `DOMAIN / BUY NOW` alert. Pending or registered states such as `redemptionPeriod`, `pendingDelete`, registrar fields, or name servers create no urgent alert. Ambiguous status creates a lower-priority `DOMAIN / CHECK` alert. Network errors only log and update state to `ERROR`.
+
+Manual tests:
+
+```sh
+rm -rf /tmp/chronomsg
+/usr/bin/chronomsg serve
+/usr/bin/chronomsg add DOMAIN "BUY NOW"
+/usr/bin/chronomsg serve
+/usr/bin/chronomsg clear <id>
+/usr/bin/chronomsg add --ttl 1 TEST EXPIRE
+sleep 2
+/usr/bin/chronomsg rebuild
+/usr/bin/chronomsg install-cron comonoclaroquesi.com
+/usr/bin/chronomsg install-cron comonoclaroquesi.com
+grep chronomsg /etc/crontabs/root
+/usr/bin/chronomsg uninstall-cron
+```
+
+Troubleshooting starts with `/tmp/chronomsg/chronomsg.log` and `/tmp/chronomsg/domain-state`. If neither `curl`/`wget` nor `whois` exists on the router, `check-domain` enters the safe `ERROR` state and does not create a `BUY NOW` alert.
 
 ---
 

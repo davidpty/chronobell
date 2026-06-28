@@ -10,6 +10,7 @@
 #include "RtcClock.h"
 #include "PongClock.h"
 #include "fonts.h"
+#include "MessageClient.h"
 #if SCREEN_TRANSITION
 #include "ScreenTransition.h"
 #endif
@@ -118,6 +119,8 @@ public:
     void setGuestWifiController(GuestWifiController* c);
     void setNewYearController(NewYearController* c);
     void drawGuestWifiText(bool showSsid);
+    void drawChronoMessage(const ChronoMessage& message, unsigned long nowMs, unsigned long previewStartMs);
+    void drawUnreadMessageIndicator(int count, int priority, unsigned long nowMs);
 
     static int charWidth(char c, bool small);
     static int charWidthBig(char c);

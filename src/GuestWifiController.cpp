@@ -64,7 +64,7 @@ bool readHttpBody(WiFiClient& client, String& body) {
     }
 
     body = "";
-    const size_t maxBodyLen = (GUEST_WIFI_TEXT_MAX_LEN * 2) + 4;
+    const size_t maxBodyLen = (LOCAL_DISPLAY_TEXT_MAX_LEN * 2) + 4;
     unsigned long idleStart = millis();
     while ((client.connected() || client.available()) && body.length() < maxBodyLen) {
         while (client.available() && body.length() < maxBodyLen) {
@@ -76,6 +76,47 @@ bool readHttpBody(WiFiClient& client, String& body) {
         }
         delay(1);
     }
+    return body.length() > 0;
+}
+
+bool readHttpResponse(WiFiClient& client, String& body, unsigned long startMs) {
+    String response;
+    const size_t maxResponseLen = (LOCAL_DISPLAY_TEXT_MAX_LEN * 2) + 512;
+    response.reserve(maxResponseLen);
+
+    while ((client.connected() || client.available()) &&
+           millis() - startMs < LOCAL_HTTP_TOTAL_TIMEOUT_MS) {
+        while (client.available()) {
+            if (response.length() >= maxResponseLen) {
+                return false;
+            }
+            response += (char)client.read();
+        }
+        vTaskDelay(pdMS_TO_TICKS(5));
+    }
+
+    int bodyStart = response.indexOf("\r\n\r\n");
+    int separatorLen = 4;
+    if (bodyStart < 0) {
+        bodyStart = response.indexOf("\n\n");
+        separatorLen = 2;
+    }
+    if (bodyStart < 0) {
+        return false;
+    }
+
+    String status = response.substring(0, response.indexOf('\n'));
+    status.trim();
+    int firstSpace = status.indexOf(' ');
+    int code = firstSpace >= 0 ? status.substring(firstSpace + 1).toInt() : 0;
+    if (!status.startsWith("HTTP/1.") || code != 200) {
+        LOG("Guest WiFi: ");
+        LOGLN(status);
+        return false;
+    }
+
+    body = response.substring(bodyStart + separatorLen);
+    body.trim();
     return body.length() > 0;
 }
 
@@ -106,7 +147,7 @@ bool textFitsDisplay(const char* text) {
     }
     if (split == 0) split = len / 2;
 
-    char buf[GUEST_WIFI_TEXT_MAX_LEN];
+    char buf[LOCAL_DISPLAY_TEXT_MAX_LEN];
     memcpy(buf, text, split);
     buf[split] = '\0';
     const char* line2 = text + split;
@@ -118,13 +159,69 @@ bool textFitsDisplay(const char* text) {
 }
 
 void GuestWifiController::begin() {
+    _ssid[0] = '\0';
+    _password[0] = '\0';
     _disabled = (GUEST_WIFI_URL[0] == '\0');
     if (_disabled) {
         LOGLN("Guest WiFi: disabled (URL is empty)");
+        return;
+    }
+
+    _mutex = xSemaphoreCreateMutex();
+    if (!_mutex) {
+        LOGLN("Guest WiFi: mutex create failed");
+        _disabled = true;
+        return;
+    }
+
+    _taskStop = false;
+    BaseType_t ok = xTaskCreatePinnedToCore(taskEntry, "guestwifi", GUEST_WIFI_TASK_STACK_WORDS,
+                                            this, LOCAL_NETWORK_TASK_PRIORITY, &_task, 0);
+    if (ok != pdPASS) {
+        LOGLN("Guest WiFi: task create failed");
+        _task = nullptr;
+        _disabled = true;
     }
 }
 
-bool GuestWifiController::fetch(const char* url) {
+void GuestWifiController::stop() {
+    _taskStop = true;
+}
+
+bool GuestWifiController::isTextAvailable() const {
+    if (_disabled || !_mutex) return false;
+    if (xSemaphoreTake(_mutex, 0) != pdTRUE) {
+        return _passwordAvailable;
+    }
+    bool available = _passwordAvailable;
+    xSemaphoreGive(_mutex);
+    return available;
+}
+
+bool GuestWifiController::copyText(char* ssidOut, size_t ssidLen, char* passwordOut, size_t passwordLen) const {
+    if (!ssidOut || !passwordOut || ssidLen == 0 || passwordLen == 0) return false;
+    ssidOut[0] = '\0';
+    passwordOut[0] = '\0';
+    if (_disabled || !_mutex) return false;
+    if (xSemaphoreTake(_mutex, pdMS_TO_TICKS(2)) != pdTRUE) return false;
+    bool available = _passwordAvailable;
+    if (available) {
+        strlcpy(ssidOut, _ssid, ssidLen);
+        strlcpy(passwordOut, _password, passwordLen);
+    }
+    xSemaphoreGive(_mutex);
+    return available;
+}
+
+bool GuestWifiController::bootFetchDone() const {
+    if (_disabled || !_mutex) return true;
+    if (xSemaphoreTake(_mutex, 0) != pdTRUE) return _bootFetchDone;
+    bool done = _bootFetchDone;
+    xSemaphoreGive(_mutex);
+    return done;
+}
+
+bool GuestWifiController::fetchBlocking(const char* url, char* ssidOut, size_t ssidLen, char* passwordOut, size_t passwordLen) {
     if (_disabled || !url || url[0] == '\0') {
         return false;
     }
@@ -145,8 +242,9 @@ bool GuestWifiController::fetch(const char* url) {
     }
 
     WiFiClient client;
-    client.setTimeout(GUEST_WIFI_FETCH_TIMEOUT_SECONDS * 1000UL);
-    if (!client.connect(parsed.host.c_str(), parsed.port)) {
+    client.setTimeout(LOCAL_HTTP_CONNECT_TIMEOUT_MS);
+    unsigned long startMs = millis();
+    if (!client.connect(parsed.host.c_str(), parsed.port, LOCAL_HTTP_CONNECT_TIMEOUT_MS)) {
         LOGLN("Guest WiFi: HTTP connect failed");
         return false;
     }
@@ -158,7 +256,7 @@ bool GuestWifiController::fetch(const char* url) {
     client.print("\r\nConnection: close\r\nUser-Agent: ChronoBell\r\n\r\n");
 
     String body;
-    bool ok = readHttpBody(client, body);
+    bool ok = readHttpResponse(client, body, startMs);
     client.stop();
     if (!ok) {
         LOGLN("Guest WiFi: HTTP fetch failed");
@@ -170,56 +268,119 @@ bool GuestWifiController::fetch(const char* url) {
         return false;
     }
 
-    _ssid[0] = '\0';
-    _password[0] = '\0';
+    ssidOut[0] = '\0';
+    passwordOut[0] = '\0';
 
     int newlinePos = body.indexOf('\n');
     if (newlinePos == -1) {
         // Single line — treat as password only (backward compat)
         body.trim();
         size_t len = body.length();
-        if (len >= GUEST_WIFI_TEXT_MAX_LEN) {
-            len = GUEST_WIFI_TEXT_MAX_LEN - 1;
+        if (len >= passwordLen) {
+            len = passwordLen - 1;
         }
-        memcpy(_password, body.c_str(), len);
-        _password[len] = '\0';
+        memcpy(passwordOut, body.c_str(), len);
+        passwordOut[len] = '\0';
     } else {
         // Two lines: first = SSID, second = password
         String ssidStr = body.substring(0, newlinePos);
         ssidStr.trim();
-        size_t ssidLen = ssidStr.length();
-        if (ssidLen >= GUEST_WIFI_TEXT_MAX_LEN) {
-            ssidLen = GUEST_WIFI_TEXT_MAX_LEN - 1;
+        size_t copiedSsidLen = ssidStr.length();
+        if (copiedSsidLen >= ssidLen) {
+            copiedSsidLen = ssidLen - 1;
         }
-        memcpy(_ssid, ssidStr.c_str(), ssidLen);
-        _ssid[ssidLen] = '\0';
+        memcpy(ssidOut, ssidStr.c_str(), copiedSsidLen);
+        ssidOut[copiedSsidLen] = '\0';
 
         String passStr = body.substring(newlinePos + 1);
         passStr.trim();
         size_t passLen = passStr.length();
-        if (passLen >= GUEST_WIFI_TEXT_MAX_LEN) {
-            passLen = GUEST_WIFI_TEXT_MAX_LEN - 1;
+        if (passLen >= passwordLen) {
+            passLen = passwordLen - 1;
         }
-        memcpy(_password, passStr.c_str(), passLen);
-        _password[passLen] = '\0';
+        memcpy(passwordOut, passStr.c_str(), passLen);
+        passwordOut[passLen] = '\0';
     }
 
     // Both strings must fit the display (each is shown full-screen)
-    if (!textFitsDisplay(_ssid) || !textFitsDisplay(_password)) {
+    if (!textFitsDisplay(ssidOut) || !textFitsDisplay(passwordOut)) {
         LOGLN("Guest WiFi: text too wide for display, rejected");
-        _ssid[0] = '\0';
-        _password[0] = '\0';
+        ssidOut[0] = '\0';
+        passwordOut[0] = '\0';
         return false;
     }
 
     LOG("Guest WiFi: SSID=\"");
-    LOG(_ssid);
+    LOG(ssidOut);
     LOG("\" password=\"");
-    LOG(_password);
+    LOG(passwordOut);
     LOGLN("\"");
-    _fetchFailCount = 0;
-    _passwordAvailable = true;
     return true;
+}
+
+void GuestWifiController::applyFetchResult(bool ok, FetchReason reason, const char* ssid, const char* password) {
+    if (!_mutex) return;
+    if (xSemaphoreTake(_mutex, pdMS_TO_TICKS(50)) != pdTRUE) return;
+    if (ok) {
+        strlcpy(_ssid, ssid ? ssid : "", sizeof(_ssid));
+        strlcpy(_password, password ? password : "", sizeof(_password));
+        _passwordAvailable = _password[0] != '\0';
+        _fetchFailCount = 0;
+        _bootFetchDone = true;
+    } else {
+        if (_fetchFailCount < GUEST_WIFI_FETCH_MAX_FAILURES) {
+            _fetchFailCount++;
+        }
+        if (reason == FetchReason::Boot && _fetchFailCount >= GUEST_WIFI_FETCH_MAX_FAILURES) {
+            _bootFetchDone = true;
+        }
+    }
+    _fetchInProgress = false;
+    xSemaphoreGive(_mutex);
+}
+
+bool GuestWifiController::requestFetch(FetchReason reason, unsigned long nowMs) {
+    if (!_mutex) return false;
+    if (xSemaphoreTake(_mutex, 0) != pdTRUE) return false;
+    if (_fetchRequested || _fetchInProgress) {
+        xSemaphoreGive(_mutex);
+        return false;
+    }
+    _fetchReason = reason;
+    _fetchRequested = true;
+    _lastFetchMs = nowMs;
+    xSemaphoreGive(_mutex);
+    return true;
+}
+
+void GuestWifiController::taskEntry(void* arg) {
+    static_cast<GuestWifiController*>(arg)->taskLoop();
+}
+
+void GuestWifiController::taskLoop() {
+    while (!_taskStop) {
+        bool shouldFetch = false;
+        FetchReason reason = FetchReason::Boot;
+        if (_mutex && xSemaphoreTake(_mutex, pdMS_TO_TICKS(20)) == pdTRUE) {
+            if (_fetchRequested && !_fetchInProgress) {
+                _fetchRequested = false;
+                _fetchInProgress = true;
+                reason = _fetchReason;
+                shouldFetch = true;
+            }
+            xSemaphoreGive(_mutex);
+        }
+
+        if (shouldFetch) {
+            char ssid[LOCAL_DISPLAY_TEXT_MAX_LEN];
+            char password[LOCAL_DISPLAY_TEXT_MAX_LEN];
+            bool ok = fetchBlocking(GUEST_WIFI_URL, ssid, sizeof(ssid), password, sizeof(password));
+            applyFetchResult(ok, reason, ssid, password);
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
+    vTaskDelete(nullptr);
 }
 
 void GuestWifiController::tick(int hours, int minutes, int year, int month, int day) {
@@ -228,20 +389,26 @@ void GuestWifiController::tick(int hours, int minutes, int year, int month, int 
     }
 
     unsigned long nowMs = millis();
-    if (nowMs - _lastFetchMs < (unsigned long)GUEST_WIFI_FETCH_TIMEOUT_SECONDS * 1000UL) {
+    bool bootFetchDone = true;
+    int fetchFailCount = 0;
+    unsigned long lastFetchMs = 0;
+    if (_mutex && xSemaphoreTake(_mutex, 0) == pdTRUE) {
+        bootFetchDone = _bootFetchDone;
+        fetchFailCount = _fetchFailCount;
+        lastFetchMs = _lastFetchMs;
+        xSemaphoreGive(_mutex);
+    }
+
+    if (lastFetchMs != 0 &&
+        nowMs - lastFetchMs < (unsigned long)GUEST_WIFI_FETCH_TIMEOUT_SECONDS * 1000UL) {
         return; // Throttle: at most 1 fetch attempt per minute
     }
 
     // Boot fetch: fire once at startup, but only mark done on success.
     // If WiFi isn't connected yet (async boot), retry each tick instead
     // of falling through to the 5‑minute retry path.
-    if (!_bootFetchDone) {
-        _lastFetchMs = nowMs;
-        if (fetch(GUEST_WIFI_URL)) {
-            _bootFetchDone = true;
-        } else {
-            _fetchFailCount++;
-        }
+    if (!bootFetchDone) {
+        requestFetch(FetchReason::Boot, nowMs);
         return;
     }
 
@@ -249,23 +416,20 @@ void GuestWifiController::tick(int hours, int minutes, int year, int month, int 
     int todayKey = year * 10000 + month * 100 + day;
     if (hours == GUEST_WIFI_FETCH_HOUR && minutes == GUEST_WIFI_FETCH_MINUTE && todayKey != _lastFetchDay) {
         _lastFetchDay = todayKey;
-        _lastFetchMs = nowMs;
-        _fetchFailCount = 0; // Reset retry counter for the new day
-        if (!fetch(GUEST_WIFI_URL)) {
-            _fetchFailCount++;
+        if (_mutex && xSemaphoreTake(_mutex, pdMS_TO_TICKS(2)) == pdTRUE) {
+            _fetchFailCount = 0; // Reset retry counter for the new day
+            fetchFailCount = 0;
+            xSemaphoreGive(_mutex);
         }
+        requestFetch(FetchReason::Daily, nowMs);
         return;
     }
 
     // Retry: if a previous fetch (boot or timed) failed, try again once per
     // fetch interval, up to the configured failure cap.
-    if (_fetchFailCount > 0 && _fetchFailCount < GUEST_WIFI_FETCH_MAX_FAILURES) {
-        if (nowMs - _lastFetchMs >= (unsigned long)GUEST_WIFI_FETCH_TIMEOUT_SECONDS * 1000UL) {
-            _lastFetchMs = nowMs;
-            _fetchFailCount++;
-            if (fetch(GUEST_WIFI_URL)) {
-                _fetchFailCount = 0;
-            }
+    if (fetchFailCount > 0 && fetchFailCount < GUEST_WIFI_FETCH_MAX_FAILURES) {
+        if (nowMs - lastFetchMs >= (unsigned long)GUEST_WIFI_FETCH_TIMEOUT_SECONDS * 1000UL) {
+            requestFetch(FetchReason::Retry, nowMs);
         }
         return;
     }

@@ -893,7 +893,13 @@ void Display::drawGuestWifiText(bool showSsid) {
         return;
     }
 
-    const char* text = showSsid ? _guestWifi->ssid() : _guestWifi->password();
+    char ssid[LOCAL_DISPLAY_TEXT_MAX_LEN];
+    char password[LOCAL_DISPLAY_TEXT_MAX_LEN];
+    if (!_guestWifi->copyText(ssid, sizeof(ssid), password, sizeof(password))) {
+        return;
+    }
+
+    const char* text = showSsid ? ssid : password;
     if (text[0] == '\0') return;
 
     int fullWidth = textWidth(text, true, 1, 2);
@@ -927,7 +933,7 @@ void Display::drawGuestWifiText(bool showSsid) {
     }
     if (split == 0) split = len / 2;
 
-    char line1[GUEST_WIFI_TEXT_MAX_LEN];
+    char line1[LOCAL_DISPLAY_TEXT_MAX_LEN];
     memcpy(line1, text, split);
     line1[split] = '\0';
 
@@ -943,4 +949,88 @@ void Display::drawGuestWifiText(bool showSsid) {
     }
     // If either line overflows, nothing is drawn (text was displayable
     // at fetch time, so this is defensive only)
+}
+
+static void drawSmallTextAt(Display& display, const String& text, int x, int y) {
+    display.drawSmallText(text.c_str(), x, y);
+}
+
+static void drawSmallScrollLine(Display& display, const String& text, int y,
+                                unsigned long nowMs, unsigned long startMs) {
+    int width = Display::textWidth(text.c_str(), true, 1, 2);
+    String displayText = text;
+    if (width < COLS_PER_ROW) {
+        displayText = text;
+        while (Display::textWidth(displayText.c_str(), true, 1, 2) < COLS_PER_ROW) {
+            displayText += " " + text;
+        }
+        width = Display::textWidth(displayText.c_str(), true, 1, 2);
+    }
+    int cycle = width + CHRONOMSG_SCROLL_REPEAT_GAP_PX;
+    if (cycle <= 0) return;
+    unsigned long elapsed = nowMs - startMs;
+    int phase = (int)((elapsed / CHRONOMSG_SCROLL_STEP_MS) % (unsigned long)cycle);
+    int x0 = COLS_PER_ROW - 1 - phase - cycle;
+    drawSmallTextAt(display, displayText, x0, y);
+    drawSmallTextAt(display, displayText, x0 + cycle, y);
+    drawSmallTextAt(display, displayText, x0 + cycle * 2, y);
+}
+
+void Display::drawChronoMessage(const ChronoMessage& message, unsigned long nowMs, unsigned long previewStartMs) {
+    clearBuffer();
+
+    MessageLayout layout = layoutMessageText(message.title, message.body);
+    if (layout.kind == MessageLayoutKind::None) {
+        renderBuffer();
+        return;
+    }
+
+    switch (layout.kind) {
+        case MessageLayoutKind::OneLine:
+            drawCenteredSmallText(layout.line1.c_str(), 5);
+            break;
+        case MessageLayoutKind::TwoLine:
+            drawCenteredSmallText(layout.line1.c_str(), 1);
+            drawCenteredSmallText(layout.line2.c_str(), 10);
+            break;
+        case MessageLayoutKind::Scroll:
+            if (layout.line2.length() > 0 && layout.line1.length() > 0) {
+                if (layout.scrollLine1) {
+                    drawSmallScrollLine(*this, layout.line1, 1, nowMs, previewStartMs);
+                } else {
+                    drawCenteredSmallText(layout.line1.c_str(), 1);
+                }
+                if (layout.scrollLine2) {
+                    drawSmallScrollLine(*this, layout.line2, 10, nowMs, previewStartMs);
+                } else {
+                    drawCenteredSmallText(layout.line2.c_str(), 10);
+                }
+            } else {
+                const String& line = layout.line2.length() > 0 ? layout.line2 : layout.line1;
+                drawSmallScrollLine(*this, line, 5, nowMs, previewStartMs);
+            }
+            break;
+        case MessageLayoutKind::None:
+        default:
+            break;
+    }
+    renderBuffer();
+}
+
+void Display::drawUnreadMessageIndicator(int count, int priority, unsigned long nowMs) {
+    if (priority < 0 || count <= 0) return;
+    unsigned long blinkPeriod = priority >= 9 ? 200UL : (priority >= 7 ? 1200UL : 2400UL);
+    unsigned long halfPeriod = blinkPeriod / 2;
+    unsigned long burstLen = count * blinkPeriod;
+    unsigned long pauseLen = 1500UL;
+    unsigned long totalLen = burstLen + pauseLen;
+    unsigned long t = nowMs % totalLen;
+    if (t >= burstLen) return;
+    unsigned long blinkIdx = t / blinkPeriod;
+    unsigned long posInBlink = t % blinkPeriod;
+    if (posInBlink >= halfPeriod) return;
+    int bx = 0, by = TOTAL_ROWS - 1;
+    if (getPixel(bx, by)) return;
+    setPixel(bx, by, true);
+    renderBuffer();
 }

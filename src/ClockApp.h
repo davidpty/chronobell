@@ -22,6 +22,7 @@
 #include "WiFiSync.h"
 #include "Display.h"
 #include "GuestWifiController.h"
+#include "MessageClient.h"
 
 // C-ABI function-pointer aliases used by the .ino's trampolines.
 using OnTouchFn       = void (*)(uint8_t pad);
@@ -87,6 +88,7 @@ public:
     void tickTimer();
     void tickBell();
     void tickGuestWifi();
+    void tickMessages();
     void pollLongPress();
     void tickMenu();
 
@@ -136,6 +138,7 @@ private:
     WiFiManagerLite  _wifiManager;
     WiFiSync         _wifiSync;
     GuestWifiController _guestWifi;
+    MessageClient   _messageClient;
     DriftTimeModel  _driftTimeModel;
     NewYearController _newYearController;
     Display          _display;

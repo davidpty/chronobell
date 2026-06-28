@@ -151,6 +151,15 @@
 #define HOTSPOT_TIMEOUT_MINUTES                     60                                  // Auto-stop hotspot after N min (0 = stay until manual exit)
 
 // ---------------------------------------------------------------------------
+// Local LAN HTTP / background work defaults
+// ---------------------------------------------------------------------------
+
+#define LOCAL_HTTP_CONNECT_TIMEOUT_MS               500                                 // TCP connect timeout for router-local HTTP fetches
+#define LOCAL_HTTP_TOTAL_TIMEOUT_MS                 3000                                // Total HTTP fetch budget for router-local background tasks
+#define LOCAL_NETWORK_TASK_PRIORITY                 1                                   // Lower than display/input timing work
+#define LOCAL_DISPLAY_TEXT_MAX_LEN                  64                                  // Max short text displayed from local services
+
+// ---------------------------------------------------------------------------
 // Guest WiFi password display
 // ---------------------------------------------------------------------------
 // Fetches a password from an HTTP URL at boot and daily at the configured
@@ -162,12 +171,32 @@
 #define GUEST_WIFI_FETCH_MINUTE                     1                                   // Minute of hour to fetch guest Wi-Fi (0-59)
 #define GUEST_WIFI_FETCH_TIMEOUT_SECONDS            60                                  // HTTP timeout and retry cadence for guest Wi-Fi fetch attempts
 #define GUEST_WIFI_FETCH_MAX_FAILURES               10                                  // Stop retrying after this many failed fetches
-
-#define GUEST_WIFI_TEXT_MAX_LEN                     64                                  // Max guest Wi-Fi text length for SSID and password
+#define GUEST_WIFI_TASK_STACK_WORDS                 4096                                // FreeRTOS stack for background guest Wi-Fi fetch
 
 #define GUEST_WIFI_VIEW_TIMEOUT_SECONDS             60                                  // Time before the guest Wi-Fi view hides
 #define GUEST_WIFI_SSID_SHOW_SECONDS                2                                   // Seconds to show SSID before switching to password
 #define GUEST_WIFI_PASS_SHOW_SECONDS                8                                   // Seconds to show password in the guest Wi-Fi view
+
+// ---------------------------------------------------------------------------
+// Local JSON message notifications
+// ---------------------------------------------------------------------------
+// Generic LAN message endpoint. ChronoBell polls this in a low-priority task,
+// caches active messages, and overlays previews/indicators without blocking
+// the clock renderer.
+
+#define CHRONOMSG_ENABLED                           true
+#define CHRONOMSG_URL                               "http://192.168.8.1/cgi-bin/chronomsg"
+#define CHRONOMSG_POLL_INTERVAL_MS                  60000UL
+#define CHRONOMSG_MAX_MESSAGES                      5
+#define CHRONOMSG_MAX_RESPONSE_BYTES                2048
+#define CHRONOMSG_MAX_ID_LEN                        64
+#define CHRONOMSG_TASK_STACK_WORDS                  8192
+#define CHRONOMSG_DEFAULT_DURATION_SEC              6
+#define CHRONOMSG_MIN_DURATION_SEC                  3
+#define CHRONOMSG_MAX_DURATION_SEC                  15
+#define CHRONOMSG_SCROLL_STEP_MS                    140
+#define CHRONOMSG_SCROLL_REPEAT_GAP_PX              4
+#define CHRONOMSG_MIN_SCROLL_CYCLES                 2
 
 // ═════════════════════════════════════════════════════════════════════════════
 // SECTION 3 — PER-BOARD CALIBRATION
