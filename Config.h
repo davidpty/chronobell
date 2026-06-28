@@ -59,10 +59,11 @@
 // Bell output timing
 // ---------------------------------------------------------------------------
 
-#define BELL_COIL_ON_MS                             200                                        // Minimum coil energize time for one strike
-#define BELL_COIL_OFF_MS                            200                                        // Minimum coil de-energize time between strikes
-#define BELL_STRIKE_GAP_MS                          200                                        // Additional pause within a group (added after COIL_OFF)
-#define BELL_GROUP_GAP_MS                           900                                        // Additional pause between groups / un-grouped strikes (added after COIL_OFF)
+#define BELL_COIL_ON_MS                             300                                        // Minimum coil energize time for one strike
+#define BELL_COIL_OFF_MS                            100                                        // Minimum coil de-energize time between strikes
+
+#define BELL_STRIKE_GAP_MS                          100                                        // Additional pause within a group (added after COIL_OFF)
+#define BELL_GROUP_GAP_MS                           600                                        // Additional pause between groups / un-grouped strikes (added after COIL_OFF)
 
 // ---------------------------------------------------------------------------
 // Timer alerts
