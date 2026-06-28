@@ -1,6 +1,6 @@
 # ChronoBell
 
-ChronoBell is a compact LED clock with a bright, easy-to-read display, simple touch controls, a classic bell sound, and a few thoughtful extras for shared spaces. It can show short local messages and guest WiFi details, while Drift adds a calm visual twist by easing the displayed time away from real time and back again.
+ChronoBell is a compact LED clock with a bright, easy-to-read display, simple touch controls, a classic bell sound, and a handful of thoughtful extras that give it a distinctive character. It can show short local messages and guest WiFi details, and it includes several display styles and date views.
 
 ![ChronoBell](chronobell.png) ![Config Portal](chronoportal.png)
 
