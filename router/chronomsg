@@ -20,13 +20,6 @@ ensure_base() {
     mkdir -p "$BASE" "$MSG_DIR"
 }
 
-log_msg() {
-    ensure_base
-    msg="$*"
-    logger -t chronomsg "$msg" 2>/dev/null || true
-    printf '%s %s\n' "$(date '+%Y-%m-%d %H:%M:%S' 2>/dev/null || date +%s)" "$msg" >> "$LOG_FILE" 2>/dev/null || true
-}
-
 now_epoch() {
     date +%s 2>/dev/null || printf '0\n'
 }
@@ -110,7 +103,6 @@ rebuild_payload() {
             continue
         fi
         if ! is_message_valid "$f"; then
-            log_msg "skipping malformed message file $f"
             continue
         fi
         id="$(sed -n 's/.*"id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$f" | sed -n '1p')"
@@ -154,7 +146,6 @@ serve_payload() {
             dismiss_id="$(safe_id "$dismiss_id")"
             if [ -n "$dismiss_id" ] && ! is_dismissed "$dismiss_id"; then
                 printf '%s\n' "$dismiss_id" >> "$DISMISSED_FILE"
-                log_msg "dismissed via cgi id=$dismiss_id"
             fi
         fi
     fi
@@ -268,7 +259,6 @@ add_message() {
         return 1
     }
     mv "$tmp" "$file"
-    log_msg "message created id=$id"
     rebuild_payload
 }
 
@@ -376,10 +366,8 @@ acquire_lock() {
     if [ -f "$LOCK_FILE" ]; then
         age="$(lock_age)"
         if [ "$age" -lt "$LOCK_STALE_SEC" ]; then
-            log_msg "domain check skipped fresh lock age=${age}s"
             return 1
         fi
-        log_msg "removing stale domain check lock age=${age}s"
         rm -f "$LOCK_FILE"
     fi
     now_epoch > "$LOCK_FILE"
@@ -625,8 +613,6 @@ check_domain() {
 
     acquire_lock || return 0
     trap 'release_lock' EXIT HUP INT TERM
-    log_msg "domain check started domain=$domain"
-
     result=""
     if result="$(check_whois "$domain")"; then
         method="${result%% *}"
@@ -644,10 +630,6 @@ check_domain() {
     fi
 
     previous="$(read_state)"
-    log_msg "domain check method=$method state=$state previous=$previous"
-    if [ "$state" != "$previous" ]; then
-        log_msg "domain state transition $previous -> $state"
-    fi
     write_state "$state"
 
     case "$state" in
@@ -917,10 +899,8 @@ guestqr_run() {
         case "$ts" in ''|*[!0-9]*) ts=0 ;; esac
         age=$(( now - ts ))
         if [ "$age" -lt "$LOCK_STALE_SEC" ]; then
-            log_msg "guestqr skipped fresh lock age=${age}s"
             return 0
         fi
-        log_msg "removing stale guestqr lock age=${age}s"
         rm -f "$gqr_lock"
     fi
     now_epoch > "$gqr_lock"
@@ -931,19 +911,18 @@ guestqr_run() {
     stored=$(cat "$state_file" 2>/dev/null || echo '')
 
     if [ "$stored" = "$key" ]; then
-        log_msg "guestqr skipped current period=$key"
         rm -f "$gqr_lock"
         trap - EXIT HUP INT TERM
         return 0
     fi
 
     password=$(guestqr_derive_password "$seed" "$key" "$length" "$alphabet")
-    [ -z "$password" ] && { log_msg "guestqr failed empty password"; return 1; }
+    [ -z "$password" ] && return 1
 
     if [ "$no_apply" = false ]; then
-        uci set wireless."$section".key="$password" 2>/dev/null || log_msg "guestqr uci set failed"
-        uci commit wireless 2>/dev/null || log_msg "guestqr uci commit failed"
-        wifi reload 2>/dev/null || wifi 2>/dev/null || log_msg "guestqr wifi reload failed"
+        uci set wireless."$section".key="$password" 2>/dev/null || true
+        uci commit wireless 2>/dev/null || true
+        wifi reload 2>/dev/null || wifi 2>/dev/null || true
     fi
 
     mkdir -p "$outdir"
@@ -1067,7 +1046,6 @@ PAGE
 
     chmod 644 "$outdir/guest.txt"
     printf '%s\n' "$key" > "$state_file"
-    log_msg "guestqr rotated ssid=${ssid} period=${key}"
     rm -f "$gqr_lock"
     trap - EXIT HUP INT TERM
 }
@@ -1100,7 +1078,7 @@ cron_add() {
         check-domain)
             domain="${1:-}"
             [ -z "$domain" ] && { printf 'Usage: chronomsg cron add check-domain <domain>\n' >&2; return 2; }
-            line="0 * * * * /usr/bin/chronomsg check-domain $domain >$BASE/domain-check.log 2>&1"
+            line="0 * * * * /usr/bin/chronomsg check-domain $domain >/dev/null 2>&1"
             ;;
         guestqr)
             hour=3; minute=0; weekday="*"

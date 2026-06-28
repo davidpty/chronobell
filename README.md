@@ -1,6 +1,6 @@
 # ChronoBell
 
-ChronoBell is a compact ESP32 clock with a 32x16 LED display, touch controls, configurable clock faces, and a bell output inspired by traditional ship's clocks. It keeps precise time in everyday modes, while Drift slowly moves the displayed time away from real time and back again as a quiet experiment in how time is perceived.
+ChronoBell is a compact LED clock with a clear display, simple touch controls, a classic bell sound, and handy extras for everyday spaces. It also shows short local messages and guest WiFi details, while Drift slowly moves the displayed time away from real time and back again as a quiet experiment in how time is perceived.
 
 ![ChronoBell](chronobell.png) ![Config Portal](chronoportal.png)
 
@@ -10,9 +10,9 @@ ChronoBell is a compact ESP32 clock with a 32x16 LED display, touch controls, co
 
 **9 display styles + 5 date views** - Big digits, a configurable INFO overlay, word clock, roman numerals, binary, bar graphs, drift, pong, or a configurable random view. INFO can show seconds, deciseconds, date, WDAY, or alternate between date and WDAY every N seconds after entering ALT. Drift uses the big digital layout, but lets displayed time slowly move away from real time and return. BAR turns hours, minutes, and optional seconds into stacked progress bars. Pong plays a live rally that scores the current time. Date views include day and month, year, moon phase, Western zodiac, and Chinese zodiac. Tap to peek at any view.
 
-**Guest WiFi on screen** - Fetches a guest network password at boot and shows it on the clock. No phone needed. Good for lobbies, cafes, offices.
+**Local messages** - Pulls short notices from your router and shows them as brief previews, with a small unread indicator when something is waiting.
 
-**Local messages** - Polls a router-hosted JSON endpoint for short generic notifications, keeps the clock as the primary view, and shows an unread pixel plus brief small-font previews.
+**Guest WiFi on screen** - Shows the guest network name and password right on the clock. No phone needed. Good for lobbies, cafes, offices.
 
 **Set time manually or let it self-correct** - It can set itself from WiFi and keep time on a battery-backed clock chip when offline. Or switch to manual mode and step through hour, minute, second, month, day, and year from the menu.
 
@@ -30,7 +30,7 @@ ChronoBell is a compact ESP32 clock with a 32x16 LED display, touch controls, co
 - **Manual time** - Switch from atomic (NTP + RTC) to manual and step through HH→MM→SS→Month→Day→Year. Persists across reboots.
 - **Config portal** - Scan WiFi networks, pick a timezone, tune display and bell settings, upload firmware - all from a browser.
 - **New Year's Eve feature** - On Dec 31 from 9 PM, tiny sparkles appear and grow more frequent. At 23:50 the countdown begins, at midnight the display cycles through "HAPPY NEW YEAR" with 12 bell strikes.
-- **Local messages** - Router-side scripts can publish generic JSON messages such as `BACKUP DONE`, `SERVER DOWN`, or `DOMAIN / BUY NOW`.
+- **Local messages** - Router-side scripts can send short notices like `BACKUP DONE`, `SERVER DOWN`, or `DOMAIN / BUY NOW`.
 - **Timekeeping** - NTP syncs every 60 minutes when WiFi is available. The RTC keeps time when it's not. Manual mode bypasses both.
 - **OTA updates** - Push firmware over the air at `chronobell.local`.
 
@@ -88,14 +88,14 @@ Default firmware config in `Config.h`:
 
 ```cpp
 #define CHRONOMSG_ENABLED true
-#define CHRONOMSG_URL "http://192.168.8.1/qr/msg"
+#define CHRONOMSG_URL "http://192.168.8.1/cgi-bin/chronomsg"
 #define CHRONOMSG_POLL_INTERVAL_MS 60000
 #define CHRONOMSG_MAX_MESSAGES 5
 ```
 
-The display stays in the current clock mode. If an unread active message exists, the top-right pixel blinks over the clock. The center pad shows the selected unread message immediately; tapping center while the message is visible dismisses it if `display.dismissible` is true. Dismissed IDs are kept in RAM until reboot.
+The display stays in the current clock mode. If an unread active message exists, the bottom-left pixel blinks in bursts. The center pad shows the selected unread message immediately; a long-press on center permanently dismisses it. Dismissed IDs are sent to the router endpoint (`?dismiss=<id>`) and kept in RAM to filter re-display until the next poll.
 
-Message text is normalized before display: whitespace is trimmed/collapsed, letters are uppercased, common accents are folded to ASCII, unsupported characters become spaces, and only the existing small proportional font is used. Messages render as one centered line or two centered lines when they fit; scrolling is used only for overflowing text or explicit `display.mode: "scroll"`.
+Message text is normalized before display: whitespace is trimmed/collapsed, letters are uppercased, common accents are folded to ASCII, unsupported characters become spaces, and only the existing small proportional font is used. Each line renders independently — if it fits, it's centered; if it overflows, it scrolls seamlessly with a 4-pixel gap between repeats (3 overlapping copies, no blank frames). There is no `mode` field; the firmware decides per line.
 
 Expected endpoint response:
 
@@ -114,7 +114,6 @@ Expected endpoint response:
       "created": 1782580000,
       "expires": 1782666400,
       "display": {
-        "mode": "flash",
         "repeat": true,
         "duration": 8,
         "interval": 60,
@@ -128,29 +127,29 @@ Expected endpoint response:
 
 Priority behavior:
 
-| Priority | Indicator | Automatic preview |
-|----------|-----------|-------------------|
-| 0-4 | Slow blink | None unless center is tapped |
-| 5-6 | Slow blink | First calm preview, repeat every 10 minutes if `repeat` |
-| 7-8 | Medium blink | Preview soon, repeat every 3 minutes if `repeat` |
-| 9 | Fast blink | Preview as soon as practical, repeat every 60 seconds if `repeat` |
+| Priority | Indicator burst speed | Automatic preview |
+|----------|-----------------------|-------------------|
+| 0-4 | 2400ms period, count × blink, 1500ms pause | None unless center is tapped |
+| 5-6 | 2400ms period, count × blink, 1500ms pause | First calm preview, repeat every 10 minutes if `repeat` |
+| 7-8 | 1200ms period, count × blink, 1500ms pause | Preview soon, repeat every 3 minutes if `repeat` |
+| 9 | 200ms period, count × blink, 1500ms pause | Preview as soon as practical, repeat every 60 seconds if `repeat` |
 
-If `display.interval` is present, it overrides the priority repeat interval. Preview duration defaults to 6 seconds and is clamped to 3-15 seconds.
+The indicator blinks `count` times at the priority period, then pauses 1.5s before repeating. If `display.interval` is present, it overrides the priority repeat interval. Preview duration defaults to 6 seconds and is clamped to 3-15 seconds.
 
 ### Router Message Endpoint
 
-The `router/chronomsg` script is a self-contained POSIX shell tool for GL.iNet/OpenWrt routers. Install it as `/usr/bin/chronomsg` and expose `/www/qr/msg` as a tiny CGI wrapper:
+The `router/chronomsg` script is a self-contained POSIX shell tool for GL.iNet/OpenWrt routers. Install it as `/usr/bin/chronomsg` and expose it as a CGI wrapper:
 
 ```sh
 scp router/chronomsg root@192.168.8.1:/usr/bin/chronomsg
 ssh root@192.168.8.1
 chmod +x /usr/bin/chronomsg
-mkdir -p /www/qr
-cat > /www/qr/msg <<'EOF'
+mkdir -p /www/cgi-bin
+cat > /www/cgi-bin/chronomsg <<'EOF'
 #!/bin/sh
 exec /usr/bin/chronomsg serve --cgi
 EOF
-chmod +x /www/qr/msg
+chmod +x /www/cgi-bin/chronomsg
 ```
 
 Test the endpoint:
@@ -158,10 +157,10 @@ Test the endpoint:
 ```sh
 /usr/bin/chronomsg add DOMAIN "BUY NOW"
 /usr/bin/chronomsg serve
-wget -qO- http://192.168.8.1/qr/msg
+wget -qO- http://192.168.8.1/cgi-bin/chronomsg
 ```
 
-`chronomsg` stores temporary state under `/tmp/chronomsg/`, including message files, the combined JSON payload, domain-check state, a cron lock, and a small log. Losing this state on router reboot is acceptable; the tool recreates missing directories and always serves valid JSON.
+`chronomsg` stores state under `$BASE` (default `/etc/chronomsg/`), including message files, the combined JSON payload, domain-check state, a cron lock, and dismissed IDs. State persists across reboots; the tool recreates missing directories on use.
 
 Useful commands:
 
@@ -178,36 +177,33 @@ Useful commands:
   --title DOMAIN \
   --body "BUY NOW" \
   --ttl 86400 \
-  --mode flash \
   --repeat true \
   --duration 8 \
-  --interval 60 \
-  --detail "comonoclaroquesi.com may be available"
+  --interval 60
 
 /usr/bin/chronomsg clear domain-drop-comonoclaroquesi
 /usr/bin/chronomsg list
 /usr/bin/chronomsg rebuild
 /usr/bin/chronomsg check-domain comonoclaroquesi.com
-/usr/bin/chronomsg install-cron comonoclaroquesi.com
-/usr/bin/chronomsg uninstall-cron
+/usr/bin/chronomsg cron add check-domain comonoclaroquesi.com
+/usr/bin/chronomsg cron remove check-domain
 ```
 
-The `/qr/msg` endpoint only serves cached messages. It never runs RDAP, WHOIS, `curl`, or `wget` during ChronoBell polling, so a slow registrar or network error cannot block the display.
+The CGI endpoint only serves cached messages. It never runs RDAP, WHOIS, `curl`, or `wget` during ChronoBell polling, so a slow registrar or network error cannot block the display.
 
 Domain checks run from cron or manually:
 
 ```sh
-/usr/bin/chronomsg install-cron comonoclaroquesi.com
-/etc/init.d/cron restart
+/usr/bin/chronomsg cron add check-domain comonoclaroquesi.com
 /usr/bin/chronomsg check-domain comonoclaroquesi.com
 ```
 
-The domain checker is conservative. It tries RDAP first through `curl` or `wget`, then falls back to `whois` if available. RDAP `404` or clear WHOIS no-match output creates the priority 9 `DOMAIN / BUY NOW` alert. Pending or registered states such as `redemptionPeriod`, `pendingDelete`, registrar fields, or name servers create no urgent alert. Ambiguous status creates a lower-priority `DOMAIN / CHECK` alert. Network errors only log and update state to `ERROR`.
+The domain checker is conservative. It tries WHOIS first, then falls back to RDAP if WHOIS fails or returns ambiguous results. WHOIS `redemptionPeriod` or `pendingDelete` creates a priority 7 `DOMAIN / REDEMPTION` alert. WHOIS or RDAP no-match creates a priority 9 `DOMAIN / BUY NOW` alert. Registered domains with name servers or registrar fields create no alert. Ambiguous status creates a lower-priority `DOMAIN / CHECK` alert. Network errors update state to `ERROR`.
 
 Manual tests:
 
 ```sh
-rm -rf /tmp/chronomsg
+rm -rf /etc/chronomsg
 /usr/bin/chronomsg serve
 /usr/bin/chronomsg add DOMAIN "BUY NOW"
 /usr/bin/chronomsg serve
@@ -215,13 +211,12 @@ rm -rf /tmp/chronomsg
 /usr/bin/chronomsg add --ttl 1 TEST EXPIRE
 sleep 2
 /usr/bin/chronomsg rebuild
-/usr/bin/chronomsg install-cron comonoclaroquesi.com
-/usr/bin/chronomsg install-cron comonoclaroquesi.com
+/usr/bin/chronomsg cron add check-domain comonoclaroquesi.com
 grep chronomsg /etc/crontabs/root
-/usr/bin/chronomsg uninstall-cron
+/usr/bin/chronomsg cron remove check-domain
 ```
 
-Troubleshooting starts with `/tmp/chronomsg/chronomsg.log` and `/tmp/chronomsg/domain-state`. If neither `curl`/`wget` nor `whois` exists on the router, `check-domain` enters the safe `ERROR` state and does not create a `BUY NOW` alert.
+Troubleshooting starts with `$BASE/chronomsg.log` and `$BASE/domain-state`. Set `CHRONOMSG_BASE` to change the state directory. If neither `whois` nor `curl`/`wget` exists on the router, `check-domain` enters the safe `ERROR` state and does not create alerts.
 
 ---
 
@@ -352,6 +347,11 @@ Open `Config.h` to adjust these:
 | `CAP1188_TOUCH_THRESHOLD` | `0x35` | Touch sensitivity - lower numbers trip more easily |
 | `NIGHT_DIM_START_HOUR` | `19` (7 PM) | When night dimming starts |
 | `GUEST_WIFI_URL` | *(see file)* | Guest WiFi password URL; set to `""` to disable |
+| `CHRONOMSG_URL` | `http://192.168.8.1/cgi-bin/chronomsg` | Message polling endpoint |
+| `CHRONOMSG_POLL_INTERVAL_MS` | `60000` | Message poll interval |
+| `CHRONOMSG_SCROLL_STEP_MS` | `140` | Scroll animation step interval |
+| `CHRONOMSG_SCROLL_REPEAT_GAP_PX` | `4` | Pixel gap between scroll repeats |
+| `CHRONOMSG_MIN_SCROLL_CYCLES` | `2` | Minimum full scroll cycles for auto-preview |
 | `TIME_SYNC_INTERVAL_MINUTES` | `60` | How often NTP re-syncs |
 | `RND_STYLE_INTERVAL_MINUTES` | `360` | RND change interval aligned to local midnight (`360` = 00:00, 06:00, 12:00...; valid 1-1440) |
 | `HOTSPOT_TIMEOUT_MINUTES` | `0` | Auto-stop hotspot after N minutes (`0` = stays on) |
