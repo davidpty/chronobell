@@ -255,9 +255,17 @@ void ClockApp::initCap1188() {
 
 void ClockApp::loadSettings() {
     _appSettings = _settingsStore.load();
+    syncRuntimeSettingsFromLoaded(true);
+    logLoadedSettings();
+    restoreTemporaryStyleOverride();
+}
+
+void ClockApp::syncRuntimeSettingsFromLoaded(bool forceDateStyleReset) {
     _savedDisplayMode = _appSettings.displayMode;
-    _activeDateStyle  = _appSettings.dateStyle;
-    _temporaryDateStyle = _appSettings.dateStyle;
+    if (forceDateStyleReset || !_dateStyleOverrideActive) {
+        _activeDateStyle = _appSettings.dateStyle;
+        _temporaryDateStyle = _appSettings.dateStyle;
+    }
     _bellMode         = _appSettings.bellMode;
     _timeFormat       = _appSettings.timeFormat;
     _nightMode        = _appSettings.nightMode;
@@ -266,6 +274,9 @@ void ClockApp::loadSettings() {
 #if DIGIT_TRANSITIONS
     digit_transition::set_transition_mode(_appSettings.transitionMode);
 #endif
+}
+
+void ClockApp::logLoadedSettings() const {
     LOG("Clock style loaded: ");
     LOGLN(displayModeLabel(_appSettings.displayMode));
 #if DIGIT_TRANSITIONS || SCREEN_TRANSITION
@@ -280,7 +291,9 @@ void ClockApp::loadSettings() {
     LOGLN(timeFormatLabel(_appSettings.timeFormat));
     LOG("Night mode loaded: ");
     LOGLN(nightModeLabel(_appSettings.nightMode));
+}
 
+void ClockApp::restoreTemporaryStyleOverride() {
     if (LAST_STYLE_TIMEOUT_MINUTES > 0) {
         DisplayMode savedLabel;
         time_t tempEpoch;
@@ -343,33 +356,8 @@ void ClockApp::wifiBootSync() {
 
 void ClockApp::reloadSettings() {
     _appSettings = _settingsStore.load();
-    _savedDisplayMode = _appSettings.displayMode;
-    if (!_dateStyleOverrideActive) {
-        _activeDateStyle = _appSettings.dateStyle;
-        _temporaryDateStyle = _appSettings.dateStyle;
-    }
-    _bellMode         = _appSettings.bellMode;
-    _timeFormat       = _appSettings.timeFormat;
-    _nightMode        = _appSettings.nightMode;
-    syncDisplayModeSelection();
-    syncDateStyleSelection();
-#if DIGIT_TRANSITIONS
-    digit_transition::set_transition_mode(_appSettings.transitionMode);
-#endif
-    LOG("Clock style loaded: ");
-    LOGLN(displayModeLabel(_appSettings.displayMode));
-#if DIGIT_TRANSITIONS || SCREEN_TRANSITION
-    LOG("Animation mode loaded: ");
-    LOGLN(transitionModeLabel(_appSettings.transitionMode));
-#endif
-    LOG("Date style loaded: ");
-    LOGLN(dateStyleLabel(_appSettings.dateStyle));
-    LOG("Bell mode loaded: ");
-    LOGLN((int)_bellMode);
-    LOG("Time format loaded: ");
-    LOGLN(timeFormatLabel(_appSettings.timeFormat));
-    LOG("Night mode loaded: ");
-    LOGLN(nightModeLabel(_appSettings.nightMode));
+    syncRuntimeSettingsFromLoaded(false);
+    logLoadedSettings();
 }
 
 void ClockApp::applyManualTime() {
@@ -544,7 +532,7 @@ void ClockApp::tickMenu() {
 }
 
 void ClockApp::updateBellSchedule() {
-    ClockTime realTime;
+    ClockTime realTime = {0, 0, 0};
     ClockDate realDate;
     bool timeValid = updateNewYearState(&realTime, &realDate);
     ClockTime time = realTime;
@@ -553,39 +541,46 @@ void ClockApp::updateBellSchedule() {
         _driftTimeModel.update(time, nowMs);
         time = _driftTimeModel.displayTime(time, nowMs);
     }
-    bool muteAutomatic = _nightModeController.shouldMuteAutomaticBell(realTime);
 
-    if (_newYearController.hasMidnightBellRequest()) {
-        if (!_timerController.isCountdownExpired() && !_bellController.isBusy()) {
-            _bellController.queueNewYearAlert();
-            _newYearController.resolveMidnightBellRequest();
+    bool muteAutomatic = timeValid
+        ? _nightModeController.shouldMuteAutomaticBell(realTime)
+        : false;
+    bool suppressScheduledStrike = false;
+
+    if (timeValid) {
+        if (_newYearController.hasMidnightBellRequest()) {
+            if (!_timerController.isCountdownExpired() && !_bellController.isBusy()) {
+                _bellController.queueNewYearAlert();
+                _newYearController.resolveMidnightBellRequest();
+            }
         }
+
+        if (_newYearController.hasCountdownTickRequest()) {
+            if (!_bellController.isBusy()) {
+                _bellController.queueCountdownTickAlert();
+                _newYearController.resolveCountdownTickRequest();
+            }
+        }
+
+        if (_newYearController.hasCountdownSecondTickRequest()) {
+            if (!_bellController.isBusy()) {
+                _bellController.queueCountdownSecondTickAlert();
+                _newYearController.resolveCountdownSecondTickRequest();
+            }
+        }
+
+        if (_newYearController.hasCountdownTenSecRequest()) {
+            if (!_bellController.isBusy()) {
+                _bellController.queueCountdownTenSecAlert();
+                _newYearController.resolveCountdownTenSecRequest();
+            }
+        }
+
+        suppressScheduledStrike = _newYearController.isCelebrating() &&
+                                  realTime.hours == 0 && realTime.minutes == 0 &&
+                                  realTime.seconds <= 1;
     }
 
-    if (_newYearController.hasCountdownTickRequest()) {
-        if (!_bellController.isBusy()) {
-            _bellController.queueCountdownTickAlert();
-            _newYearController.resolveCountdownTickRequest();
-        }
-    }
-
-    if (_newYearController.hasCountdownSecondTickRequest()) {
-        if (!_bellController.isBusy()) {
-            _bellController.queueCountdownSecondTickAlert();
-            _newYearController.resolveCountdownSecondTickRequest();
-        }
-    }
-
-    if (_newYearController.hasCountdownTenSecRequest()) {
-        if (!_bellController.isBusy()) {
-            _bellController.queueCountdownTenSecAlert();
-            _newYearController.resolveCountdownTenSecRequest();
-        }
-    }
-
-    bool suppressScheduledStrike = _newYearController.isCelebrating() &&
-                                   realTime.hours == 0 && realTime.minutes == 0 &&
-                                   realTime.seconds <= 1;
     _bellController.update(time, timeValid, _bellMode,
                            _timerController.isCountdownExpired(),
                            muteAutomatic, suppressScheduledStrike);

@@ -202,6 +202,9 @@ private:
     bool          _t4LongPressHandled = false;
 
     // --- Private helpers ---
+    void syncRuntimeSettingsFromLoaded(bool forceDateStyleReset);
+    void logLoadedSettings() const;
+    void restoreTemporaryStyleOverride();
     void applyEffectiveDisplayBrightness();
     bool updateNewYearState(ClockTime* time = nullptr, ClockDate* date = nullptr);
     void updateBellSchedule();
