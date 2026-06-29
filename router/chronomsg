@@ -18,6 +18,7 @@ GQR_ALPHABET="${CHRONOMSG_GQR_ALPHABET:-ABCDEFGHJKLNPQRTUVXYZ}"
 GQR_OUTDIR="${CHRONOMSG_GQR_OUTDIR:-/www/qr}"
 DISMISSED_FILE="${CHRONOMSG_DISMISSED_FILE:-$BASE/dismissed}"
 LOCK_STALE_SEC=900
+DISMISSED_RETENTION_SEC=31536000
 
 ensure_base() {
     mkdir -p "$BASE" "$MSG_DIR"
@@ -261,7 +262,46 @@ write_wifi_payload() {
 }
 
 is_dismissed() {
-    grep -Fqx "$1" "$DISMISSED_FILE" 2>/dev/null
+    id="$1"
+    [ -f "$DISMISSED_FILE" ] || return 1
+    now="$(now_epoch)"
+    while IFS= read -r line; do
+        set -- $line
+        [ "$1" = "$id" ] || continue
+        case "${2:-}" in
+            ''|*[!0-9]*) return 0 ;;
+        esac
+        age=$((now - $2))
+        [ "$age" -lt 0 ] && return 0
+        [ "$age" -le "$DISMISSED_RETENTION_SEC" ] && return 0
+    done < "$DISMISSED_FILE" 2>/dev/null
+    return 1
+}
+
+cleanup_dismissed() {
+    [ -f "$DISMISSED_FILE" ] || return 0
+    now="$(now_epoch)"
+    tmp_d="$BASE/dismissed.$$"
+    : > "$tmp_d" || return 1
+    while IFS= read -r line; do
+        set -- $line
+        id="$(safe_id "${1:-}")"
+        [ -n "$id" ] || continue
+        ts="${2:-}"
+        case "$ts" in
+            ''|*[!0-9]*) ts="$now" ;;
+        esac
+        age=$((now - ts))
+        if [ "$age" -lt 0 ]; then
+            ts="$now"
+            age=0
+        fi
+        [ "$age" -le "$DISMISSED_RETENTION_SEC" ] || continue
+        if ! sed -n 's/[[:space:]].*//p' "$tmp_d" | grep -Fqx "$id" 2>/dev/null; then
+            printf '%s %s\n' "$id" "$ts" >> "$tmp_d"
+        fi
+    done < "$DISMISSED_FILE"
+    mv "$tmp_d" "$DISMISSED_FILE"
 }
 
 extract_num_field() {
@@ -273,7 +313,6 @@ is_message_valid() {
     grep -q '"id"[[:space:]]*:' "$f" 2>/dev/null || return 1
     grep -q '"display"[[:space:]]*:' "$f" 2>/dev/null || return 1
     grep -q '"created"[[:space:]]*:' "$f" 2>/dev/null || return 1
-    grep -q '"expires"[[:space:]]*:' "$f" 2>/dev/null || return 1
     grep -q '"title"[[:space:]]*:' "$f" 2>/dev/null || grep -q '"body"[[:space:]]*:' "$f" 2>/dev/null || return 1
     case "$(cat "$f" 2>/dev/null)" in
         \{*\}) return 0 ;;
@@ -284,6 +323,7 @@ is_message_valid() {
 rebuild_payload() {
     ensure_base
     guestqr_load_config
+    cleanup_dismissed
     now="$(now_epoch)"
     tmp="$OUT.$$"
     printf '{"device":"chronobell","now":%s,"messages":[' "$now" > "$tmp" || {
@@ -311,23 +351,6 @@ rebuild_payload() {
     done
     printf ']}\n' >> "$tmp"
     mv "$tmp" "$OUT"
-
-    if [ -f "$DISMISSED_FILE" ]; then
-        active_ids=""
-        for f in "$MSG_DIR"/*.json; do
-            [ -f "$f" ] || continue
-            id="$(sed -n 's/.*"id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$f" | sed -n '1p')"
-            [ -n "$id" ] && active_ids="$active_ids
-$id"
-        done
-        tmp_d="$BASE/dismissed.$$"
-        : > "$tmp_d"
-        while IFS= read -r d; do
-            [ -z "$d" ] && continue
-            printf '%s\n' "$active_ids" | grep -Fqx "$d" && printf '%s\n' "$d" >> "$tmp_d"
-        done < "$DISMISSED_FILE"
-        mv "$tmp_d" "$DISMISSED_FILE"
-    fi
 }
 
 serve_payload() {
@@ -364,8 +387,9 @@ serve_payload() {
         dismiss_id="$(query_param_value dismiss)"
         if [ -n "$dismiss_id" ]; then
             dismiss_id="$(safe_id "$dismiss_id")"
+            cleanup_dismissed
             if [ -n "$dismiss_id" ] && ! is_dismissed "$dismiss_id"; then
-                printf '%s\n' "$dismiss_id" >> "$DISMISSED_FILE"
+                printf '%s %s\n' "$dismiss_id" "$(now_epoch)" >> "$DISMISSED_FILE"
             fi
         fi
         rebuild_payload >/dev/null 2>&1 || write_message_payload
@@ -433,8 +457,11 @@ control_dismissed_response() {
     printf '\r\n'
     printf '{"ok":true,"action":"dismissed","dismissed":['
     first=1
+    cleanup_dismissed
     if [ -f "$DISMISSED_FILE" ]; then
         while IFS= read -r id; do
+            set -- $id
+            id="${1:-}"
             [ -n "$id" ] || continue
             [ "$first" -eq 0 ] && printf ','
             printf '"%s"' "$(json_escape "$id")"
@@ -561,14 +588,21 @@ add_message() {
     }
 
     priority="$(num_value "$priority" 5)"
-    ttl="$(num_value "$ttl" 3600)"
+    case "$ttl" in
+        0|forever|FOREVER|never|NEVER) ttl=forever ;;
+        *) ttl="$(num_value "$ttl" 3600)" ;;
+    esac
     duration="$(num_value "$duration" 6)"
     if [ -n "$interval" ]; then
         interval="$(num_value "$interval" 0)"
     fi
 
     now="$(now_epoch)"
-    expires=$((now + ttl))
+    if [ "$ttl" = forever ]; then
+        expires=""
+    else
+        expires=$((now + ttl))
+    fi
     if [ -z "$id" ]; then
         slug="$(safe_id "$(printf '%s-%s' "$title" "$now")")"
         id="${slug:-chronomsg-$now}"
@@ -592,7 +626,7 @@ add_message() {
         printf '"body":"%s",' "$(json_escape "$body")"
         [ -n "$detail" ] && printf '"detail":"%s",' "$(json_escape "$detail")"
         printf '"created":%s,' "$now"
-        printf '"expires":%s,' "$expires"
+        [ -n "$expires" ] && printf '"expires":%s,' "$expires"
         printf '"display":{'
         printf '"repeat":%s,' "$(bool_value "$repeat")"
         printf '"duration":%s,' "$duration"
@@ -632,11 +666,12 @@ dismiss_message() {
     ensure_base
     id="$(safe_id "$id")"
     [ -z "$id" ] && { printf 'Invalid id\n' >&2; return 2; }
+    cleanup_dismissed
     if is_dismissed "$id"; then
         printf 'already dismissed: %s\n' "$id"
         return 0
     fi
-    printf '%s\n' "$id" >> "$DISMISSED_FILE"
+    printf '%s %s\n' "$id" "$(now_epoch)" >> "$DISMISSED_FILE"
     rebuild_payload
     printf 'dismissed: %s\n' "$id"
 }
@@ -648,15 +683,23 @@ undismiss_message() {
     id="$(safe_id "$id")"
     [ -z "$id" ] && { printf 'Invalid id\n' >&2; return 2; }
     tmp="$BASE/undismiss.$$"
-    grep -Fxv "$id" "$DISMISSED_FILE" > "$tmp" 2>/dev/null || true
+    while IFS= read -r line; do
+        set -- $line
+        [ "${1:-}" = "$id" ] && continue
+        [ -n "${1:-}" ] && printf '%s\n' "$line"
+    done < "$DISMISSED_FILE" > "$tmp" 2>/dev/null || true
     mv "$tmp" "$DISMISSED_FILE"
     rebuild_payload
     printf 'undismissed: %s\n' "$id"
 }
 
 list_dismissed() {
+    ensure_base
+    cleanup_dismissed
     if [ -f "$DISMISSED_FILE" ] && [ -s "$DISMISSED_FILE" ]; then
-        while IFS= read -r id; do
+        while IFS= read -r line; do
+            set -- $line
+            id="${1:-}"
             [ -n "$id" ] && printf '%s\n' "$id"
         done < "$DISMISSED_FILE"
     else
@@ -726,101 +769,6 @@ release_lock() {
 
 have_cmd() {
     command -v "$1" >/dev/null 2>&1
-}
-
-fetch_rdap_curl() {
-    domain="$1"
-    url="$2"
-    body="$3"
-    code_file="$4"
-    code="$(curl -L -sS -m 12 -o "$body" -w '%{http_code}' "$url" 2>/dev/null)"
-    rc=$?
-    printf '%s\n' "${code:-000}" > "$code_file"
-    return "$rc"
-}
-
-fetch_rdap_wget() {
-    domain="$1"
-    url="$2"
-    body="$3"
-    code_file="$4"
-    hdr="$body.hdr"
-    rm -f "$hdr"
-    wget -T 12 -q -S -O "$body" "$url" 2>"$hdr"
-    rc=$?
-    code="$(sed -n 's/.*HTTP\/[^ ]*[ ]*\([0-9][0-9][0-9]\).*/\1/p' "$hdr" | sed -n '$p')"
-    [ -n "$code" ] || code=000
-    printf '%s\n' "$code" > "$code_file"
-    rm -f "$hdr"
-    return "$rc"
-}
-
-rdap_url_for_domain() {
-    domain="$1"
-    tld="${domain##*.}"
-    case "$tld" in
-        com) printf 'https://rdap.verisign.com/com/v1/domain/%s\n' "$domain" ;;
-        net) printf 'https://rdap.verisign.com/net/v1/domain/%s\n' "$domain" ;;
-        *) printf 'https://rdap.org/domain/%s\n' "$domain" ;;
-    esac
-}
-
-interpret_rdap() {
-    body="$1"
-    code="$2"
-    if [ "$code" = 404 ]; then
-        if grep -qi '"errorCode"' "$body" 2>/dev/null; then
-            printf 'AVAILABLE\n'
-            return
-        fi
-        printf 'AMBIGUOUS\n'
-        return
-    fi
-    if [ "$code" = 200 ]; then
-        if grep -qi '"ldhName"[[:space:]]*:' "$body" 2>/dev/null || grep -qi '"objectClassName"[[:space:]]*:[[:space:]]*"domain"' "$body" 2>/dev/null; then
-            printf 'REGISTERED\n'
-            return
-        fi
-        if grep -qi 'not found\|no match' "$body" 2>/dev/null; then
-            printf 'AVAILABLE\n'
-            return
-        fi
-        printf 'AMBIGUOUS\n'
-        return
-    fi
-    case "$code" in
-        000) printf 'ERROR\n' ;;
-        *) printf 'AMBIGUOUS\n' ;;
-    esac
-}
-
-check_rdap() {
-    domain="$1"
-    body="$BASE/rdap.$$"
-    code_file="$BASE/rdap-code.$$"
-    url="$(rdap_url_for_domain "$domain")"
-    rm -f "$body" "$code_file"
-    if have_cmd curl; then
-        if fetch_rdap_curl "$domain" "$url" "$body" "$code_file"; then
-            code="$(sed -n '1p' "$code_file")"
-            state="$(interpret_rdap "$body" "$code")"
-            printf 'RDAP %s\n' "$state"
-            rm -f "$body" "$code_file"
-            return 0
-        fi
-    fi
-    if have_cmd wget; then
-        fetch_rdap_wget "$domain" "$url" "$body" "$code_file"
-        code="$(sed -n '1p' "$code_file")"
-        if [ "$code" != 000 ] || [ -s "$body" ]; then
-            state="$(interpret_rdap "$body" "$code")"
-            printf 'RDAP %s\n' "$state"
-            rm -f "$body" "$code_file"
-            return 0
-        fi
-    fi
-    rm -f "$body" "$code_file"
-    return 1
 }
 
 interpret_whois_file() {
@@ -963,15 +911,8 @@ check_domain() {
     if result="$(check_whois "$domain")"; then
         method="${result%% *}"
         state="${result#* }"
-        if { [ "$state" = AMBIGUOUS ] || [ "$state" = ERROR ]; } && result="$(check_rdap "$domain")"; then
-            method="${result%% *}"
-            state="${result#* }"
-        fi
-    elif result="$(check_rdap "$domain")"; then
-        method="${result%% *}"
-        state="${result#* }"
     else
-        method=NONE
+        method=WHOIS
         state=ERROR
     fi
 
@@ -1060,11 +1001,8 @@ test_domain() {
     state=ERROR
     method=""
     wbody="$BASE/whois-test.$$"
-    rbody="$BASE/rdap-test.$$"
-    rcode="$BASE/rdap-test-code.$$"
 
-    # Step 1: WHOIS
-    printf '1. WHOIS:\n'
+    printf 'WHOIS:\n'
     if have_cmd whois; then
         whois "$domain" > "$wbody" 2>/dev/null
         if [ -s "$wbody" ]; then
@@ -1081,35 +1019,8 @@ test_domain() {
         printf '   No whois command available\n'
     fi
 
-    # Step 2: RDAP fallback if WHOIS failed or ambiguous
-    if [ "$state" = AMBIGUOUS ] || [ "$state" = ERROR ] || [ -z "$method" ]; then
-        printf '2. RDAP → %s\n' "$(rdap_url_for_domain "$domain")"
-        if have_cmd curl; then
-            fetch_rdap_curl "$domain" "$(rdap_url_for_domain "$domain")" "$rbody" "$rcode"
-            code="$(sed -n '1p' "$rcode" 2>/dev/null)"
-            printf '   HTTP %s\n' "${code:-timeout}"
-            [ -s "$rbody" ] && printf '   Body: %s\n' "$(head -c 300 "$rbody" | tr '\n' ' ' | sed 's/[[:space:]]\{1,\}/ /g')"
-            state="$(interpret_rdap "$rbody" "${code:-000}")"
-            method=RDAP
-            printf '   → interpret_rdap → %s\n' "$state"
-        elif have_cmd wget; then
-            fetch_rdap_wget "$domain" "$(rdap_url_for_domain "$domain")" "$rbody" "$rcode"
-            code="$(sed -n '1p' "$rcode" 2>/dev/null)"
-            if [ "${code:-000}" != 000 ] || [ -s "$rbody" ]; then
-                printf '   HTTP %s\n' "${code:-timeout}"
-                [ -s "$rbody" ] && printf '   Body: %s\n' "$(head -c 300 "$rbody" | tr '\n' ' ' | sed 's/[[:space:]]\{1,\}/ /g')"
-                state="$(interpret_rdap "$rbody" "${code:-000}")"
-                method=RDAP
-                printf '   → interpret_rdap → %s\n' "$state"
-            fi
-        else
-            printf '   No HTTP tool available\n'
-        fi
-    fi
+    rm -f "$wbody"
 
-    rm -f "$wbody" "$rbody" "$rcode"
-
-    # Step 3: What would be displayed
     printf -- '─────────────────────────────────\n'
     printf 'Source:     %s\n' "${method:-NONE}"
     printf 'Result:     %s\n' "$state"
@@ -1501,7 +1412,7 @@ Add options:
   --source SOURCE      Source label (default: manual)
   --type TYPE          Message type (default: alert)
   --priority N         Priority 0-9 (default: 5)
-  --ttl SEC            Time-to-live seconds (default: 3600)
+  --ttl SEC|forever    Time-to-live seconds, 0/forever never expires (default: 3600)
   --title TITLE        Override displayed title
   --body BODY          Override displayed body
   --detail TEXT        Internal detail (not shown on clock)
