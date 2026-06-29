@@ -206,8 +206,40 @@ The CGI endpoint is query-driven:
 
 - `?msg` serves the cached message JSON and accepts `dismiss=<id>`
 - `?wifi` serves the guest WiFi JSON
+- `?add` creates a message using the same fields as `chronomsg add`
+- `?clear&id=<id>` clears a message, and `?clear&all=true` clears all messages
+- `?dismiss&id=<id>` dismisses a message, and `?undismiss&id=<id>` makes it visible again
+- `?dismissed` lists dismissed message IDs
+- `?guestqr` updates guest QR settings and optionally applies a new guest WiFi password
+- `?check-domain&domain=<domain>` runs the domain checker and publishes any resulting message
 
-It never runs RDAP, WHOIS, `curl`, or `wget` during ChronoBell polling, so a slow registrar or network error cannot block the display.
+The write/control API accepts both query strings and `application/x-www-form-urlencoded` POST bodies. It is intended for trusted LAN scripts and is not authenticated, so do not expose the CGI endpoint to the public internet.
+
+Examples:
+
+```sh
+curl -G "http://192.168.8.1/cgi-bin/chronomsg?add" \
+  --data-urlencode title="BACKUP" \
+  --data-urlencode body="DONE" \
+  --data-urlencode priority=7 \
+  --data-urlencode ttl=3600
+
+curl -G "http://192.168.8.1/cgi-bin/chronomsg?clear" \
+  --data-urlencode id="backup-1782580100"
+
+curl -G "http://192.168.8.1/cgi-bin/chronomsg?guestqr" \
+  --data-urlencode rotate=weekly \
+  --data-urlencode ssid="NEXO-GUEST" \
+  --data-urlencode length=12
+
+curl -G "http://192.168.8.1/cgi-bin/chronomsg?check-domain" \
+  --data-urlencode domain="comonoclaroquesi.com" \
+  --data-urlencode force=true
+```
+
+`?guestqr` supports `rotate`, `seed`, `ssid`, `section`, `length`, `alphabet`, `outdir`, `no-apply=true`, and `no-html=true`. Without `no-apply=true`, it may update the router's live guest WiFi password.
+
+`?check-domain` supports `domain`, optional `id`, and `force=true`. It runs WHOIS/RDAP synchronously and can block while the registrar lookup completes. ChronoBell polling with `?msg` and `?wifi` never runs RDAP, WHOIS, `curl`, or `wget`, so a slow registrar or network error cannot block the display.
 
 Domain checks run from cron or manually:
 

@@ -147,12 +147,82 @@ guestwifi_json_fragment() {
     printf ',"guestwifi":{"ssid":"%s","password":"%s"}' "$(json_escape_raw "$ssid")" "$(json_escape_raw "$password")"
 }
 
+hex_value() {
+    case "$1" in
+        0) printf 0 ;;
+        1) printf 1 ;;
+        2) printf 2 ;;
+        3) printf 3 ;;
+        4) printf 4 ;;
+        5) printf 5 ;;
+        6) printf 6 ;;
+        7) printf 7 ;;
+        8) printf 8 ;;
+        9) printf 9 ;;
+        a|A) printf 10 ;;
+        b|B) printf 11 ;;
+        c|C) printf 12 ;;
+        d|D) printf 13 ;;
+        e|E) printf 14 ;;
+        f|F) printf 15 ;;
+        *) printf 0 ;;
+    esac
+}
+
+url_decode() {
+    input="$(printf '%s' "$1" | sed 's/+/ /g')"
+    output=""
+    while [ -n "$input" ]; do
+        case "$input" in
+            %[0-9A-Fa-f][0-9A-Fa-f]*)
+                rest="$(printf '%s' "$input" | sed 's/^%//')"
+                h1="$(printf '%.1s' "$rest")"
+                rest="$(printf '%s' "$rest" | sed 's/^.//')"
+                h2="$(printf '%.1s' "$rest")"
+                input="$(printf '%s' "$rest" | sed 's/^.//')"
+                v1="$(hex_value "$h1")"
+                v2="$(hex_value "$h2")"
+                dec=$(( v1 * 16 + v2 ))
+                oct="$(printf '%03o' "$dec")"
+                char="$(printf "\\$oct")"
+                output="$output$char"
+                ;;
+            *)
+                char="$(printf '%.1s' "$input")"
+                output="$output$char"
+                input="$(printf '%s' "$input" | sed 's/^.//')"
+                ;;
+        esac
+    done
+    printf '%s' "$output"
+}
+
+request_data() {
+    data="${QUERY_STRING:-}"
+    if [ "${REQUEST_METHOD:-}" = POST ] && [ "${CONTENT_LENGTH:-0}" -gt 0 ] 2>/dev/null; then
+        body="$(dd bs=1 count="$CONTENT_LENGTH" 2>/dev/null)"
+        if [ -n "$body" ]; then
+            [ -n "$data" ] && data="$data&$body" || data="$body"
+        fi
+    fi
+    printf '%s' "$data"
+}
+
 query_param_value() {
-    query="${QUERY_STRING:-}"
+    query="${CHRONOMSG_REQUEST_DATA:-${QUERY_STRING:-}}"
     key="$1"
     case "$query" in
-        *"$key="*) printf '%s' "$query" | sed "s/.*$key=//; s/&.*//" ;;
+        "$key="*|*"&$key="*) url_decode "$(printf '%s' "$query" | sed "s/.*$key=//; s/&.*//")" ;;
         *) printf '' ;;
+    esac
+}
+
+query_param_present() {
+    query="${CHRONOMSG_REQUEST_DATA:-${QUERY_STRING:-}}"
+    key="$1"
+    case "&$query&" in
+        *"&$key&"*|*"&$key="*) return 0 ;;
+        *) return 1 ;;
     esac
 }
 
@@ -264,11 +334,14 @@ serve_payload() {
     cgi="${1:-false}"
     ensure_base
     mode=""
+    CHRONOMSG_REQUEST_DATA="$(request_data)"
     if [ "$cgi" = true ]; then
         first_param="${QUERY_STRING%%&*}"
-        case "$first_param" in
+        first_param="${first_param%%=*}"
+        case "$(url_decode "$first_param")" in
             msg) mode=msg ;;
             wifi) mode=wifi ;;
+            add|clear|dismiss|undismiss|dismissed|guestqr|check-domain) mode=control ;;
         esac
     fi
     if [ -z "$mode" ]; then
@@ -277,11 +350,15 @@ serve_payload() {
             printf 'Content-Type: text/plain\r\n'
             printf 'Cache-Control: no-store\r\n'
             printf '\r\n'
-            printf 'usage: ?msg or ?wifi\n'
+            printf 'usage: ?msg, ?wifi, ?add, ?clear, ?dismiss, ?undismiss, ?dismissed, ?guestqr, or ?check-domain\n'
         else
             printf 'usage: ?msg or ?wifi\n'
         fi
         return 0
+    fi
+    if [ "$mode" = control ]; then
+        serve_control
+        return $?
     fi
     if [ "$mode" = msg ]; then
         dismiss_id="$(query_param_value dismiss)"
@@ -311,6 +388,127 @@ serve_payload() {
             printf '{"device":"chronobell","now":%s,"guestwifi":{"ssid":"","password":""}}\n' "$now"
         fi
     fi
+}
+
+control_response() {
+    status="${1:-200 OK}"
+    ok="$2"
+    action="$3"
+    message="${4:-}"
+    printf 'Status: %s\r\n' "$status"
+    printf 'Content-Type: application/json\r\n'
+    printf 'Cache-Control: no-store\r\n'
+    printf '\r\n'
+    if [ "$ok" = true ]; then
+        printf '{"ok":true,"action":"%s"' "$(json_escape "$action")"
+        [ -n "$message" ] && printf ',"message":"%s"' "$(json_escape "$message")"
+        printf '}\n'
+    else
+        printf '{"ok":false,"action":"%s","error":"%s"}\n' "$(json_escape "$action")" "$(json_escape "$message")"
+    fi
+}
+
+run_control_command() {
+    action="$1"
+    shift
+    tmp="$BASE/control-output.$$"
+    "$@" > "$tmp" 2>&1
+    rc=$?
+    output="$(sed -n '1p' "$tmp" 2>/dev/null)"
+    rm -f "$tmp"
+    if [ "$rc" -eq 0 ]; then
+        control_response "200 OK" true "$action" "$output"
+    elif [ "$rc" -eq 2 ]; then
+        control_response "400 Bad Request" false "$action" "$output"
+    else
+        control_response "500 Internal Server Error" false "$action" "$output"
+    fi
+}
+
+control_dismissed_response() {
+    ensure_base
+    printf 'Status: 200 OK\r\n'
+    printf 'Content-Type: application/json\r\n'
+    printf 'Cache-Control: no-store\r\n'
+    printf '\r\n'
+    printf '{"ok":true,"action":"dismissed","dismissed":['
+    first=1
+    if [ -f "$DISMISSED_FILE" ]; then
+        while IFS= read -r id; do
+            [ -n "$id" ] || continue
+            [ "$first" -eq 0 ] && printf ','
+            printf '"%s"' "$(json_escape "$id")"
+            first=0
+        done < "$DISMISSED_FILE"
+    fi
+    printf ']}\n'
+}
+
+serve_control() {
+    first_param="${QUERY_STRING%%&*}"
+    action="$(url_decode "${first_param%%=*}")"
+    case "$action" in
+        add)
+            set --
+            for name in id source type priority title body detail ttl repeat duration interval indicator dismissible; do
+                value="$(query_param_value "$name")"
+                if [ -n "$value" ]; then
+                    set -- "$@" "--$name" "$value"
+                fi
+            done
+            run_control_command add add_message "$@"
+            ;;
+        clear)
+            if query_param_present all && [ "$(bool_value "$(query_param_value all)")" = true ]; then
+                run_control_command clear clear_message --all
+            else
+                id="$(query_param_value id)"
+                [ -n "$id" ] || { control_response "400 Bad Request" false clear "id required"; return 0; }
+                run_control_command clear clear_message "$id"
+            fi
+            ;;
+        dismiss)
+            id="$(query_param_value id)"
+            [ -n "$id" ] || { control_response "400 Bad Request" false dismiss "id required"; return 0; }
+            run_control_command dismiss dismiss_message "$id"
+            ;;
+        undismiss)
+            id="$(query_param_value id)"
+            [ -n "$id" ] || { control_response "400 Bad Request" false undismiss "id required"; return 0; }
+            run_control_command undismiss undismiss_message "$id"
+            ;;
+        dismissed)
+            control_dismissed_response
+            ;;
+        guestqr)
+            set --
+            for name in rotate seed ssid section length alphabet outdir; do
+                value="$(query_param_value "$name")"
+                [ -n "$value" ] && set -- "$@" "--$name" "$value"
+            done
+            if query_param_present no-apply && [ "$(bool_value "$(query_param_value no-apply)")" = true ]; then
+                set -- "$@" --no-apply
+            fi
+            if query_param_present no-html && [ "$(bool_value "$(query_param_value no-html)")" = true ]; then
+                set -- "$@" --no-html
+            fi
+            run_control_command guestqr guestqr_run "$@"
+            ;;
+        check-domain)
+            domain="$(query_param_value domain)"
+            [ -n "$domain" ] || { control_response "400 Bad Request" false check-domain "domain required"; return 0; }
+            set -- "$domain"
+            id="$(query_param_value id)"
+            [ -n "$id" ] && set -- "$@" --id "$id"
+            if query_param_present force && [ "$(bool_value "$(query_param_value force)")" = true ]; then
+                set -- "$@" --force
+            fi
+            run_control_command check-domain check_domain "$@"
+            ;;
+        *)
+            control_response "400 Bad Request" false "$action" "unknown action"
+            ;;
+    esac
 }
 
 add_message() {
