@@ -18,6 +18,7 @@ public:
     void queueCountdownTickAlert();
     void queueCountdownSecondTickAlert();
     void queueCountdownTenSecAlert();
+    void queuePattern(uint8_t count, const uint8_t* groupPattern, uint8_t patternCount, bool force, const char* label = nullptr);
     void stop();
     bool isBusy() const;
 
@@ -27,7 +28,6 @@ private:
     static uint8_t computeStrikesForEvent(BellMode mode, int eventH, int eventM, uint8_t& strikeGroupSize);
     static bool computeMostRecentEventTime(BellMode mode, int currentH, int currentM, int& eventH, int& eventM);
     void queue(uint8_t count, uint8_t groupSize, bool force, const char* label = nullptr);
-    void queuePattern(uint8_t count, const uint8_t* groupPattern, uint8_t patternCount, bool force, const char* label = nullptr);
     void queuePreview(uint8_t count, uint8_t groupSize);
     void updateSequence();
     void triggerPulse();
