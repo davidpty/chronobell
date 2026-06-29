@@ -10,7 +10,7 @@ ChronoBell is a compact LED clock with a bright, easy-to-read display, simple to
 
 **9 display styles + 5 date views** - Big digits, a configurable INFO overlay, word clock, roman numerals, binary, bar graphs, drift, pong, or a configurable random view. INFO can show seconds, deciseconds, date, WDAY, or alternate between date and WDAY every N seconds after entering ALT. Drift uses the big digital layout, but lets displayed time slowly move away from real time and return. BAR turns hours, minutes, and optional seconds into stacked progress bars. Pong plays a live rally that scores the current time. Date views include day and month, year, moon phase, Western zodiac, and Chinese zodiac. Tap to peek at any view.
 
-**Local messages** - Pulls short notices from your router and shows them as brief previews, with a small unread indicator when something is waiting.
+**Local messages** - Pulls short notices from any LAN device and shows them as brief previews. Choose font size, auto-dismiss timing, even bell strikes — all from the sender. Integrated with the INFO style: small messages show in the bottom info line instead of taking over the screen.
 
 **Guest WiFi on screen** - Shows the guest network name and password right on the clock. No phone needed. Good for lobbies, cafes, offices.
 
@@ -30,7 +30,7 @@ ChronoBell is a compact LED clock with a bright, easy-to-read display, simple to
 - **Manual time** - Switch from atomic (NTP + RTC) to manual and step through HH→MM→SS→Month→Day→Year. Persists across reboots.
 - **Config portal** - Scan WiFi networks, pick a timezone, tune display and bell settings, upload firmware - all from a browser.
 - **New Year's Eve feature** - On Dec 31 from 9 PM, tiny sparkles appear and grow more frequent. At 23:50 the countdown begins, at midnight the display cycles through "HAPPY NEW YEAR" with 12 bell strikes.
-- **Local messages** - Router-side scripts can send short notices like `BACKUP DONE`, `SERVER DOWN`, or `DOMAIN / AVAILABLE`.
+- **Local messages** - Send one-shot messages from any machine using `cli/chronocli`. Attach bell strikes, pick font size, pipe from build tools. Router-side scripts can also post messages for domain expiry, backup status, etc.
 - **Timekeeping** - NTP syncs every 60 minutes when WiFi is available. The RTC keeps time when it's not. Manual mode bypasses both.
 - **OTA updates** - Push firmware over the air at `chronobell.local`.
 
@@ -82,7 +82,7 @@ When a countdown finishes, ChronoBell shows a blinking `00:00`, plays a short al
 
 ## Local JSON Messages
 
-ChronoBell can poll a LAN HTTP endpoint for generic active messages. This is intentionally not domain-specific: any router script can produce messages, and the clock only consumes display-ready title/body text plus priority and scheduling fields.
+ChronoBell polls a LAN HTTP endpoint for active messages. Any script or tool on your network can send them. Messages can be fire-and-forget (auto-dismiss, no lingering indicator), appear in a chosen font size, trigger bell strikes, and integrate with the INFO clock style.
 
 Default firmware config in `Config.h`:
 
@@ -93,11 +93,26 @@ Default firmware config in `Config.h`:
 #define CHRONOMSG_MAX_MESSAGES 5
 ```
 
-The display stays in the current clock mode. If an unread active message exists, the bottom-left pixel blinks in bursts. A short press on center shows the selected unread message immediately; a long-press on center dismisses it and advances to the next unread message if one exists. Dismissed IDs are sent to the router message endpoint (`?msg&dismiss=<id>`) and kept in RAM to filter re-display until the next poll.
+### Display behavior
 
-Message text is normalized before display: whitespace is trimmed/collapsed, letters are uppercased, common accents are folded to ASCII, unsupported characters become spaces, and only the existing small proportional font is used. Each line renders independently — if it fits, it's centered; if it overflows, it scrolls seamlessly with a 4-pixel gap between repeats (3 overlapping copies, no blank frames). There is no `mode` field; the firmware decides per line.
+When a message preview is active, the clock decides where to show it:
 
-Expected `?msg` response:
+- **Info style + small font + no `force`** — message text replaces the bottom info line (rows 11-15). Clock time digits stay on screen. Text scrolls in-place if it doesn't fit.
+- **All other cases** — full-screen overlay with the requested font size.
+
+Touch interaction per-message: a short press on center shows the next unread message; a long-press on center dismisses it. `force` and `autoDismiss` messages skip the unread queue entirely.
+
+Message text is normalized: whitespace is collapsed, letters uppercased, accents folded to ASCII, unsupported characters replaced with spaces.
+
+### Font sizes
+
+| Mode | Value | Font | Height | Info line? | Use case |
+|------|-------|------|--------|------------|----------|
+| small | 0 | small | 5px | yes | Notifications in INFO style |
+| medium | 1 (default) | medium | 10px | no | General messages |
+| big | 2 | big | 16px | no | Full-screen alerts |
+
+### Expected `?msg` response
 
 ```json
 {
@@ -105,25 +120,44 @@ Expected `?msg` response:
   "now": 1782580100,
   "messages": [
     {
-      "id": "domain-drop-comonoclaroquesi",
-      "source": "domain-watch",
-      "type": "alert",
-      "priority": 9,
-      "title": "DOMAIN",
-      "body": "AVAILABLE",
+      "id": "build-ok-1782580100",
+      "source": "cli",
+      "type": "notification",
+      "priority": 5,
+      "title": "MAKE",
+      "body": "EXIT 0",
       "created": 1782580000,
-      "expires": 1782666400,
+      "expires": 0,
       "display": {
-        "repeat": true,
-        "duration": 8,
-        "interval": 60,
-        "indicator": true,
-        "dismissible": true
+        "repeat": false,
+        "duration": 6,
+        "indicator": false,
+        "dismissible": false,
+        "autoDismiss": true,
+        "mode": 1,
+        "scrollStep": 0,
+        "force": false,
+        "bell": [3]
       }
     }
   ]
 }
 ```
+
+### Display fields
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `repeat` | bool | `false` | Re-display at `interval` after first preview |
+| `duration` | int | `6` | Preview seconds (clamped 5-60) |
+| `interval` | int | priority-based | Repeat interval in seconds |
+| `indicator` | bool | `true` | Show blinking unread dot |
+| `dismissible` | bool | `true` | Allow user to dismiss via center long-press |
+| `autoDismiss` | bool | `false` | Remove from queue after preview (no blinking dot) |
+| `mode` | int | `1` | Font size: 0=small, 1=medium, 2=big |
+| `scrollStep` | int | `0` | Scroll ms/pixel (0 = firmware default 140) |
+| `force` | bool | `false` | Always full-screen, even in INFO style |
+| `bell` | array | `[]` | Bell strike pattern, e.g. `[3]` or `[3,2,1]` |
 
 Expected `?wifi` response:
 
@@ -192,7 +226,11 @@ Useful commands:
   --ttl 86400 \
   --repeat true \
   --duration 8 \
-  --interval 60
+  --interval 60 \
+  --mode 2 \
+  --scroll-step 100 \
+  --force \
+  --bell 3,2,1
 
 /usr/bin/chronomsg clear domain-drop-comonoclaroquesi
 /usr/bin/chronomsg list
@@ -269,6 +307,93 @@ grep chronomsg /etc/crontabs/root
 Troubleshooting starts with `$BASE/chronomsg.log` and `$BASE/domain-state`. Set `CHRONOMSG_BASE` to change the state directory. If neither `whois` nor `curl`/`wget` exists on the router, `check-domain` enters the safe `ERROR` state and does not create alerts.
 
 ---
+
+## chronocli — send messages from your laptop
+
+`cli/chronocli` is a standalone POSIX shell script that sends one-shot messages to the chronomsg CGI endpoint. It mirrors all `chronomsg add` options and adds fire-and-forget defaults — no lingering indicator, no user dismiss needed.
+
+### Install
+
+Copy `cli/chronocli` somewhere on your `$PATH`:
+
+```sh
+sudo cp cli/chronocli /usr/local/bin/chronocli
+sudo chmod +x /usr/local/bin/chronocli
+```
+
+### Usage
+
+```sh
+chronocli [options] <title> <body>
+```
+
+### Options
+
+| Option | Description |
+|--------|-------------|
+| `--url <url>` | CGI endpoint (default `http://192.168.8.1/cgi-bin/chronomsg`) |
+| `--id <id>` | Unique message ID (default: `cli-<unix-timestamp>`) |
+| `--source <name>` | Source label (default `cli`) |
+| `--type <type>` | Message type (default `notification`) |
+| `--priority <0-9>` | Priority (default `5`) |
+| `--ttl <sec>` | Time-to-live (default `600`, max `86400`) |
+| `--duration <sec>`| Preview seconds (default `6`, clamped 5-60) |
+| `--mode <0\|1\|2>` | Font size: 0=small, 1=medium, 2=big (default `1`) |
+| `--scroll-step <ms>` | Scroll ms/pixel (default `0` = firmware default) |
+| `--force` | Always full-screen, even in INFO style |
+| `--bell <pattern>` | Bell strikes, e.g. `3` or `3,2,1` |
+| `--dry-run` | Print the JSON instead of sending |
+| `--verbose` | Print the server response |
+
+### Examples
+
+```sh
+# Basic notification
+chronocli MAKE "EXIT 0"
+
+# Big full-screen alert with bell
+chronocli --mode 2 --bell 3 --priority 9 ALERT "INTRUSION DETECTED"
+
+# Pipe from a build
+make 2>&1 | head -5 && chronocli MAKE "EXIT 0"
+
+# Info-line notification (small font)
+chronocli --mode 0 BACKUP "DONE"
+
+# Dry-run to see what would be sent
+chronocli --dry-run TEST "MESSAGE"
+```
+
+### MPD mode
+
+chronocli can watch an MPD server and post now-playing messages:
+
+```sh
+chronocli --mpd-host 192.168.8.150 --mpd-port 6600 mpd
+```
+
+This polls the MPD server every 15 seconds and posts the current song as an info-line message (mode 0). Install as a systemd user service:
+
+```
+~/.config/systemd/user/chronocli-mpd.service
+```
+
+```ini
+[Unit]
+Description=chronocli MPD now-playing
+
+[Service]
+ExecStart=/usr/local/bin/chronocli --mpd-host 192.168.8.150 mpd
+Restart=on-failure
+
+[Install]
+WantedBy=default.target
+```
+
+```sh
+systemctl --user daemon-reload
+systemctl --user enable --now chronocli-mpd.service
+```
 
 ## Bell Modes
 
@@ -399,7 +524,7 @@ Open `Config.h` to adjust these:
 | `GUEST_WIFI_ENABLED` | `1` | Set to `0` to compile guest WiFi out |
 | `CHRONOMSG_URL` | `http://192.168.8.1/cgi-bin/chronomsg` | Base CGI endpoint; append `?msg` or `?wifi` |
 | `CHRONOMSG_POLL_INTERVAL_SEC` | `60` | Message poll interval in seconds |
-| `CHRONOMSG_SCROLL_STEP_MS` | `140` | Scroll animation step interval |
+| `CHRONOMSG_SCROLL_STEP_MS` | `140` | Default scroll animation ms/pixel (overridden by per-message `scrollStep`); `CHRONOMSG_DEFAULT_DISPLAY_MODE` sets the default font size (1 = medium) |
 | `CHRONOMSG_SCROLL_REPEAT_GAP_PX` | `4` | Pixel gap between scroll repeats |
 | `CHRONOMSG_MIN_SCROLL_CYCLES` | `2` | Minimum full scroll cycles for auto-preview |
 | `TIME_SYNC_INTERVAL_MINUTES` | `60` | How often NTP re-syncs |
