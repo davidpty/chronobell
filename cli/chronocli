@@ -1,0 +1,205 @@
+#!/bin/sh
+# chronocli — send one-shot messages to ChronoBell clock
+#   chronocli "message"
+#   echo "message" | chronocli
+#   chronocli --title "header" "message"
+#   chronocli --duration 10 "message"
+#   chronocli mpd
+#   chronocli install
+#   chronocli uninstall
+
+set -eu
+
+CHRONOMSG_URL="${CHRONOMSG_URL:-http://192.168.8.1/cgi-bin/chronomsg}"
+INSTALL_DIR="${INSTALL_DIR:-${HOME}/.local/bin}"
+SERVICE_DIR="${SERVICE_DIR:-${HOME}/.config/systemd/user}"
+SERVICE_NAME="chronocli-mpd"
+
+usage() {
+    cat <<'EOF'
+Usage:
+  chronocli [options] "message"       send a message (auto-dismissed after 6s)
+  echo "message" | chronocli          read from pipe
+  chronocli mpd                       watch MPD for song changes
+  chronocli install                   install to ~/.local/bin + systemd service
+  chronocli uninstall                 remove everything
+  chronocli --help                    this help
+
+Options:
+  --mode small|medium|big   font size (default: medium)
+  --force                   force full-screen overlay
+  --bell NUM|PATTERN        bell strikes: 3 or "3,2,1" (default: no bell)
+  --title TEXT              optional header line (shown above body)
+  --duration SEC            display time in seconds (5-60, default 6)
+  --scroll-speed MS         scroll speed in ms/pixel (default: firmware default)
+  --dry-run                 print what would be sent
+EOF
+    exit 0
+}
+
+have_cmd() {
+    command -v "$1" >/dev/null 2>&1
+}
+
+send() {
+    body=""
+    title=""
+    duration=""
+    mode=""
+    scrollSpeed=""
+    force=false
+    bell=""
+    dry_run=false
+
+    while [ "$#" -gt 0 ]; do
+        case "$1" in
+            --title) title="${2:-}"; shift 2 ;;
+            --duration) duration="${2:-}"; shift 2 ;;
+            --mode)
+                case "${2:-}" in
+                    small) mode=0 ;;
+                    medium) mode=1 ;;
+                    big) mode=2 ;;
+                    *) echo "chronocli: --mode must be small, medium, or big" >&2; exit 2 ;;
+                esac
+                shift 2 ;;
+            --scroll-speed) scrollSpeed="${2:-}"; shift 2 ;;
+            --force) force=true; shift ;;
+            --bell) bell="${2:-}"; shift 2 ;;
+            --dry-run) dry_run=true; shift ;;
+            --help|-h) usage ;;
+            --stdin) shift ;;  # auto-detected, but accepted
+            -*) echo "chronocli: unknown option: $1" >&2; exit 2 ;;
+            *) body="$1"; shift ;;
+        esac
+    done
+
+    if [ -z "$body" ] && [ ! -t 0 ]; then
+        read -r body || true
+    fi
+
+    if [ -z "$body" ]; then
+        echo "chronocli: message required (argument or pipe)" >&2
+        exit 2
+    fi
+
+    duration="${duration:-6}"
+
+    if ! have_cmd curl; then
+        echo "chronocli: curl not found" >&2
+        exit 1
+    fi
+
+    set -- --data-urlencode "add=" \
+           --data-urlencode "body=$body" \
+           --data-urlencode "duration=$duration" \
+           --data-urlencode "auto-dismiss=true" \
+           --data-urlencode "indicator=false" \
+           --data-urlencode "dismissible=false" \
+           --data-urlencode "source=cli"
+
+    if [ -n "$mode" ]; then
+        set -- "$@" --data-urlencode "mode=$mode"
+    fi
+    if [ -n "$scrollSpeed" ]; then
+        set -- "$@" --data-urlencode "scrollStep=$scrollSpeed"
+    fi
+    if [ "$force" = true ]; then
+        set -- "$@" --data-urlencode "force=1"
+    fi
+    if [ -n "$bell" ]; then
+        set -- "$@" --data-urlencode "bell=$bell"
+    fi
+    if [ -n "$title" ]; then
+        set -- "$@" --data-urlencode "title=$title"
+    fi
+
+    if [ "$dry_run" = true ]; then
+        echo "[dry-run] $CHRONOMSG_URL"
+        for arg do
+            echo "  $arg"
+        done
+        return 0
+    fi
+
+    curl -s -G "$CHRONOMSG_URL" "$@" >/dev/null 2>&1 || {
+        echo "chronocli: failed to send (router unreachable?)" >&2
+        return 1
+    }
+}
+
+run_mpd() {
+    if ! have_cmd mpc; then
+        echo "chronocli: mpc not found (install with: apt install mpc)" >&2
+        exit 1
+    fi
+
+    format="${CHRONOMSG_MPD_FORMAT:-%artist% - %title%}"
+    last=""
+
+    trap 'exit 0' TERM INT
+
+    while true; do
+        song="$(mpc current -f "$format" 2>/dev/null)" || {
+            sleep 5
+            continue
+        }
+
+        if [ -n "$song" ] && [ "$song" != "$last" ]; then
+            last="$song"
+            CHRONOMSG_URL="$CHRONOMSG_URL" send "$song" || true
+        fi
+
+        mpc idleloop player >/dev/null 2>&1 || true
+        sleep 1
+    done
+}
+
+do_install() {
+    mkdir -p "$INSTALL_DIR" "$SERVICE_DIR"
+    self="$(realpath "$0" 2>/dev/null || readlink -f "$0" 2>/dev/null || echo "$0")"
+
+    cp "$self" "$INSTALL_DIR/chronocli"
+    chmod 755 "$INSTALL_DIR/chronocli"
+
+    cat > "$SERVICE_DIR/$SERVICE_NAME.service" <<EOF
+[Unit]
+Description=ChronoBell MPD now-playing
+After=network-online.target
+Wants=mpd.service
+
+[Service]
+ExecStart=$INSTALL_DIR/chronocli mpd
+Restart=always
+RestartSec=5
+Environment=CHRONOMSG_MPD_FORMAT=%artist% - %title%
+
+[Install]
+WantedBy=default.target
+EOF
+
+    systemctl --user daemon-reload 2>/dev/null || true
+    systemctl --user enable --now "$SERVICE_NAME" 2>/dev/null || {
+        echo "chronocli: installed, but could not enable systemd service (user services supported?)" >&2
+        return 1
+    }
+
+    echo "chronocli: installed to $INSTALL_DIR/chronocli"
+    echo "          mpd service enabled: $SERVICE_NAME"
+}
+
+do_uninstall() {
+    systemctl --user disable --now "$SERVICE_NAME" 2>/dev/null || true
+    rm -f "$SERVICE_DIR/$SERVICE_NAME.service"
+    systemctl --user daemon-reload 2>/dev/null || true
+    rm -f "$INSTALL_DIR/chronocli"
+    echo "chronocli: removed"
+}
+
+case "${1:-}" in
+    mpd) run_mpd ;;
+    install) do_install ;;
+    uninstall) do_uninstall ;;
+    --help|-h|help) usage ;;
+    *) send "$@" ;;
+esac

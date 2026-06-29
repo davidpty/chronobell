@@ -968,7 +968,9 @@ static void drawSmallTextAt(Display& display, const String& text, int x, int y) 
 }
 
 static void drawSmallScrollLine(Display& display, const String& text, int y,
-                                unsigned long nowMs, unsigned long startMs) {
+                                unsigned long nowMs, unsigned long startMs,
+                                uint16_t scrollStepMs) {
+    if (scrollStepMs == 0) scrollStepMs = CHRONOMSG_SCROLL_STEP_MS;
     int width = Display::textWidth(text.c_str(), true, 1, 2);
     String displayText = text;
     if (width < COLS_PER_ROW) {
@@ -981,26 +983,83 @@ static void drawSmallScrollLine(Display& display, const String& text, int y,
     int cycle = width + CHRONOMSG_SCROLL_REPEAT_GAP_PX;
     if (cycle <= 0) return;
     unsigned long elapsed = nowMs - startMs;
-    int phase = (int)((elapsed / CHRONOMSG_SCROLL_STEP_MS) % (unsigned long)cycle);
+    int phase = (int)((elapsed / scrollStepMs) % (unsigned long)cycle);
     int x0 = COLS_PER_ROW - 1 - phase - cycle;
     drawSmallTextAt(display, displayText, x0, y);
     drawSmallTextAt(display, displayText, x0 + cycle, y);
     drawSmallTextAt(display, displayText, x0 + cycle * 2, y);
 }
 
+static void drawMediumScrollLine(Display& display, const String& text, int y,
+                                 unsigned long nowMs, unsigned long startMs,
+                                 uint16_t scrollStepMs) {
+    if (scrollStepMs == 0) scrollStepMs = CHRONOMSG_SCROLL_STEP_MS;
+    int width = Display::textWidth(text.c_str(), false, 1, 2);
+    String displayText = text;
+    if (width < COLS_PER_ROW) {
+        displayText = text;
+        while (Display::textWidth(displayText.c_str(), false, 1, 2) < COLS_PER_ROW) {
+            displayText += " " + text;
+        }
+        width = Display::textWidth(displayText.c_str(), false, 1, 2);
+    }
+    int cycle = width + CHRONOMSG_SCROLL_REPEAT_GAP_PX;
+    if (cycle <= 0) return;
+    unsigned long elapsed = nowMs - startMs;
+    int phase = (int)((elapsed / scrollStepMs) % (unsigned long)cycle);
+    int x0 = COLS_PER_ROW - 1 - phase - cycle;
+    display.drawText(displayText.c_str(), x0, y, false, 1, 2);
+    display.drawText(displayText.c_str(), x0 + cycle, y, false, 1, 2);
+    display.drawText(displayText.c_str(), x0 + cycle * 2, y, false, 1, 2);
+}
+
+static void drawBigTextAt(Display& display, const String& text, int x, int y) {
+    display.drawBigText(text.c_str(), x, y);
+}
+
+static void drawBigScrollLine(Display& display, const String& text, int y,
+                              unsigned long nowMs, unsigned long startMs,
+                              uint16_t scrollStepMs) {
+    if (scrollStepMs == 0) scrollStepMs = CHRONOMSG_SCROLL_STEP_MS;
+    int width = Display::textWidthBig(text.c_str(), 1, 2);
+    String displayText = text;
+    if (width < COLS_PER_ROW) {
+        displayText = text;
+        while (Display::textWidthBig(displayText.c_str(), 1, 2) < COLS_PER_ROW) {
+            displayText += " " + text;
+        }
+        width = Display::textWidthBig(displayText.c_str(), 1, 2);
+    }
+    int cycle = width + CHRONOMSG_SCROLL_REPEAT_GAP_PX;
+    if (cycle <= 0) return;
+    unsigned long elapsed = nowMs - startMs;
+    int phase = (int)((elapsed / scrollStepMs) % (unsigned long)cycle);
+    int x0 = COLS_PER_ROW - 1 - phase - cycle;
+    drawBigTextAt(display, displayText, x0, y);
+    drawBigTextAt(display, displayText, x0 + cycle, y);
+    drawBigTextAt(display, displayText, x0 + cycle * 2, y);
+}
+
 void Display::drawChronoMessage(const ChronoMessage& message, unsigned long nowMs, unsigned long previewStartMs) {
     clearBuffer();
 
-    MessageLayout layout = layoutMessageText(message.title, message.body);
+    MessageLayout layout = layoutMessageText(message.title, message.body, message.displayMode, message.scrollStepMs);
     if (layout.kind == MessageLayoutKind::None) {
         renderBuffer();
         return;
     }
 
+    uint16_t stepMs = layout.scrollStepMs > 0 ? layout.scrollStepMs : CHRONOMSG_SCROLL_STEP_MS;
+    uint8_t mode = layout.displayMode;
+
     switch (layout.kind) {
-        case MessageLayoutKind::OneLine:
-            drawCenteredSmallText(layout.line1.c_str(), 5);
+        case MessageLayoutKind::OneLine: {
+            int y = mode == 2 ? 0 : (mode == 1 ? 3 : 5);
+            if (mode == 0) drawCenteredSmallText(layout.line1.c_str(), y);
+            else if (mode == 1) drawCenteredMediumText(layout.line1.c_str(), y);
+            else drawCenteredBigText(layout.line1.c_str(), y);
             break;
+        }
         case MessageLayoutKind::TwoLine:
             drawCenteredSmallText(layout.line1.c_str(), 1);
             drawCenteredSmallText(layout.line2.c_str(), 10);
@@ -1008,23 +1067,51 @@ void Display::drawChronoMessage(const ChronoMessage& message, unsigned long nowM
         case MessageLayoutKind::Scroll:
             if (layout.line2.length() > 0 && layout.line1.length() > 0) {
                 if (layout.scrollLine1) {
-                    drawSmallScrollLine(*this, layout.line1, 1, nowMs, previewStartMs);
+                    if (mode == 0) drawSmallScrollLine(*this, layout.line1, 1, nowMs, previewStartMs, stepMs);
+                    else if (mode == 1) drawMediumScrollLine(*this, layout.line1, 1, nowMs, previewStartMs, stepMs);
+                    else drawBigScrollLine(*this, layout.line1, 0, nowMs, previewStartMs, stepMs);
                 } else {
-                    drawCenteredSmallText(layout.line1.c_str(), 1);
+                    if (mode == 0) drawCenteredSmallText(layout.line1.c_str(), 1);
+                    else if (mode == 1) drawCenteredMediumText(layout.line1.c_str(), 1);
+                    else drawCenteredBigText(layout.line1.c_str(), 0);
                 }
                 if (layout.scrollLine2) {
-                    drawSmallScrollLine(*this, layout.line2, 10, nowMs, previewStartMs);
+                    if (mode == 0) drawSmallScrollLine(*this, layout.line2, 10, nowMs, previewStartMs, stepMs);
+                    else if (mode == 1) drawMediumScrollLine(*this, layout.line2, 10, nowMs, previewStartMs, stepMs);
+                    else drawBigScrollLine(*this, layout.line2, 8, nowMs, previewStartMs, stepMs);
                 } else {
-                    drawCenteredSmallText(layout.line2.c_str(), 10);
+                    if (mode == 0) drawCenteredSmallText(layout.line2.c_str(), 10);
+                    else if (mode == 1) drawCenteredMediumText(layout.line2.c_str(), 10);
+                    else drawCenteredBigText(layout.line2.c_str(), 8);
                 }
             } else {
                 const String& line = layout.line2.length() > 0 ? layout.line2 : layout.line1;
-                drawSmallScrollLine(*this, line, 5, nowMs, previewStartMs);
+                int y = mode == 2 ? 0 : (mode == 1 ? 3 : 5);
+                if (mode == 0) drawSmallScrollLine(*this, line, y, nowMs, previewStartMs, stepMs);
+                else if (mode == 1) drawMediumScrollLine(*this, line, y, nowMs, previewStartMs, stepMs);
+                else drawBigScrollLine(*this, line, y, nowMs, previewStartMs, stepMs);
             }
             break;
         case MessageLayoutKind::None:
         default:
             break;
+    }
+    renderBuffer();
+}
+
+void Display::drawChronoMessageInfoLine(const ChronoMessage& message, unsigned long nowMs, unsigned long previewStartMs) {
+    String body = message.body.length() > 0 ? message.body : message.title;
+    if (body.length() == 0) return;
+    for (int y = 11; y < 11 + SEC_FONT_HEIGHT; y++) {
+        for (int x = 0; x < COLS_PER_ROW; x++) {
+            setPixel(x, y, false);
+        }
+    }
+    uint16_t stepMs = message.scrollStepMs > 0 ? message.scrollStepMs : CHRONOMSG_SCROLL_STEP_MS;
+    if (Display::textWidth(body.c_str(), true, 1, 2) <= COLS_PER_ROW) {
+        drawCenteredSmallText(body.c_str(), 11);
+    } else {
+        drawSmallScrollLine(*this, body, 11, nowMs, previewStartMs, stepMs);
     }
     renderBuffer();
 }

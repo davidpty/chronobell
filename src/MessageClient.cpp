@@ -225,6 +225,37 @@ bool parseChronoMessageObject(const String& obj, ChronoMessage& msg, TimeProvide
     msg.intervalSec = (uint16_t)jsonUIntField(display, "interval", chronoMessageDefaultIntervalSec(msg.priority));
     msg.indicator = jsonBoolField(display, "indicator", true);
     msg.dismissible = jsonBoolField(display, "dismissible", true);
+    msg.autoDismiss = jsonBoolField(display, "autoDismiss", false);
+    msg.displayMode = (uint8_t)constrain(jsonIntField(display, "mode", 1), 0, 2);
+    msg.scrollStepMs = (uint16_t)jsonUIntField(display, "scrollStep", 0);
+    msg.force = jsonBoolField(display, "force", false);
+
+    int bellPos = findJsonKeyValueStart(display, "bell");
+    if (bellPos >= 0 && bellPos < (int)display.length()) {
+        if (display[bellPos] == '[') {
+            int arrayEnd = findMatchingJsonChar(display, bellPos, '[', ']');
+            if (arrayEnd > bellPos) {
+                int p = bellPos + 1;
+                while (p < arrayEnd && msg.bellPatternCount < 8) {
+                    p = skipJsonWhitespace(display, p);
+                    if (p >= arrayEnd || display[p] == ']') break;
+                    if (display[p] == ',') { p++; continue; }
+                    int val = display.substring(p).toInt();
+                    if (val > 0 && val <= 20) {
+                        msg.bellPattern[msg.bellPatternCount++] = (uint8_t)val;
+                    }
+                    while (p < arrayEnd && display[p] >= '0' && display[p] <= '9') p++;
+                }
+            }
+        } else {
+            int val = display.substring(bellPos).toInt();
+            if (val > 0 && val <= 20) {
+                msg.bellPattern[0] = (uint8_t)val;
+                msg.bellPatternCount = 1;
+            }
+        }
+    }
+
     msg.valid = true;
     return true;
 }
@@ -314,13 +345,20 @@ String normalizeMessageText(const String& text) {
     return out;
 }
 
-MessageLayout layoutMessageText(const String& title, const String& body) {
+MessageLayout layoutMessageText(const String& title, const String& body, uint8_t displayMode, uint16_t scrollStepMs) {
     MessageLayout layout;
+    layout.displayMode = displayMode;
+    layout.scrollStepMs = scrollStepMs;
     String t = normalizeMessageText(title);
     String b = normalizeMessageText(body);
     const int maxW = COLS_PER_ROW;
 
-    if (t.length() == 0 && b.length() > 0 && Display::textWidth(b.c_str(), true, 1, 2) <= maxW) {
+    auto textW = [&](const String& s) -> int {
+        if (displayMode == 2) return Display::textWidthBig(s.c_str(), 1, 2);
+        return Display::textWidth(s.c_str(), displayMode == 0, 1, 2);
+    };
+
+    if (t.length() == 0 && b.length() > 0 && textW(b) <= maxW) {
         layout.kind = MessageLayoutKind::OneLine;
         layout.line1 = b;
         return layout;
@@ -329,15 +367,14 @@ MessageLayout layoutMessageText(const String& title, const String& body) {
     String combined;
     if (t.length() > 0 && b.length() > 0) combined = t + " " + b;
     else combined = t.length() > 0 ? t : b;
-    if (combined.length() > 0 && Display::textWidth(combined.c_str(), true, 1, 2) <= maxW) {
+    if (combined.length() > 0 && textW(combined) <= maxW) {
         layout.kind = MessageLayoutKind::OneLine;
         layout.line1 = combined;
         return layout;
     }
 
-    if (t.length() > 0 && b.length() > 0 &&
-        Display::textWidth(t.c_str(), true, 1, 2) <= maxW &&
-        Display::textWidth(b.c_str(), true, 1, 2) <= maxW) {
+    if (displayMode == 0 && t.length() > 0 && b.length() > 0 &&
+        textW(t) <= maxW && textW(b) <= maxW) {
         layout.kind = MessageLayoutKind::TwoLine;
         layout.line1 = t;
         layout.line2 = b;
@@ -348,8 +385,8 @@ MessageLayout layoutMessageText(const String& title, const String& body) {
         layout.kind = MessageLayoutKind::Scroll;
         layout.line1 = t;
         layout.line2 = b;
-        layout.scrollLine1 = t.length() > 0 && Display::textWidth(t.c_str(), true, 1, 2) > maxW;
-        layout.scrollLine2 = b.length() > 0 && Display::textWidth(b.c_str(), true, 1, 2) > maxW;
+        layout.scrollLine1 = t.length() > 0 && textW(t) > maxW;
+        layout.scrollLine2 = b.length() > 0 && textW(b) > maxW;
         return layout;
     }
 
@@ -392,6 +429,12 @@ void MessageClient::update() {
     if (xSemaphoreTake(_mutex, 0) != pdTRUE) return;
     pruneExpiredLocked(nowEpoch, validTime, nowMs);
     if (_previewVisible && (int32_t)(nowMs - _previewEndMs) >= 0) {
+        if (_previewSlot >= 0 && _slots[_previewSlot].msg.autoDismiss) {
+            String dismissedId = _slots[_previewSlot].msg.id;
+            rememberDismissedLocked(dismissedId);
+            queueDismissalLocked(dismissedId);
+            _slots[_previewSlot] = MessageSlot();
+        }
         hidePreviewLocked();
     }
     if (!_previewVisible) {
@@ -721,25 +764,30 @@ void MessageClient::startPreviewLocked(int idx, uint32_t nowMs) {
     _previewSlot = idx;
     _previewVisible = true;
 
+    const ChronoMessage& msg = _slots[idx].msg;
     uint32_t previewMs;
     if (_manualPreview) {
         previewMs = MENU_TIMEOUT_SHORT_SECONDS * 1000UL;
     } else {
-        previewMs = (uint32_t)clampDuration(_slots[idx].msg.durationSec) * 1000UL;
-        MessageLayout layout = layoutMessageText(_slots[idx].msg.title, _slots[idx].msg.body);
+        previewMs = (uint32_t)clampDuration(msg.durationSec) * 1000UL;
+        MessageLayout layout = layoutMessageText(msg.title, msg.body, msg.displayMode, msg.scrollStepMs);
         if (layout.kind == MessageLayoutKind::Scroll) {
             int scrollW = 0;
+            auto textW = [&](const String& s) -> int {
+                if (layout.displayMode == 2) return Display::textWidthBig(s.c_str(), 1, 2);
+                return Display::textWidth(s.c_str(), layout.displayMode == 0, 1, 2);
+            };
             if (layout.line1.length() > 0) {
-                int w = Display::textWidth(layout.line1.c_str(), true, 1, 2);
+                int w = textW(layout.line1);
                 if (w > COLS_PER_ROW) scrollW = max(scrollW, w);
             }
             if (layout.line2.length() > 0) {
-                int w = Display::textWidth(layout.line2.c_str(), true, 1, 2);
+                int w = textW(layout.line2);
                 if (w > COLS_PER_ROW) scrollW = max(scrollW, w);
             }
             if (scrollW > 0) {
-                uint32_t cycleMs = (uint32_t)(scrollW + COLS_PER_ROW + CHRONOMSG_SCROLL_REPEAT_GAP_PX)
-                                 * CHRONOMSG_SCROLL_STEP_MS;
+                uint16_t stepMs = layout.scrollStepMs > 0 ? layout.scrollStepMs : CHRONOMSG_SCROLL_STEP_MS;
+                uint32_t cycleMs = (uint32_t)(scrollW + COLS_PER_ROW + CHRONOMSG_SCROLL_REPEAT_GAP_PX) * stepMs;
                 previewMs = cycleMs * CHRONOMSG_MIN_SCROLL_CYCLES;
             }
         }

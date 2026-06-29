@@ -477,7 +477,7 @@ serve_control() {
     case "$action" in
         add)
             set --
-            for name in id source type priority title body detail ttl repeat duration interval indicator dismissible; do
+            for name in id source type priority title body detail ttl repeat duration interval indicator dismissible auto-dismiss mode scroll-step force bell; do
                 value="$(query_param_value "$name")"
                 if [ -n "$value" ]; then
                     set -- "$@" "--$name" "$value"
@@ -552,6 +552,11 @@ add_message() {
     interval=""
     indicator=true
     dismissible=true
+    autoDismiss=false
+    mode=1
+    scrollStep=
+    force=false
+    bell=
 
     while [ "$#" -gt 0 ]; do
         case "$1" in
@@ -568,6 +573,11 @@ add_message() {
             --interval) interval="${2:-}"; shift 2 ;;
             --indicator) indicator="${2:-}"; shift 2 ;;
             --dismissible) dismissible="${2:-}"; shift 2 ;;
+            --auto-dismiss) autoDismiss="${2:-}"; shift 2 ;;
+            --mode) mode="${2:-}"; shift 2 ;;
+            --scroll-step) scrollStep="${2:-}"; shift 2 ;;
+            --force) force="${2:-}"; shift 2 ;;
+            --bell) bell="${2:-}"; shift 2 ;;
             --*) printf 'Unknown option: %s\n' "$1" >&2; return 2 ;;
             *)
                 if [ -z "$title" ]; then
@@ -632,7 +642,16 @@ add_message() {
         printf '"duration":%s,' "$duration"
         [ -n "$interval" ] && printf '"interval":%s,' "$interval"
         printf '"indicator":%s,' "$(bool_value "$indicator")"
-        printf '"dismissible":%s' "$(bool_value "$dismissible")"
+        printf '"dismissible":%s,' "$(bool_value "$dismissible")"
+        printf '"autoDismiss":%s,' "$(bool_value "$autoDismiss")"
+        printf '"mode":%s,' "$mode"
+        [ -n "$scrollStep" ] && printf '"scrollStep":%s,' "$scrollStep"
+        printf '"force":%s,' "$(bool_value "$force")"
+        if [ -n "$bell" ]; then
+            printf '"bell":[%s]' "$bell"
+        else
+            printf '"bell":[]'
+        fi
         printf '}}'
     } > "$tmp" || {
         rm -f "$tmp"
@@ -1421,6 +1440,10 @@ Add options:
   --interval SEC       Repeat interval in seconds
   --indicator true|false  Show blinking indicator (default: true)
   --dismissible true|false  Allow dismiss via center tap (default: true)
+  --mode 0|1|2         Font size: 0=small, 1=medium, 2=big (default: 1)
+  --scroll-step MS     Scroll speed in ms/pixel (default: firmware default)
+  --force true|false   Force full-screen overlay (default: false)
+  --bell COUNT|PATTERN  Bell strikes: 3 or "3,2,1" (default: no bell)
 
 Guestqr options:
   --rotate MODE        Rotation period: daily, weekly, monthly, yearly

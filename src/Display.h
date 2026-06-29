@@ -127,6 +127,7 @@ public:
 #endif
 #if CHRONOMSG_ENABLED
     void drawChronoMessage(const ChronoMessage& message, unsigned long nowMs, unsigned long previewStartMs);
+    void drawChronoMessageInfoLine(const ChronoMessage& message, unsigned long nowMs, unsigned long previewStartMs);
     void drawUnreadMessageIndicator(int count, int priority, unsigned long nowMs);
 #endif
 

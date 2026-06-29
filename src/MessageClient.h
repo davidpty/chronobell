@@ -22,6 +22,12 @@ struct ChronoMessage {
     uint16_t intervalSec = 0;
     bool indicator = true;
     bool dismissible = true;
+    bool autoDismiss = false;
+    uint8_t displayMode = 1;
+    uint16_t scrollStepMs = 0;
+    bool force = false;
+    uint8_t bellPattern[8] = {};
+    uint8_t bellPatternCount = 0;
     bool valid = false;
 };
 
@@ -38,12 +44,14 @@ struct MessageLayout {
     String line2;
     bool scrollLine1 = false;
     bool scrollLine2 = false;
+    uint8_t displayMode = 0;
+    uint16_t scrollStepMs = 0;
 };
 
 class TimeProvider;
 
 String normalizeMessageText(const String& text);
-MessageLayout layoutMessageText(const String& title, const String& body);
+MessageLayout layoutMessageText(const String& title, const String& body, uint8_t displayMode = 0, uint16_t scrollStepMs = 0);
 uint16_t chronoMessageDefaultIntervalSec(int priority);
 
 class MessageClient {

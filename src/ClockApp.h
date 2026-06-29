@@ -156,6 +156,7 @@ private:
 #endif
 #if CHRONOMSG_ENABLED
     MessageClient   _messageClient;
+    bool            _msgBellFired = false;
 #endif
     DriftTimeModel  _driftTimeModel;
     NewYearController _newYearController;

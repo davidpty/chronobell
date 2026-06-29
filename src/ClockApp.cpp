@@ -386,7 +386,12 @@ void ClockApp::render() {
 #if CHRONOMSG_ENABLED
     ChronoMessage previewMessage;
     if (_messageClient.currentPreview(previewMessage)) {
-        _display.drawChronoMessage(previewMessage, millis(), _messageClient.previewStartMs());
+        if (_displayMode == DisplayMode::Info && !previewMessage.force && previewMessage.displayMode == 0) {
+            _display.showTime();
+            _display.drawChronoMessageInfoLine(previewMessage, millis(), _messageClient.previewStartMs());
+        } else {
+            _display.drawChronoMessage(previewMessage, millis(), _messageClient.previewStartMs());
+        }
         return;
     }
 #endif
@@ -508,6 +513,19 @@ void ClockApp::tickGuestWifi() {
 #if CHRONOMSG_ENABLED
 void ClockApp::tickMessages() {
     _messageClient.update();
+    if (_messageClient.isPreviewVisible() && !_msgBellFired) {
+        ChronoMessage msg;
+        if (_messageClient.currentPreview(msg) && msg.bellPatternCount > 0) {
+            uint8_t total = 0;
+            for (uint8_t i = 0; i < msg.bellPatternCount; i++) {
+                total += msg.bellPattern[i];
+            }
+            _bellController.queuePattern(total, msg.bellPattern, msg.bellPatternCount, false, "msg");
+        }
+        _msgBellFired = true;
+    } else if (!_messageClient.isPreviewVisible()) {
+        _msgBellFired = false;
+    }
 }
 #endif
 
