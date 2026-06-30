@@ -144,6 +144,7 @@ void loop() {
     // --- App logic ---
     app.tickTimer();
     app.tickBell();
+    app.tickAlarm();
 #if GUEST_WIFI_ENABLED
     app.tickGuestWifi();
 #endif

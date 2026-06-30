@@ -100,10 +100,12 @@ ClockApp::ClockApp()
 #if DIGIT_TRANSITIONS || SCREEN_TRANSITION
     , _menuBindings{_appSettings, _settingsStore, _display, _bellController,
                     _timeProvider, _wifiManager, _bellMode, _savedDisplayMode, _timeFormat, _nightMode,
-                    _appSettings.transitionMode}
+                    _appSettings.transitionMode,
+                    _alarmMode, _alarmHour, _alarmMin}
 #else
     , _menuBindings{_appSettings, _settingsStore, _display, _bellController,
-                    _timeProvider, _wifiManager, _bellMode, _savedDisplayMode, _timeFormat, _nightMode}
+                    _timeProvider, _wifiManager, _bellMode, _savedDisplayMode, _timeFormat, _nightMode,
+                    _alarmMode, _alarmHour, _alarmMin}
 #endif
 {
 }
@@ -269,6 +271,9 @@ void ClockApp::syncRuntimeSettingsFromLoaded(bool forceDateStyleReset) {
     _bellMode         = _appSettings.bellMode;
     _timeFormat       = _appSettings.timeFormat;
     _nightMode        = _appSettings.nightMode;
+    _alarmMode        = _appSettings.alarm.mode;
+    _alarmHour        = _appSettings.alarm.hour;
+    _alarmMin         = _appSettings.alarm.minute;
     syncDisplayModeSelection();
     syncDateStyleSelection();
 #if DIGIT_TRANSITIONS
@@ -385,7 +390,7 @@ void ClockApp::render() {
 
 #if CHRONOSERVE_ENABLED
     ChronoMessage previewMessage;
-    if (_messageClient.currentPreview(previewMessage)) {
+    if (_messageClient.currentPreview(previewMessage) && !_menuController.isActive()) {
         bool finished = _display.drawChronoMessage(previewMessage, millis(), _messageClient.previewStartMs());
         _messageClient.noteCurrentPreviewRendered(finished);
         return;
@@ -479,6 +484,61 @@ void ClockApp::tickTimer() {
 
 void ClockApp::tickBell() {
     updateBellSchedule();
+}
+
+void ClockApp::tickAlarm() {
+    if (_alarmMode == 0) return;
+    if (_alarmRinging && _bellController.isBusy()) return;
+
+    int h = 0, m = 0, s = 0;
+    if (!getCurrentClockTime(h, m, s)) return;
+
+    if (_alarmRinging) {
+        unsigned long now = millis();
+        if ((int32_t)(now - _alarmNextRingMs) >= 0) {
+            if (ALARM_BELL_MAX_CYCLES > 0 && _alarmRingCount >= ALARM_BELL_MAX_CYCLES) {
+                _alarmRinging = false;
+                _alarmRingCount = 0;
+                return;
+            }
+            fireAlarmBell();
+        }
+        return;
+    }
+
+    if (m == _lastAlarmCheckMin) return;
+    _lastAlarmCheckMin = m;
+
+    if (h == (int)_alarmHour && m == (int)_alarmMin) {
+        if (_alarmMode == 1) {
+            _alarmMode = 0;
+            _appSettings.alarm.mode = 0;
+            _settingsStore.saveAlarmMode(0);
+        }
+        if (_alarmMode == 3 || _alarmMode == 4) {
+            ClockDate d;
+            if (_timeProvider.currentDate(d)) {
+                bool isWeekday = (d.day >= 2 && d.day <= 6);
+                bool isWeekend = (d.day == 1 || d.day == 7);
+                if ((_alarmMode == 3 && !isWeekday) || (_alarmMode == 4 && !isWeekend)) {
+                    _lastAlarmCheckMin = -1;
+                    return;
+                }
+            }
+        }
+        fireAlarmBell();
+    }
+}
+
+void ClockApp::fireAlarmBell() {
+    static const uint8_t pattern[] = ALARM_BELL_PATTERN;
+    uint8_t count = sizeof(pattern) / sizeof(pattern[0]);
+    uint8_t total = 0;
+    for (uint8_t i = 0; i < count; i++) total += pattern[i];
+    _bellController.queuePattern(total, pattern, count, true, "alarm");
+    _alarmRinging = true;
+    _alarmRingCount++;
+    _alarmNextRingMs = millis() + (unsigned long)ALARM_BELL_REPEAT_SEC * 1000UL;
 }
 
 #if GUEST_WIFI_ENABLED
@@ -909,6 +969,12 @@ void ClockApp::onTouchRight(uint8_t pad) {
 
 void ClockApp::onTouchMiddleShort(uint8_t pad) {
     if (_t4LongPressHandled) {
+        return;
+    }
+    if (_alarmRinging) {
+        _alarmRinging = false;
+        _alarmRingCount = 0;
+        _bellController.stop();
         return;
     }
     if (_menuController.isActive()) {

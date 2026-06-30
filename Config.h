@@ -74,6 +74,14 @@
 #define TIMER_ALERT_REPEAT_SECONDS                  5                                          // Gap between repeat alerts
 
 // ---------------------------------------------------------------------------
+// Alarm
+// ---------------------------------------------------------------------------
+
+#define ALARM_BELL_PATTERN                          {1, 2, 1, 2, 1}                                          // alarm bell group pattern
+#define ALARM_BELL_REPEAT_SEC                       30                                         // Re-ring interval while active
+#define ALARM_BELL_MAX_CYCLES                       10                                         // Auto-stop after N rings (0 = infinite)
+
+// ---------------------------------------------------------------------------
 // UI / interaction
 // ---------------------------------------------------------------------------
 

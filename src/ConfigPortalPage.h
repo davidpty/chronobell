@@ -251,6 +251,23 @@ static const char CONFIG_PORTAL_PAGE_TEMPLATE[] = R"rawliteral(
             </div>
 
             <div class="setting-row">
+                <div class="setting-label">Alarm</div>
+                <select id="alarm_mode" onchange="applySetting('alarm_mode', this.value); toggleAlarmTime()">
+                    <option value="0">OFF</option>
+                    <option value="1">ONCE</option>
+                    <option value="2">DAILY</option>
+                    <option value="3">WEEKDAY</option>
+                    <option value="4">WEEKEND</option>
+                </select>
+            </div>
+            <div class="setting-row hidden" id="alarm_time_row">
+                <div class="setting-label">Wakes</div>
+                <div class="row" style="flex:1; min-width:0;">
+                    <input type="time" id="alarm_time" value="__INITIAL_ALARM_TIME__" onchange="applyAlarmTime()" style="margin-top:0;">
+                </div>
+            </div>
+
+            <div class="setting-row">
                 <div class="setting-label">Timezone</div>
                 <select id="timezone" onchange="applySetting('timezone', this.value)">
                     <option value="-12">UTC-12:00 (Baker Island)</option>
@@ -658,6 +675,19 @@ static const char CONFIG_PORTAL_PAGE_TEMPLATE[] = R"rawliteral(
             if (__debug) console.log('DBG sync: active=' + hotspotActive + ' off=["' + offBtn.className + '"] on=["' + onBtn.className + '"] text="' + hotspotOnText + '"');
         }
 
+        function toggleAlarmTime() {
+            const mode = document.getElementById('alarm_mode').value;
+            document.getElementById('alarm_time_row').style.display =
+                mode === '0' ? 'none' : 'flex';
+        }
+
+        function applyAlarmTime() {
+            const val = document.getElementById('alarm_time').value;
+            if (val) {
+                applySetting('alarm_time', val);
+            }
+        }
+
         function updateHotspotFromStatus(data) {
             hotspotActive = data.hotspotActive === true;
             hotspotRemaining = Number(data.hotspotRemaining || 0);
@@ -676,6 +706,7 @@ static const char CONFIG_PORTAL_PAGE_TEMPLATE[] = R"rawliteral(
                 anim: "__INITIAL_ANIM__",
                 nightmode: "__INITIAL_NIGHTMODE__",
                 bellmode: "__INITIAL_BELLMODE__",
+                alarm_mode: "__INITIAL_ALARM_MODE__",
                 brightness: "__INITIAL_BRIGHTNESS__",
                 timezone: "__INITIAL_TIMEZONE__",
                 manualMode: "__INITIAL_MANUAL_MODE__"
@@ -689,6 +720,7 @@ static const char CONFIG_PORTAL_PAGE_TEMPLATE[] = R"rawliteral(
                 ['anim', initial.anim],
                 ['nightmode', initial.nightmode],
                 ['bellmode', initial.bellmode],
+                ['alarm_mode', initial.alarm_mode],
                 ['timezone', initial.timezone]
             ];
             pairs.forEach(function(item) {
@@ -712,6 +744,7 @@ static const char CONFIG_PORTAL_PAGE_TEMPLATE[] = R"rawliteral(
             syncDialMarksRow();
             syncBarSecondsRow();
             syncRndIntervalRow();
+            toggleAlarmTime();
         }
 
         function stopPendingPoll() {
@@ -767,7 +800,7 @@ static const char CONFIG_PORTAL_PAGE_TEMPLATE[] = R"rawliteral(
                 const response = await fetch('/status');
                 const data = await response.json();
 
-                const selects = [
+            const selects = [
                 ['style', data.style],
                 ['infoLine', data.infoLineMode],
                 ['anim', data.anim],
@@ -775,6 +808,7 @@ static const char CONFIG_PORTAL_PAGE_TEMPLATE[] = R"rawliteral(
                 ['timefmt', data.timefmt],
                 ['nightmode', data.nightmode],
                     ['bellmode', data.bellmode],
+                    ['alarm_mode', data.alarm_mode],
                     ['timezone', data.timezone]
                 ];
                 selects.forEach(function(item) {
@@ -815,6 +849,10 @@ static const char CONFIG_PORTAL_PAGE_TEMPLATE[] = R"rawliteral(
                 syncSeparatorRow();
                 syncDialMarksRow();
                 syncRndIntervalRow();
+
+                if (data.alarm_time !== undefined) {
+                    document.getElementById('alarm_time').value = data.alarm_time;
+                }
 
                 updateHotspotFromStatus(data);
                 if (data.timer) {

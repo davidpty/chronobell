@@ -25,6 +25,7 @@ ChronoBell is a compact LED clock with a bright, easy-to-read display, simple to
 ## What you can do with it
 
 - **Bell** - Off, single ding, hour count, half-hour, pair, triple, or ship's bell. Hear a preview as you scroll.
+- **Alarm** - Set a wake-up time in OFF, ONCE, DAILY, WEEKDAY, or WEEKEND mode. Rings with a distinctive `1 2 3 2 1` bell pattern, repeats every 30s up to 10 times. Dismiss with a tap.
 - **Timer** - Use it as a stopwatch or a countdown timer. Countdown presets range from 1 to 90 minutes, and when time runs out the clock flashes `00:00`, rings a 3-2-1 alert, and clears itself after 15 minutes.
 - **Night mode** - Dim the display, turn it off, mute the bell, or any combo - all on a schedule. Touch the clock to wake it for a minute.
 - **Manual time** - Switch from atomic (NTP + RTC) to manual and step through HH→MM→SS→Month→Day→Year. Persists across reboots.

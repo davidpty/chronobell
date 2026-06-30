@@ -47,6 +47,9 @@ public:
     bool loadStopwatchViewActive();
     bool saveStopwatchViewActive(bool active);
     bool clearManualTime();
+    bool saveAlarmMode(uint8_t mode);
+    bool saveAlarmHour(uint8_t hour);
+    bool saveAlarmMin(uint8_t min);
     bool saveNetworkBackup(const NetworkCredentials& network);
     bool loadNetworkBackup(NetworkCredentials& network);
     bool clearNetworkBackup();
@@ -101,6 +104,9 @@ private:
     static const char* KEY_STOPWATCH_VIEW_ACTIVE;
     static const char* KEY_TEMP_STYLE_LABEL;
     static const char* KEY_TEMP_STYLE_EPOCH;
+    static const char* KEY_ALARM_MODE;
+    static const char* KEY_ALARM_HOUR;
+    static const char* KEY_ALARM_MIN;
 };
 
 #endif // SETTINGS_STORE_H

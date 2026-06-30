@@ -114,6 +114,12 @@ struct ManualTimeSetting {
     unsigned long epoch = 0;
 };
 
+struct AlarmSettings {
+    uint8_t mode = 0;   // 0=Off, 1=Once, 2=Daily, 3=Weekday, 4=Weekend
+    uint8_t hour = 7;
+    uint8_t minute = 0;
+};
+
 struct AppSettings {
     NetworkCredentials network;
     TimezoneSetting timezone;
@@ -133,6 +139,7 @@ struct AppSettings {
     TransitionMode transitionMode = TransitionMode::Morph;
 #endif
     ManualTimeSetting manualTime;
+    AlarmSettings alarm;
 };
 
 inline bool hasConfigurableSeparator(DisplayMode mode) {

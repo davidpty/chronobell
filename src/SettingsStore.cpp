@@ -41,6 +41,9 @@ const char* SettingsStore::KEY_STOPWATCH_START_EPOCH = "sw_start_ep";
 const char* SettingsStore::KEY_STOPWATCH_VIEW_ACTIVE = "sw_view";
 const char* SettingsStore::KEY_TEMP_STYLE_LABEL = "ovr_label";
 const char* SettingsStore::KEY_TEMP_STYLE_EPOCH = "ovr_epoch";
+const char* SettingsStore::KEY_ALARM_MODE = "alm_mode";
+const char* SettingsStore::KEY_ALARM_HOUR = "alm_hour";
+const char* SettingsStore::KEY_ALARM_MIN  = "alm_min";
 
 AppSettings SettingsStore::load() {
     AppSettings settings;
@@ -73,6 +76,9 @@ AppSettings SettingsStore::load() {
     settings.rndInterval = clampRndIntervalMode(prefs.getUChar(KEY_RND_INTERVAL, (uint8_t)RndIntervalMode::Min15));
     settings.manualTime.enabled = prefs.getBool(KEY_MANUAL_TIME_ENABLED, false);
     settings.manualTime.epoch = prefs.getULong(KEY_MANUAL_EPOCH, 0);
+    settings.alarm.mode   = prefs.getUChar(KEY_ALARM_MODE, 0);
+    settings.alarm.hour   = prefs.getUChar(KEY_ALARM_HOUR, 7);
+    settings.alarm.minute = prefs.getUChar(KEY_ALARM_MIN, 0);
     if (settings.network.ssid.length() == 0) {
         // No network is configured, so the clock should not stay in AUTO mode.
         settings.network.password = "";
@@ -110,6 +116,9 @@ bool SettingsStore::save(const AppSettings& settings) {
     prefs.putUChar(KEY_RND_INTERVAL, (uint8_t)settings.rndInterval);
     prefs.putBool(KEY_MANUAL_TIME_ENABLED, settings.manualTime.enabled);
     prefs.putULong(KEY_MANUAL_EPOCH, settings.manualTime.epoch);
+    prefs.putUChar(KEY_ALARM_MODE, settings.alarm.mode);
+    prefs.putUChar(KEY_ALARM_HOUR, settings.alarm.hour);
+    prefs.putUChar(KEY_ALARM_MIN, settings.alarm.minute);
 
     prefs.end();
     return true;
@@ -635,6 +644,30 @@ bool SettingsStore::saveStopwatchViewActive(bool active) {
         return false;
     }
     prefs.putBool(KEY_STOPWATCH_VIEW_ACTIVE, active);
+    prefs.end();
+    return true;
+}
+
+bool SettingsStore::saveAlarmMode(uint8_t mode) {
+    Preferences prefs;
+    if (!prefs.begin(PREFS_NAMESPACE, false)) return false;
+    prefs.putUChar(KEY_ALARM_MODE, mode);
+    prefs.end();
+    return true;
+}
+
+bool SettingsStore::saveAlarmHour(uint8_t hour) {
+    Preferences prefs;
+    if (!prefs.begin(PREFS_NAMESPACE, false)) return false;
+    prefs.putUChar(KEY_ALARM_HOUR, hour);
+    prefs.end();
+    return true;
+}
+
+bool SettingsStore::saveAlarmMin(uint8_t min) {
+    Preferences prefs;
+    if (!prefs.begin(PREFS_NAMESPACE, false)) return false;
+    prefs.putUChar(KEY_ALARM_MIN, min);
     prefs.end();
     return true;
 }

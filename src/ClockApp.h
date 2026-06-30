@@ -98,6 +98,8 @@ public:
 #if CHRONOSERVE_ENABLED
     void tickMessages();
 #endif
+    void tickAlarm();
+    void fireAlarmBell();
     void pollLongPress();
     void tickMenu();
 
@@ -178,7 +180,15 @@ private:
         uint8_t hourSlot = 0;
     };
 
-    DisplayMode      _displayMode        = DisplayMode::LargeDigitsOnly;
+    uint8_t _alarmMode = 0;
+    uint8_t _alarmHour = 7;
+    uint8_t _alarmMin  = 0;
+    int _lastAlarmCheckMin = -1;
+    unsigned long _alarmNextRingMs = 0;
+    uint8_t _alarmRingCount = 0;
+    bool _alarmRinging = false;
+
+    DisplayMode     _displayMode        = DisplayMode::LargeDigitsOnly;
     DisplayMode      _savedDisplayMode   = DisplayMode::LargeDigitsOnly;
     DisplayMode      _lastDisplayModeSeen = DisplayMode::LargeDigitsOnly;
     OverrideState    _overrideState;

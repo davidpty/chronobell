@@ -222,6 +222,12 @@ void ConfigPortal::handleRoot() {
     html.replace("__INITIAL_NIGHTMODE__", initialNightMode);
     html.replace("__INITIAL_BELLMODE__", initialBellMode);
     html.replace("__INITIAL_BRIGHTNESS__", initialBrightness);
+    html.replace("__INITIAL_ALARM_MODE__", String((int)_settings.alarm.mode));
+    {
+        char buf[6];
+        snprintf(buf, sizeof(buf), "%02d:%02d", _settings.alarm.hour, _settings.alarm.minute);
+        html.replace("__INITIAL_ALARM_TIME__", buf);
+    }
     html.replace("__INITIAL_TIMEZONE__", initialTimezone);
     html.replace("__INITIAL_MANUAL_MODE__", initialManualMode);
 
@@ -481,6 +487,14 @@ void ConfigPortal::handleApply() {
         tzChanged = true;
     } else if (field == "timeMode") {
         settings.manualTime.enabled = (value == "manual");
+    } else if (field == "alarm_mode") {
+        settings.alarm.mode = (uint8_t)constrain(value.toInt(), 0, 4);
+    } else if (field == "alarm_time") {
+        int colon = value.indexOf(':');
+        if (colon > 0) {
+            settings.alarm.hour   = (uint8_t)constrain(value.substring(0, colon).toInt(), 0, 23);
+            settings.alarm.minute = (uint8_t)constrain(value.substring(colon + 1).toInt(), 0, 59);
+        }
     } else if (field == "manualtime") {
         String dateStr = _webServer.arg("date");
         String timeStr = _webServer.arg("time");
@@ -596,6 +610,16 @@ void ConfigPortal::handleStatus() {
         LOGF("DBG status: active=%d remaining=%d text=\"%s\"\n",
               hotspotActive, remaining, onText.c_str());
 #endif
+    }
+    json += "\"";
+
+    json += ",\"alarm_mode\":";
+    json += (int)_settings.alarm.mode;
+    json += ",\"alarm_time\":\"";
+    {
+        char buf[6];
+        snprintf(buf, sizeof(buf), "%02d:%02d", _settings.alarm.hour, _settings.alarm.minute);
+        json += encodeJSON(String(buf));
     }
     json += "\"";
 

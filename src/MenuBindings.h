@@ -25,6 +25,10 @@ struct MenuBindings {
     TransitionMode& transitionMode;
 #endif
 
+    uint8_t& alarmMode;
+    uint8_t& alarmHour;
+    uint8_t& alarmMin;
+
     bool getCurrentClockTime(int& h, int& m, int& s) const;
 };
 

@@ -40,6 +40,12 @@ void MenuRenderer::renderMenuEdit() {
         return;
     }
 
+    // ALARM multi-step: custom time editing display
+    if (strcmp(it.name, "ALARM") == 0 && g_alarmStep > 0) {
+        renderAlarmEdit();
+        return;
+    }
+
     // STYLE: show the chosen mode's name once (NameIntro), then transition
     // to ClockPreview where the clock blinks on/off continuously.
     if (strcmp(it.name, "STYLE") == 0 &&
@@ -211,5 +217,61 @@ void MenuRenderer::renderSetTimeEdit() {
             x += digW + gap;
             _display->drawMediumDigit(d3, x, digY);
         }
+    }
+}
+
+void MenuRenderer::renderAlarmEdit() {
+    uint8_t step = g_alarmStep;
+
+    const char* label = "";
+    switch (step) {
+        case 1: label = "HOUR"; break;
+        case 2: label = "MIN";  break;
+    }
+    int lw = _display->menuTextWidth(label, FONT_SMALL_COLS, 1);
+    int lx = (COLS_PER_ROW - lw) / 2;
+    _display->drawSmallText(label, lx, 0);
+
+    uint8_t d0, d1, d2, d3;
+    char sep = ':';
+    bool blinkFirst, blinkSecond;
+
+    if (step == 1) {
+        d0 = g_alarmHour / 10; d1 = g_alarmHour % 10;
+        d2 = g_alarmMin / 10;  d3 = g_alarmMin % 10;
+        blinkFirst = true;  blinkSecond = false;
+    } else {
+        d0 = g_alarmHour / 10; d1 = g_alarmHour % 10;
+        d2 = g_alarmMin / 10;  d3 = g_alarmMin % 10;
+        blinkFirst = false; blinkSecond = true;
+    }
+
+    bool bo = _menu->blinkOn();
+    int digW = FONT_MEDIUM_COLS;
+    int gap = 1;
+
+    int sepContentW = Display::charWidth(sep, false);
+    int totalW = digW * 4 + gap * 4 + sepContentW;
+    int startX = (COLS_PER_ROW - totalW) / 2;
+    int digY = 6;
+    int x = startX;
+
+    if (!blinkFirst || bo) {
+        _display->drawMediumDigit(d0, x, digY);
+        x += digW + gap;
+        _display->drawMediumDigit(d1, x, digY);
+        x += digW + gap;
+    } else {
+        x += (digW + gap) * 2;
+    }
+
+    char sepStr[2] = {sep, '\0'};
+    _display->drawMediumText(sepStr, x, digY);
+    x += sepContentW + gap;
+
+    if (!blinkSecond || bo) {
+        _display->drawMediumDigit(d2, x, digY);
+        x += digW + gap;
+        _display->drawMediumDigit(d3, x, digY);
     }
 }

@@ -49,6 +49,12 @@ static bool    editCommitSetTimeMenu(void* ctx, int16_t v);
 static void    cancelSetTimeMenu(void* ctx);
 static void    previewBellForMode(void* ctx, int16_t mode);
 static void    resetStyleMenuRange();
+static int16_t getAlarmMenu(void* ctx);
+static void    previewAlarmMenu(void* ctx, int16_t v);
+static void    commitAlarmMenu(void* ctx, int16_t v);
+static bool    editCommitAlarmMenu(void* ctx, int16_t v);
+static void    cancelAlarmMenu(void* ctx);
+static void    setAlarmRange(uint8_t step);
 
 uint8_t  g_settimeStep = 0;
 uint8_t  g_setHour = 0;
@@ -57,6 +63,9 @@ uint8_t  g_setSec = 0;
 uint8_t  g_setDay = 1;
 uint8_t  g_setMonth = 1;
 uint16_t g_setYear = 2025;
+uint8_t g_alarmStep = 0;
+uint8_t g_alarmHour = 7;
+uint8_t g_alarmMin  = 0;
 uint8_t g_styleStep = 0;
 DisplayMode g_stylePreviewMode = DisplayMode::LargeDigitsOnly;
 StyleConfig g_stylePending;
@@ -145,6 +154,7 @@ enum MenuIndex : uint8_t {
     MENU_NIGHT,
     MENU_BRIGHT,
     MENU_BELL,
+    MENU_ALARM,
     MENU_SETTIME,
     MENU_HOTSPOT,
 };
@@ -166,13 +176,26 @@ MenuItem MENU_ITEMS[] = {
   {"BRIGHT",  0, 15,
               getBrightnessMenu, previewBrightnessMenu, commitBrightnessMenu, nullptr},
   {"BELL",    (int16_t)BellMode::Off,      (int16_t)BellMode::Ships,
-              getBellModeMenu, previewBellModeMenu, commitBellModeMenu, previewBellForMode},
+               getBellModeMenu, previewBellModeMenu, commitBellModeMenu, previewBellForMode},
+  {"ALARM", 0, 4,
+               getAlarmMenu, previewAlarmMenu, commitAlarmMenu, nullptr, editCommitAlarmMenu, cancelAlarmMenu},
   {"SETTIME", 0, 1,
-              getSetTimeMenu, previewSetTimeMenu, commitSetTimeMenu, nullptr, editCommitSetTimeMenu, cancelSetTimeMenu},
+               getSetTimeMenu, previewSetTimeMenu, commitSetTimeMenu, nullptr, editCommitSetTimeMenu, cancelSetTimeMenu},
   {"HOTSPOT", 0, 1,
-              getHotspotMenu, previewHotspotMenu, commitHotspotMenu, nullptr},
+               getHotspotMenu, previewHotspotMenu, commitHotspotMenu, nullptr},
 };
 const uint8_t MENU_ITEM_COUNT = sizeof(MENU_ITEMS) / sizeof(MENU_ITEMS[0]);
+
+const char* alarmValueName(int16_t value) {
+    switch (value) {
+        case 0: return "OFF";
+        case 1: return "ONCE";
+        case 2: return "DAILY";
+        case 3: return "WDAY";
+        case 4: return "WEND";
+        default: return "?";
+    }
+}
 
 const char* bellValueName(int16_t value) {
     static const char* const NAMES[] = {
@@ -367,6 +390,7 @@ const char* menuValueName(uint8_t index, int16_t value, void* ctx) {
     if (index == MENU_BELL) return bellValueName(value);
     if (index == MENU_SETTIME) return setTimeValueName(value);
     if (index == MENU_HOTSPOT) return hotspotValueName(ctx, value);
+    if (index == MENU_ALARM) return alarmValueName(value);
     return nullptr;
 }
 
@@ -676,6 +700,94 @@ static bool editCommitSetTimeMenu(void* ctx, int16_t v) {
 static void cancelSetTimeMenu(void* ctx) {
     g_settimeStep = 0;
     setSetTimeRange(0);
+}
+
+static int16_t getAlarmMenu(void* ctx) {
+    MenuBindings* b = static_cast<MenuBindings*>(ctx);
+    switch (g_alarmStep) {
+        case 0: return (int16_t)b->alarmMode;
+        case 1: return (int16_t)g_alarmHour;
+        case 2: return (int16_t)g_alarmMin;
+    }
+    return 0;
+}
+
+static void previewAlarmMenu(void* ctx, int16_t v) {
+    MenuBindings* b = static_cast<MenuBindings*>(ctx);
+    switch (g_alarmStep) {
+        case 0: b->alarmMode = (uint8_t)constrain(v, 0, 4); break;
+        case 1: g_alarmHour = (uint8_t)constrain(v, 0, 23); break;
+        case 2: g_alarmMin  = (uint8_t)constrain(v, 0, 59); break;
+    }
+}
+
+static void commitAlarmMenu(void* ctx, int16_t v) {
+    MenuBindings* b = static_cast<MenuBindings*>(ctx);
+    switch (g_alarmStep) {
+        case 0:
+            b->alarmMode = (uint8_t)constrain(v, 0, 4);
+            b->appSettings.alarm.mode = b->alarmMode;
+            b->settingsStore.saveAlarmMode(b->alarmMode);
+            break;
+        case 1:
+            g_alarmHour = (uint8_t)constrain(v, 0, 23);
+            b->appSettings.alarm.hour = g_alarmHour;
+            b->alarmHour = g_alarmHour;
+            b->settingsStore.saveAlarmHour(g_alarmHour);
+            break;
+        case 2:
+            g_alarmMin = (uint8_t)constrain(v, 0, 59);
+            b->appSettings.alarm.minute = g_alarmMin;
+            b->alarmMin = g_alarmMin;
+            b->settingsStore.saveAlarmMin(g_alarmMin);
+            break;
+    }
+}
+
+static void setAlarmRange(uint8_t step) {
+    MenuItem& item = MENU_ITEMS[MENU_ALARM];
+    switch (step) {
+        case 0: item.minValue = 0; item.maxValue = 4; break;
+        case 1: item.minValue = 0; item.maxValue = 23; break;
+        case 2: item.minValue = 0; item.maxValue = 59; break;
+    }
+}
+
+static bool editCommitAlarmMenu(void* ctx, int16_t v) {
+    MenuBindings* b = static_cast<MenuBindings*>(ctx);
+    if (g_alarmStep == 0) {
+        if (b->alarmMode == 0) {
+            g_alarmStep = 0;
+            setAlarmRange(0);
+            return false;
+        }
+        g_alarmStep = 1;
+        g_alarmHour = b->alarmHour;
+        g_alarmMin  = b->alarmMin;
+        setAlarmRange(1);
+        return true;
+    }
+    if (g_alarmStep == 1) {
+        g_alarmStep = 2;
+        setAlarmRange(2);
+        return true;
+    }
+    if (g_alarmStep == 2) {
+        g_alarmStep = 0;
+        setAlarmRange(0);
+        return false;
+    }
+    return false;
+}
+
+static void cancelAlarmMenu(void* ctx) {
+    if (ctx) {
+        MenuBindings* b = static_cast<MenuBindings*>(ctx);
+        g_alarmHour = b->alarmHour;
+        g_alarmMin  = b->alarmMin;
+    }
+    g_alarmStep = 0;
+    setAlarmRange(0);
 }
 
 static void previewBellForMode(void* ctx, int16_t mode) {

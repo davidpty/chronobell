@@ -17,6 +17,10 @@ extern uint8_t  g_setDay;
 extern uint8_t  g_setMonth;
 extern uint16_t g_setYear;
 
+extern uint8_t g_alarmStep;
+extern uint8_t g_alarmHour;
+extern uint8_t g_alarmMin;
+
 uint8_t styleMenuStep();
 DisplayMode styleMenuPreviewMode();
 bool styleMenuIsEditing();
