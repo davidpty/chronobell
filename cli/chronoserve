@@ -866,8 +866,8 @@ publish_available() {
         --type alert \
         --inbox \
         --priority 9 \
-        --title AVAILABLE \
-        --body "$suffix" \
+        --title DOMAIN \
+        --body "$suffix IS AVAILABLE" \
         --ttl 86400 \
         --detail "$domain may be available" >/dev/null
 }
@@ -881,22 +881,22 @@ publish_ambiguous() {
         --type alert \
         --inbox \
         --priority 7 \
-        --title CHECK \
-        --body "$suffix" \
+        --title DOMAIN \
+        --body "$suffix NEEDS CHECK" \
         --detail "Domain status changed: check manually" >/dev/null
 }
 
-publish_pending() {
+publish_registered() {
     domain="$1"
     suffix="$2"
     add_message \
-        --id "domain-pending-$suffix" \
+        --id "domain-registered-$suffix" \
         --source domain-watch \
         --type info \
         --inbox \
         --priority 5 \
-        --title REGISTERED \
-        --body "$suffix" \
+        --title DOMAIN \
+        --body "$suffix IS REGISTERED" \
         --detail "$domain is registered" >/dev/null
 }
 
@@ -909,8 +909,8 @@ publish_error() {
         --type alert \
         --inbox \
         --priority 5 \
-        --title "CHECK ERROR" \
-        --body "$suffix" \
+        --title DOMAIN \
+        --body "$suffix CHECK FAILED" \
         --detail "$domain check failed" >/dev/null
 }
 
@@ -923,8 +923,8 @@ publish_redemption() {
         --type alert \
         --inbox \
         --priority 7 \
-        --title REDEMPTION \
-        --body "$suffix" \
+        --title DOMAIN \
+        --body "$suffix IS IN REDEMPTION" \
         --ttl 86400 \
         --detail "$domain may be expiring" >/dev/null
 }
@@ -966,7 +966,7 @@ check_domain() {
         AVAILABLE)
             file="$(message_file_for_id "domain-drop-$suffix")"
             if [ "$force" = true ] || [ "$previous" != AVAILABLE ] || [ ! -f "$file" ]; then
-                rm -f "$(message_file_for_id "domain-pending-$suffix")" \
+                rm -f "$(message_file_for_id "domain-registered-$suffix")" \
                       "$(message_file_for_id "domain-check-$suffix")" \
                       "$(message_file_for_id "domain-redemption-$suffix")" \
                       "$(message_file_for_id "domain-error-$suffix")"
@@ -977,30 +977,20 @@ check_domain() {
             file="$(message_file_for_id "domain-check-$suffix")"
             if [ "$force" = true ] || [ "$previous" != AMBIGUOUS ] || [ ! -f "$file" ]; then
                 rm -f "$(message_file_for_id "domain-drop-$suffix")" \
-                      "$(message_file_for_id "domain-pending-$suffix")" \
+                      "$(message_file_for_id "domain-registered-$suffix")" \
                       "$(message_file_for_id "domain-redemption-$suffix")" \
                       "$(message_file_for_id "domain-error-$suffix")"
                 publish_ambiguous "$domain" "$suffix"
             fi
             ;;
-        PENDING)
-            file="$(message_file_for_id "domain-pending-$suffix")"
-            if [ "$force" = true ] || [ "$previous" != PENDING ] || [ ! -f "$file" ]; then
-                rm -f "$(message_file_for_id "domain-drop-$suffix")" \
-                      "$(message_file_for_id "domain-check-$suffix")" \
-                      "$(message_file_for_id "domain-redemption-$suffix")" \
-                      "$(message_file_for_id "domain-error-$suffix")"
-                publish_pending "$domain" "$suffix"
-            fi
-            ;;
         REGISTERED)
-            file="$(message_file_for_id "domain-pending-$suffix")"
+            file="$(message_file_for_id "domain-registered-$suffix")"
             if [ "$force" = true ] || [ "$previous" != REGISTERED ] || [ ! -f "$file" ]; then
                 rm -f "$(message_file_for_id "domain-drop-$suffix")" \
                       "$(message_file_for_id "domain-check-$suffix")" \
                       "$(message_file_for_id "domain-redemption-$suffix")" \
                       "$(message_file_for_id "domain-error-$suffix")"
-                publish_pending "$domain" "$suffix"
+                publish_registered "$domain" "$suffix"
             fi
             ;;
         REDEMPTION)
@@ -1008,7 +998,7 @@ check_domain() {
             if [ "$force" = true ] || [ "$previous" != REDEMPTION ] || [ ! -f "$file" ]; then
                 rm -f "$(message_file_for_id "domain-drop-$suffix")" \
                       "$(message_file_for_id "domain-check-$suffix")" \
-                      "$(message_file_for_id "domain-pending-$suffix")" \
+                      "$(message_file_for_id "domain-registered-$suffix")" \
                       "$(message_file_for_id "domain-error-$suffix")"
                 publish_redemption "$domain" "$suffix"
             fi
@@ -1018,7 +1008,7 @@ check_domain() {
             if [ "$force" = true ] || [ "$previous" != ERROR ] || [ ! -f "$file" ]; then
                 rm -f "$(message_file_for_id "domain-drop-$suffix")" \
                       "$(message_file_for_id "domain-check-$suffix")" \
-                      "$(message_file_for_id "domain-pending-$suffix")" \
+                      "$(message_file_for_id "domain-registered-$suffix")" \
                       "$(message_file_for_id "domain-redemption-$suffix")"
                 publish_error "$domain" "$suffix"
             fi
@@ -1069,32 +1059,27 @@ test_domain() {
     printf 'Result:     %s\n' "$state"
     case "$state" in
         AVAILABLE)
-            printf 'Display:    "AVAILABLE" / "%s"\n' "$suffix"
+            printf 'Display:    "DOMAIN" / "%s IS AVAILABLE"\n' "$suffix"
             printf 'Mode:       flash (blinking)\n'
             printf 'Priority:   9\n'
             ;;
         AMBIGUOUS)
-            printf 'Display:    "CHECK" / "%s"\n' "$suffix"
+            printf 'Display:    "DOMAIN" / "%s NEEDS CHECK"\n' "$suffix"
             printf 'Mode:       plain\n'
             printf 'Priority:   7\n'
             ;;
-        PENDING)
-            printf 'Display:    "REGISTERED" / "%s"\n' "$suffix"
-            printf 'Mode:       plain\n'
-            printf 'Priority:   5\n'
-            ;;
         REGISTERED)
-            printf 'Display:    "REGISTERED" / "%s"\n' "$suffix"
+            printf 'Display:    "DOMAIN" / "%s IS REGISTERED"\n' "$suffix"
             printf 'Mode:       plain\n'
             printf 'Priority:   5\n'
             ;;
         REDEMPTION)
-            printf 'Display:    "REDEMPTION" / "%s"\n' "$suffix"
+            printf 'Display:    "DOMAIN" / "%s IS IN REDEMPTION"\n' "$suffix"
             printf 'Mode:       flash\n'
             printf 'Priority:   7\n'
             ;;
         ERROR)
-            printf 'Display:    "CHECK ERROR" / "%s"\n' "$suffix"
+            printf 'Display:    "DOMAIN" / "%s CHECK FAILED"\n' "$suffix"
             printf 'Mode:       plain\n'
             printf 'Priority:   5\n'
             ;;
