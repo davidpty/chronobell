@@ -198,11 +198,11 @@
 #define CHRONOSERVE_URL                               "http://192.168.8.1/cgi-bin/chronoserve"   // Router-side CGI endpoint for ChronoServe
 #define CHRONOSERVE_POLL_INTERVAL_SEC                 10                                         // Background poll interval in seconds
 #define CHRONOSERVE_MIN_DURATION_SEC                  10                                         // Minimum message lifetime; scrolling extends beyond this as needed
-#define CHRONOSERVE_SONG_REPEAT_SEC                   30                                         // Default repeat interval for MPD / repeat-policy messages
+#define CHRONOSERVE_SONG_REPEAT_SEC                   60                                         // Default repeat interval for MPD / repeat-policy messages
 #define CHRONOSERVE_SCROLL_STEP_MS                    140                                        // Firmware scroll animation step in milliseconds
 #define CHRONOSERVE_MIN_SCROLL_CYCLES                 1                                          // Minimum complete scroll passes before firmware may time out
 #define CHRONOSERVE_SCROLL_WORD_GAP_PX                4                                          // Gap between words in ChronoServe scroll text
-#define CHRONOSERVE_SCROLL_EXIT_PAD_PX                0                                          // Extra blank pixels after the last glyph before finish
+#define CHRONOSERVE_SCROLL_EXIT_PAD_PX                5                                          // Extra blank pixels after the last glyph before finish
 
 // Internal ChronoServe engine limits. These rarely need tuning.
 #define CHRONOSERVE_MAX_MESSAGES                      5                                          // Max cached messages kept in memory
