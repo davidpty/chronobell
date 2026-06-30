@@ -15,16 +15,13 @@ struct ChronoMessage {
     int priority = 5;
     String title;
     String body;
+    String renderText;
     uint32_t created = 0;
     uint32_t expires = 0;
-    bool repeat = false;
-    uint16_t durationSec = CHRONOMSG_DEFAULT_DURATION_SEC;
-    uint16_t intervalSec = 0;
     bool indicator = true;
     bool dismissible = true;
     bool autoDismiss = false;
     uint8_t displayMode = 1;
-    uint16_t scrollStepMs = 0;
     bool force = false;
     uint8_t bellPattern[8] = {};
     uint8_t bellPatternCount = 0;
@@ -33,8 +30,6 @@ struct ChronoMessage {
 
 enum class MessageLayoutKind : uint8_t {
     None = 0,
-    OneLine,
-    TwoLine,
     Scroll
 };
 
@@ -42,17 +37,13 @@ struct MessageLayout {
     MessageLayoutKind kind = MessageLayoutKind::None;
     String line1;
     String line2;
-    bool scrollLine1 = false;
-    bool scrollLine2 = false;
     uint8_t displayMode = 0;
-    uint16_t scrollStepMs = 0;
 };
 
 class TimeProvider;
 
 String normalizeMessageText(const String& text);
-MessageLayout layoutMessageText(const String& title, const String& body, uint8_t displayMode = 0, uint16_t scrollStepMs = 0);
-uint16_t chronoMessageDefaultIntervalSec(int priority);
+MessageLayout layoutMessageText(const String& title, const String& body, uint8_t displayMode = 0);
 
 class MessageClient {
 public:
@@ -72,6 +63,7 @@ public:
     bool hidePreview();
     bool isPreviewVisible() const { return _previewVisible; }
     uint32_t previewStartMs() const { return _previewStartMs; }
+    void noteCurrentPreviewRendered(bool finished);
 
 private:
     struct MessageSlot {
@@ -80,6 +72,7 @@ private:
         bool known = false;
         uint32_t firstPreviewDueMs = 0;
         uint32_t lastPreviewMs = 0;
+        uint32_t lastPreviewEndMs = 0;
         bool firstPreviewShown = false;
         uint8_t order = 0;
     };
@@ -118,8 +111,12 @@ private:
     int _previewSlot = -1;
     bool _previewVisible = false;
     bool _manualPreview = false;
+    bool _previewWaitForRenderFinish = false;
+    bool _previewRenderFinished = true;
+    bool _previewPendingRemoval = false;
     uint32_t _previewStartMs = 0;
     uint32_t _previewEndMs = 0;
+    uint32_t _previewSafetyEndMs = 0;
 };
 
 #endif

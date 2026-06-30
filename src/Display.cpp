@@ -179,7 +179,7 @@ void Display::loadBrightnessFromSettings() {
 // Top-level render dispatchers
 // =============================================================================
 
-void Display::showTime() {
+void Display::drawClockContent() {
     clearBuffer();
 #if SCREEN_TRANSITION
     noteScreenIdentity();
@@ -196,51 +196,6 @@ void Display::showTime() {
         _clockRenderer->setAnimationsEnabled(animOn);
     }
 #endif
-
-    if (_menu.isActive()) {
-        _menuRenderer->renderMenu();
-        renderBuffer();
-        return;
-    }
-
-    if (_timer.isCountdownExpired()) {
-        _timerRenderer->renderTimerScreen();
-        return;
-    }
-
-    if (_timer.isDateView()) {
-        _timerRenderer->renderDateView();
-        return;
-    }
-
-#if GUEST_WIFI_ENABLED
-    bool wasInGuestWifi = _wasGuestWifiView;
-    _wasGuestWifiView = false;
-    if (_timer.isGuestWifiView()) {
-        clearBuffer();
-        _wasGuestWifiView = true;
-
-        if (!wasInGuestWifi) {
-            _guestWifiViewStartMs = millis();
-        }
-
-        unsigned long elapsed = millis() - _guestWifiViewStartMs;
-        unsigned long phase = elapsed % (GUEST_WIFI_SSID_SHOW_SECONDS * 1000UL + GUEST_WIFI_PASS_SHOW_SECONDS * 1000UL);
-
-        bool showSsid = (_guestWifi && _guestWifi->ssid()[0] != '\0')
-                        ? (phase < GUEST_WIFI_SSID_SHOW_SECONDS * 1000UL)
-                        : false;
-
-        drawGuestWifiText(showSsid);
-        renderBuffer();
-        return;
-    }
-#endif
-
-    if (_timer.isStopwatchView() || _timer.isCountdownView()) {
-        _timerRenderer->renderTimerScreen();
-        return;
-    }
 
     ClockTime time = _timeProvider.displayTime();
     int hours = time.hours;
@@ -308,7 +263,55 @@ void Display::showTime() {
             _newYearRenderer->renderOverlay();
         }
     }
+}
 
+void Display::showTime() {
+    if (_menu.isActive()) {
+        _menuRenderer->renderMenu();
+        renderBuffer();
+        return;
+    }
+
+    if (_timer.isCountdownExpired()) {
+        _timerRenderer->renderTimerScreen();
+        return;
+    }
+
+    if (_timer.isDateView()) {
+        _timerRenderer->renderDateView();
+        return;
+    }
+
+#if GUEST_WIFI_ENABLED
+    bool wasInGuestWifi = _wasGuestWifiView;
+    _wasGuestWifiView = false;
+    if (_timer.isGuestWifiView()) {
+        clearBuffer();
+        _wasGuestWifiView = true;
+
+        if (!wasInGuestWifi) {
+            _guestWifiViewStartMs = millis();
+        }
+
+        unsigned long elapsed = millis() - _guestWifiViewStartMs;
+        unsigned long phase = elapsed % (GUEST_WIFI_SSID_SHOW_SECONDS * 1000UL + GUEST_WIFI_PASS_SHOW_SECONDS * 1000UL);
+
+        bool showSsid = (_guestWifi && _guestWifi->ssid()[0] != '\0')
+                        ? (phase < GUEST_WIFI_SSID_SHOW_SECONDS * 1000UL)
+                        : false;
+
+        drawGuestWifiText(showSsid);
+        renderBuffer();
+        return;
+    }
+#endif
+
+    if (_timer.isStopwatchView() || _timer.isCountdownView()) {
+        _timerRenderer->renderTimerScreen();
+        return;
+    }
+
+    drawClockContent();
     renderBuffer();
 }
 
@@ -433,33 +436,33 @@ void Display::clearBuffer() {
     memset(_snapshotFrame, 0, sizeof(_snapshotFrame));
 }
 
-void Display::setPixel(uint8_t x, uint8_t y, bool value) {
-    if (x < COLS_PER_ROW && y < TOTAL_ROWS) {
+void Display::setPixel(int x, int y, bool value) {
+    if (x >= 0 && x < COLS_PER_ROW && y >= 0 && y < TOTAL_ROWS) {
         pixelBuffer[x][y] = value;
         setSnapshotPixel(x, y, value);
     }
 }
 
-bool Display::getPixel(uint8_t x, uint8_t y) const {
-    if (x >= COLS_PER_ROW || y >= TOTAL_ROWS) return false;
+bool Display::getPixel(int x, int y) const {
+    if (x < 0 || x >= COLS_PER_ROW || y < 0 || y >= TOTAL_ROWS) return false;
     return pixelBuffer[x][y];
 }
 
-void Display::togglePixel(uint8_t x, uint8_t y) {
-    if (x < COLS_PER_ROW && y < TOTAL_ROWS) {
+void Display::togglePixel(int x, int y) {
+    if (x >= 0 && x < COLS_PER_ROW && y >= 0 && y < TOTAL_ROWS) {
         pixelBuffer[x][y] = !pixelBuffer[x][y];
         setSnapshotPixel(x, y, pixelBuffer[x][y]);
     }
 }
 
-void Display::setAnimationPixel(uint8_t x, uint8_t y, bool value) {
-    if (x < COLS_PER_ROW && y < TOTAL_ROWS) {
+void Display::setAnimationPixel(int x, int y, bool value) {
+    if (x >= 0 && x < COLS_PER_ROW && y >= 0 && y < TOTAL_ROWS) {
         pixelBuffer[x][y] = value;
     }
 }
 
-void Display::setSnapshotPixel(uint8_t x, uint8_t y, bool value) {
-    if (x < COLS_PER_ROW && y < TOTAL_ROWS) {
+void Display::setSnapshotPixel(int x, int y, bool value) {
+    if (x >= 0 && x < COLS_PER_ROW && y >= 0 && y < TOTAL_ROWS) {
         uint32_t mask = 1UL << x;
         if (value) {
             _snapshotFrame[y] |= mask;
@@ -488,6 +491,18 @@ void Display::renderBuffer() {
 #endif
     flushBufferToLeds();
 }
+
+#if CHRONOMSG_ENABLED
+void Display::renderChronoMessageBuffer() {
+#if SCREEN_TRANSITION
+    _screenTransition.cancel();
+    _screenTransitionPending = false;
+    bufferToFrame(_lastFrame);
+    _hasLastFrame = true;
+#endif
+    flushBufferToLeds();
+}
+#endif
 
 void Display::flushBar(int bufferRow, bool flipX, bool flipY, int colOffset) {
     for (int col = 0; col < COLS_PER_ROW; col++) {
@@ -963,157 +978,162 @@ void Display::drawGuestWifiText(bool showSsid) {
 #endif
 
 #if CHRONOMSG_ENABLED
-static void drawSmallTextAt(Display& display, const String& text, int x, int y) {
-    display.drawSmallText(text.c_str(), x, y);
-}
+static void drawChronoGlyphClipped(Display& display, char c, int x, int y, uint8_t mode) {
+    if (c == ' ') return;
 
-static void drawSmallScrollLine(Display& display, const String& text, int y,
-                                unsigned long nowMs, unsigned long startMs,
-                                uint16_t scrollStepMs) {
-    if (scrollStepMs == 0) scrollStepMs = CHRONOMSG_SCROLL_STEP_MS;
-    int width = Display::textWidth(text.c_str(), true, 1, 2);
-    String displayText = text;
-    if (width < COLS_PER_ROW) {
-        displayText = text;
-        while (Display::textWidth(displayText.c_str(), true, 1, 2) < COLS_PER_ROW) {
-            displayText += " " + text;
+    uint8_t glyph = charToGlyphIndex(c);
+    if (mode == 2) {
+        int left, right;
+        bigGlyphBounds(c, left, right);
+        for (int row = 0; row < TIME_FONT_BIG_HEIGHT; row++) {
+            for (int col = left; col <= right; col++) {
+                if (FONT_BIG[glyph][row][col]) {
+                    display.setPixel(x + col - left, y + row, true);
+                }
+            }
         }
-        width = Display::textWidth(displayText.c_str(), true, 1, 2);
-    }
-    int cycle = width + CHRONOMSG_SCROLL_REPEAT_GAP_PX;
-    if (cycle <= 0) return;
-    unsigned long elapsed = nowMs - startMs;
-    int phase = (int)((elapsed / scrollStepMs) % (unsigned long)cycle);
-    int x0 = COLS_PER_ROW - 1 - phase - cycle;
-    drawSmallTextAt(display, displayText, x0, y);
-    drawSmallTextAt(display, displayText, x0 + cycle, y);
-    drawSmallTextAt(display, displayText, x0 + cycle * 2, y);
-}
-
-static void drawMediumScrollLine(Display& display, const String& text, int y,
-                                 unsigned long nowMs, unsigned long startMs,
-                                 uint16_t scrollStepMs) {
-    if (scrollStepMs == 0) scrollStepMs = CHRONOMSG_SCROLL_STEP_MS;
-    int width = Display::textWidth(text.c_str(), false, 1, 2);
-    String displayText = text;
-    if (width < COLS_PER_ROW) {
-        displayText = text;
-        while (Display::textWidth(displayText.c_str(), false, 1, 2) < COLS_PER_ROW) {
-            displayText += " " + text;
-        }
-        width = Display::textWidth(displayText.c_str(), false, 1, 2);
-    }
-    int cycle = width + CHRONOMSG_SCROLL_REPEAT_GAP_PX;
-    if (cycle <= 0) return;
-    unsigned long elapsed = nowMs - startMs;
-    int phase = (int)((elapsed / scrollStepMs) % (unsigned long)cycle);
-    int x0 = COLS_PER_ROW - 1 - phase - cycle;
-    display.drawText(displayText.c_str(), x0, y, false, 1, 2);
-    display.drawText(displayText.c_str(), x0 + cycle, y, false, 1, 2);
-    display.drawText(displayText.c_str(), x0 + cycle * 2, y, false, 1, 2);
-}
-
-static void drawBigTextAt(Display& display, const String& text, int x, int y) {
-    display.drawBigText(text.c_str(), x, y);
-}
-
-static void drawBigScrollLine(Display& display, const String& text, int y,
-                              unsigned long nowMs, unsigned long startMs,
-                              uint16_t scrollStepMs) {
-    if (scrollStepMs == 0) scrollStepMs = CHRONOMSG_SCROLL_STEP_MS;
-    int width = Display::textWidthBig(text.c_str(), 1, 2);
-    String displayText = text;
-    if (width < COLS_PER_ROW) {
-        displayText = text;
-        while (Display::textWidthBig(displayText.c_str(), 1, 2) < COLS_PER_ROW) {
-            displayText += " " + text;
-        }
-        width = Display::textWidthBig(displayText.c_str(), 1, 2);
-    }
-    int cycle = width + CHRONOMSG_SCROLL_REPEAT_GAP_PX;
-    if (cycle <= 0) return;
-    unsigned long elapsed = nowMs - startMs;
-    int phase = (int)((elapsed / scrollStepMs) % (unsigned long)cycle);
-    int x0 = COLS_PER_ROW - 1 - phase - cycle;
-    drawBigTextAt(display, displayText, x0, y);
-    drawBigTextAt(display, displayText, x0 + cycle, y);
-    drawBigTextAt(display, displayText, x0 + cycle * 2, y);
-}
-
-void Display::drawChronoMessage(const ChronoMessage& message, unsigned long nowMs, unsigned long previewStartMs) {
-    clearBuffer();
-
-    MessageLayout layout = layoutMessageText(message.title, message.body, message.displayMode, message.scrollStepMs);
-    if (layout.kind == MessageLayoutKind::None) {
-        renderBuffer();
         return;
     }
 
-    uint16_t stepMs = layout.scrollStepMs > 0 ? layout.scrollStepMs : CHRONOMSG_SCROLL_STEP_MS;
+    bool small = mode == 0;
+    int left, right;
+    glyphBounds(c, small, left, right);
+    int height = small ? SEC_FONT_HEIGHT : TIME_FONT_MEDIUM_HEIGHT;
+    for (int row = 0; row < height; row++) {
+        for (int col = left; col <= right; col++) {
+            if (fontPixel(glyph, small, row, col)) {
+                display.setPixel(x + col - left, y + row, true);
+            }
+        }
+    }
+}
+
+static int chronoGlyphWidth(char c, uint8_t mode) {
+    return mode == 2 ? Display::charWidthBig(c) : Display::charWidth(c, mode == 0);
+}
+
+static int chronoTextWidth(const String& text, uint8_t mode) {
+    int width = 0;
+    bool inWord = false;
+    for (size_t i = 0; i < text.length(); ++i) {
+        char c = text[i];
+        if (c == ' ') {
+            if (inWord) {
+                width += CHRONOMSG_SCROLL_WORD_GAP_PX;
+                inWord = false;
+            }
+            continue;
+        }
+        if (inWord) {
+            width += 1;
+        }
+        width += chronoGlyphWidth(c, mode);
+        inWord = true;
+    }
+    if (width > 0) {
+        width += CHRONOMSG_SCROLL_EXIT_PAD_PX;
+    }
+    return mode == 2
+        ? width
+        : width;
+}
+
+static void drawChronoTextClipped(Display& display, const String& text, int x, int y, uint8_t mode) {
+    bool inWord = false;
+    for (size_t i = 0; i < text.length(); ++i) {
+        char c = text[i];
+        if (c == ' ') {
+            if (inWord) {
+                x += CHRONOMSG_SCROLL_WORD_GAP_PX;
+                inWord = false;
+            }
+            continue;
+        }
+        if (inWord) x += 1;
+        drawChronoGlyphClipped(display, c, x, y, mode);
+        x += chronoGlyphWidth(c, mode);
+        inWord = true;
+    }
+}
+
+void Display::resetChronoScroll(const String& text, uint8_t mode, uint16_t stepMs, unsigned long previewStartMs) {
+    _chronoScrollText = text;
+    _chronoScrollMode = mode;
+    _chronoScrollStepMs = stepMs > 0 ? stepMs : CHRONOMSG_SCROLL_STEP_MS;
+    _chronoScrollPreviewStartMs = previewStartMs;
+    _chronoScrollLastAdvanceMs = 0;
+    _chronoScrollX = COLS_PER_ROW;
+    _chronoScrollTextWidth = chronoTextWidth(text, mode);
+    _chronoScrollState = _chronoScrollTextWidth > 0
+        ? ChronoScrollRenderState::Scrolling
+        : ChronoScrollRenderState::Finished;
+}
+
+bool Display::drawChronoScrollFrame(const String& text, int y, uint8_t mode, uint16_t stepMs, unsigned long nowMs, unsigned long previewStartMs) {
+    if (stepMs == 0) stepMs = CHRONOMSG_SCROLL_STEP_MS;
+    if (_chronoScrollState == ChronoScrollRenderState::Inactive ||
+        _chronoScrollPreviewStartMs != previewStartMs ||
+        _chronoScrollText != text ||
+        _chronoScrollMode != mode ||
+        _chronoScrollStepMs != stepMs) {
+        resetChronoScroll(text, mode, stepMs, previewStartMs);
+    }
+
+    if (_chronoScrollState == ChronoScrollRenderState::Scrolling) {
+        drawChronoTextClipped(*this, text, _chronoScrollX, y, mode);
+        if (_chronoScrollX <= -_chronoScrollTextWidth) {
+            _chronoScrollState = ChronoScrollRenderState::Finished;
+            return true;
+        }
+
+#if CHRONOMSG_SCROLL_DEBUG
+        Serial.printf("ChronoMsg scrollX=%d textWidth=%d visible=%d finished=%d\n",
+                      _chronoScrollX,
+                      _chronoScrollTextWidth,
+                      (_chronoScrollX < COLS_PER_ROW && _chronoScrollX + _chronoScrollTextWidth > 0),
+                      (_chronoScrollX <= -_chronoScrollTextWidth));
+#endif
+
+        bool advance = false;
+        if (_chronoScrollLastAdvanceMs == 0) {
+            advance = true;
+        } else if ((int32_t)(nowMs - _chronoScrollLastAdvanceMs) >= (int32_t)stepMs) {
+            advance = true;
+        }
+        if (advance) {
+            _chronoScrollLastAdvanceMs = nowMs;
+            _chronoScrollX--;
+        }
+    }
+
+    return _chronoScrollState == ChronoScrollRenderState::Finished;
+}
+
+bool Display::drawChronoMessage(const ChronoMessage& message, unsigned long nowMs, unsigned long previewStartMs) {
+    clearBuffer();
+
+    MessageLayout layout = layoutMessageText(message.renderText.length() > 0 ? message.renderText : message.title,
+                                             message.renderText.length() > 0 ? String() : message.body,
+                                             message.displayMode);
+    if (layout.kind == MessageLayoutKind::None) {
+        renderChronoMessageBuffer();
+        return true;
+    }
+
+    uint16_t stepMs = CHRONOMSG_SCROLL_STEP_MS;
     uint8_t mode = layout.displayMode;
+    bool finished = true;
 
     switch (layout.kind) {
-        case MessageLayoutKind::OneLine: {
-            int y = mode == 2 ? 0 : (mode == 1 ? 3 : 5);
-            if (mode == 0) drawCenteredSmallText(layout.line1.c_str(), y);
-            else if (mode == 1) drawCenteredMediumText(layout.line1.c_str(), y);
-            else drawCenteredBigText(layout.line1.c_str(), y);
-            break;
-        }
-        case MessageLayoutKind::TwoLine:
-            drawCenteredSmallText(layout.line1.c_str(), 1);
-            drawCenteredSmallText(layout.line2.c_str(), 10);
-            break;
         case MessageLayoutKind::Scroll:
-            if (layout.line2.length() > 0 && layout.line1.length() > 0) {
-                if (layout.scrollLine1) {
-                    if (mode == 0) drawSmallScrollLine(*this, layout.line1, 1, nowMs, previewStartMs, stepMs);
-                    else if (mode == 1) drawMediumScrollLine(*this, layout.line1, 1, nowMs, previewStartMs, stepMs);
-                    else drawBigScrollLine(*this, layout.line1, 0, nowMs, previewStartMs, stepMs);
-                } else {
-                    if (mode == 0) drawCenteredSmallText(layout.line1.c_str(), 1);
-                    else if (mode == 1) drawCenteredMediumText(layout.line1.c_str(), 1);
-                    else drawCenteredBigText(layout.line1.c_str(), 0);
-                }
-                if (layout.scrollLine2) {
-                    if (mode == 0) drawSmallScrollLine(*this, layout.line2, 10, nowMs, previewStartMs, stepMs);
-                    else if (mode == 1) drawMediumScrollLine(*this, layout.line2, 10, nowMs, previewStartMs, stepMs);
-                    else drawBigScrollLine(*this, layout.line2, 8, nowMs, previewStartMs, stepMs);
-                } else {
-                    if (mode == 0) drawCenteredSmallText(layout.line2.c_str(), 10);
-                    else if (mode == 1) drawCenteredMediumText(layout.line2.c_str(), 10);
-                    else drawCenteredBigText(layout.line2.c_str(), 8);
-                }
-            } else {
-                const String& line = layout.line2.length() > 0 ? layout.line2 : layout.line1;
-                int y = mode == 2 ? 0 : (mode == 1 ? 3 : 5);
-                if (mode == 0) drawSmallScrollLine(*this, line, y, nowMs, previewStartMs, stepMs);
-                else if (mode == 1) drawMediumScrollLine(*this, line, y, nowMs, previewStartMs, stepMs);
-                else drawBigScrollLine(*this, line, y, nowMs, previewStartMs, stepMs);
-            }
+            finished = drawChronoScrollFrame(layout.line1, mode == 2 ? 0 : (mode == 1 ? 3 : 5), mode, stepMs, nowMs, previewStartMs);
             break;
         case MessageLayoutKind::None:
         default:
             break;
     }
-    renderBuffer();
-}
-
-void Display::drawChronoMessageInfoLine(const ChronoMessage& message, unsigned long nowMs, unsigned long previewStartMs) {
-    String body = message.body.length() > 0 ? message.body : message.title;
-    if (body.length() == 0) return;
-    for (int y = 11; y < 11 + SEC_FONT_HEIGHT; y++) {
-        for (int x = 0; x < COLS_PER_ROW; x++) {
-            setPixel(x, y, false);
-        }
-    }
-    uint16_t stepMs = message.scrollStepMs > 0 ? message.scrollStepMs : CHRONOMSG_SCROLL_STEP_MS;
-    if (Display::textWidth(body.c_str(), true, 1, 2) <= COLS_PER_ROW) {
-        drawCenteredSmallText(body.c_str(), 11);
-    } else {
-        drawSmallScrollLine(*this, body, 11, nowMs, previewStartMs, stepMs);
-    }
-    renderBuffer();
+    renderChronoMessageBuffer();
+    return finished;
 }
 
 void Display::drawUnreadMessageIndicator(int count, int priority, unsigned long nowMs) {

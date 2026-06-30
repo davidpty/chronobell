@@ -13,6 +13,7 @@ class ScreenTransition {
 public:
     void start(const uint32_t oldFrame[TOTAL_ROWS], const uint32_t newFrame[TOTAL_ROWS], uint32_t nowMs);
     bool render(uint32_t nowMs, uint32_t outputFrame[TOTAL_ROWS]);
+    void cancel();
     bool active() const { return _active; }
 
     static void clearFrame(uint32_t frame[TOTAL_ROWS]);

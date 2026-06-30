@@ -41,6 +41,11 @@ bool ScreenTransition::render(uint32_t nowMs, uint32_t outputFrame[TOTAL_ROWS]) 
     return renderRetune(nowMs, outputFrame);
 }
 
+void ScreenTransition::cancel() {
+    _active = false;
+    _type = ScreenTransitionType::None;
+}
+
 bool ScreenTransition::renderRetune(uint32_t nowMs, uint32_t outputFrame[TOTAL_ROWS]) {
     uint32_t elapsed = nowMs - _startMs;
     if (elapsed >= _durationMs) {

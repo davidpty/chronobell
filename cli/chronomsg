@@ -477,7 +477,7 @@ serve_control() {
     case "$action" in
         add)
             set --
-            for name in id source type priority title body detail ttl repeat duration interval indicator dismissible auto-dismiss mode scroll-step force bell; do
+            for name in id source type priority title body detail ttl indicator dismissible auto-dismiss mode force bell; do
                 value="$(query_param_value "$name")"
                 if [ -n "$value" ]; then
                     set -- "$@" "--$name" "$value"
@@ -547,14 +547,10 @@ add_message() {
     body=""
     detail=""
     ttl=3600
-    repeat=false
-    duration=6
-    interval=""
     indicator=true
     dismissible=true
     autoDismiss=false
     mode=1
-    scrollStep=
     force=false
     bell=
 
@@ -568,14 +564,10 @@ add_message() {
             --body) body="${2:-}"; shift 2 ;;
             --detail) detail="${2:-}"; shift 2 ;;
             --ttl) ttl="${2:-}"; shift 2 ;;
-            --repeat) repeat="${2:-}"; shift 2 ;;
-            --duration) duration="${2:-}"; shift 2 ;;
-            --interval) interval="${2:-}"; shift 2 ;;
             --indicator) indicator="${2:-}"; shift 2 ;;
             --dismissible) dismissible="${2:-}"; shift 2 ;;
             --auto-dismiss) autoDismiss="${2:-}"; shift 2 ;;
             --mode) mode="${2:-}"; shift 2 ;;
-            --scroll-step) scrollStep="${2:-}"; shift 2 ;;
             --force) force="${2:-}"; shift 2 ;;
             --bell) bell="${2:-}"; shift 2 ;;
             --*) printf 'Unknown option: %s\n' "$1" >&2; return 2 ;;
@@ -602,11 +594,6 @@ add_message() {
         0|forever|FOREVER|never|NEVER) ttl=forever ;;
         *) ttl="$(num_value "$ttl" 3600)" ;;
     esac
-    duration="$(num_value "$duration" 6)"
-    if [ -n "$interval" ]; then
-        interval="$(num_value "$interval" 0)"
-    fi
-
     now="$(now_epoch)"
     if [ "$ttl" = forever ]; then
         expires=""
@@ -638,14 +625,10 @@ add_message() {
         printf '"created":%s,' "$now"
         [ -n "$expires" ] && printf '"expires":%s,' "$expires"
         printf '"display":{'
-        printf '"repeat":%s,' "$(bool_value "$repeat")"
-        printf '"duration":%s,' "$duration"
-        [ -n "$interval" ] && printf '"interval":%s,' "$interval"
         printf '"indicator":%s,' "$(bool_value "$indicator")"
         printf '"dismissible":%s,' "$(bool_value "$dismissible")"
         printf '"autoDismiss":%s,' "$(bool_value "$autoDismiss")"
         printf '"mode":%s,' "$mode"
-        [ -n "$scrollStep" ] && printf '"scrollStep":%s,' "$scrollStep"
         printf '"force":%s,' "$(bool_value "$force")"
         if [ -n "$bell" ]; then
             printf '"bell":[%s]' "$bell"
@@ -729,18 +712,26 @@ list_dismissed() {
 list_messages() {
     rebuild_payload >/dev/null 2>&1 || true
     ensure_base
+    show_all=false
+    [ "${1:-}" = "--all" ] && show_all=true
     found=0
     for f in "$MSG_DIR"/*.json; do
         [ -f "$f" ] || continue
-        found=1
         id="$(sed -n 's/.*"id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$f" | sed -n '1p')"
+        if [ -n "$id" ] && is_dismissed "$id"; then
+            [ "$show_all" = true ] || continue
+            marker="[x] "
+        else
+            marker=""
+        fi
+        found=1
         title="$(sed -n 's/.*"title"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$f" | sed -n '1p')"
         body="$(sed -n 's/.*"body"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$f" | sed -n '1p')"
         exp="$(extract_num_field "$f" expires)"
         name="${f##*/}"
         name="${name%.json}"
-        printf '%s priority=%s expires=%s title="%s" body="%s"\n' \
-            "${id:-$name}" \
+        printf '%s%s priority=%s expires=%s title="%s" body="%s"\n' \
+            "$marker" "${id:-$name}" \
             "$(extract_num_field "$f" priority)" \
             "${exp:-unknown}" "$title" "$body"
     done
@@ -835,9 +826,6 @@ publish_available() {
         --title AVAILABLE \
         --body "$suffix" \
         --ttl 86400 \
-        --repeat true \
-        --duration 8 \
-        --interval 60 \
         --detail "$domain may be available" >/dev/null
 }
 
@@ -851,9 +839,6 @@ publish_ambiguous() {
         --priority 7 \
         --title CHECK \
         --body "$suffix" \
-        --repeat true \
-        --duration 6 \
-        --interval 180 \
         --detail "Domain status changed: check manually" >/dev/null
 }
 
@@ -867,8 +852,6 @@ publish_pending() {
         --priority 5 \
         --title REGISTERED \
         --body "$suffix" \
-        --repeat false \
-        --duration 4 \
         --indicator false \
         --detail "$domain is registered" >/dev/null
 }
@@ -883,8 +866,6 @@ publish_error() {
         --priority 5 \
         --title "CHECK ERROR" \
         --body "$suffix" \
-        --repeat false \
-        --duration 4 \
         --detail "$domain check failed" >/dev/null
 }
 
@@ -899,9 +880,6 @@ publish_redemption() {
         --title REDEMPTION \
         --body "$suffix" \
         --ttl 86400 \
-        --repeat true \
-        --duration 8 \
-        --interval 180 \
         --detail "$domain may be expiring" >/dev/null
 }
 
@@ -1415,7 +1393,7 @@ Usage:
   chronomsg serve [--cgi]
   chronomsg add [options] TITLE BODY
   chronomsg clear ID
-  chronomsg list
+  chronomsg list [--all]
   chronomsg rebuild
   chronomsg dismiss ID
   chronomsg undismiss ID
@@ -1435,13 +1413,9 @@ Add options:
   --title TITLE        Override displayed title
   --body BODY          Override displayed body
   --detail TEXT        Internal detail (not shown on clock)
-  --repeat true|false  Auto-repeat notification (default: false)
-  --duration SEC       Preview duration 3-15s (default: 6)
-  --interval SEC       Repeat interval in seconds
   --indicator true|false  Show blinking indicator (default: true)
   --dismissible true|false  Allow dismiss via center tap (default: true)
   --mode 0|1|2         Font size: 0=small, 1=medium, 2=big (default: 1)
-  --scroll-step MS     Scroll speed in ms/pixel (default: firmware default)
   --force true|false   Force full-screen overlay (default: false)
   --bell COUNT|PATTERN  Bell strikes: 3 or "3,2,1" (default: no bell)
 
@@ -1489,7 +1463,7 @@ case "$cmd" in
         clear_message "$@"
         ;;
     list)
-        list_messages
+        list_messages "$@"
         ;;
     dismiss)
         dismiss_message "$@"

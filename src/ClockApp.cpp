@@ -386,12 +386,8 @@ void ClockApp::render() {
 #if CHRONOMSG_ENABLED
     ChronoMessage previewMessage;
     if (_messageClient.currentPreview(previewMessage)) {
-        if (_displayMode == DisplayMode::Info && !previewMessage.force && previewMessage.displayMode == 0) {
-            _display.showTime();
-            _display.drawChronoMessageInfoLine(previewMessage, millis(), _messageClient.previewStartMs());
-        } else {
-            _display.drawChronoMessage(previewMessage, millis(), _messageClient.previewStartMs());
-        }
+        bool finished = _display.drawChronoMessage(previewMessage, millis(), _messageClient.previewStartMs());
+        _messageClient.noteCurrentPreviewRendered(finished);
         return;
     }
 #endif
@@ -550,7 +546,7 @@ void ClockApp::tickMenu() {
 }
 
 void ClockApp::updateBellSchedule() {
-    ClockTime realTime = {0, 0, 0};
+    ClockTime realTime{};
     ClockDate realDate;
     bool timeValid = updateNewYearState(&realTime, &realDate);
     ClockTime time = realTime;

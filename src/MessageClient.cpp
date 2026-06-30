@@ -52,12 +52,6 @@ String limitString(const String& s, size_t maxLen) {
     return s.substring(0, maxLen);
 }
 
-uint16_t clampDuration(uint16_t seconds) {
-    if (seconds < CHRONOMSG_MIN_DURATION_SEC) return CHRONOMSG_MIN_DURATION_SEC;
-    if (seconds > CHRONOMSG_MAX_DURATION_SEC) return CHRONOMSG_MAX_DURATION_SEC;
-    return seconds;
-}
-
 bool lowerEquals(const String& a, const char* b) {
     if (!b || a.length() != strlen(b)) return false;
     for (size_t i = 0; i < a.length(); ++i) {
@@ -68,6 +62,36 @@ bool lowerEquals(const String& a, const char* b) {
 
 bool currentEpoch(TimeProvider* provider, time_t& epoch) {
     return provider && provider->currentEpoch(epoch);
+}
+
+uint32_t chronoScrollPassMsForWidth(int textWidthPx) {
+    if (textWidthPx <= 0) return 0;
+    uint32_t finalFrame = (uint32_t)COLS_PER_ROW + (uint32_t)textWidthPx;
+    return (finalFrame + 1UL) * (uint32_t)CHRONOMSG_SCROLL_STEP_MS;
+}
+
+int chronoScrollTextWidth(const String& text, uint8_t mode) {
+    int width = 0;
+    bool inWord = false;
+    for (size_t i = 0; i < text.length(); ++i) {
+        char c = text[i];
+        if (c == ' ') {
+            if (inWord) {
+                width += CHRONOMSG_SCROLL_WORD_GAP_PX;
+                inWord = false;
+            }
+            continue;
+        }
+        if (inWord) {
+            width += 1;
+        }
+        width += (mode == 2) ? Display::charWidthBig(c) : Display::charWidth(c, mode == 0);
+        inWord = true;
+    }
+    if (width > 0) {
+        width += CHRONOMSG_SCROLL_EXIT_PAD_PX;
+    }
+    return width;
 }
 
 int skipJsonWhitespace(const String& json, int pos) {
@@ -208,10 +232,9 @@ bool parseChronoMessageObject(const String& obj, ChronoMessage& msg, TimeProvide
     msg.source = jsonStringField(obj, "source", "", LOCAL_DISPLAY_TEXT_MAX_LEN);
     msg.type = jsonStringField(obj, "type", "", LOCAL_DISPLAY_TEXT_MAX_LEN);
     msg.priority = constrain(jsonIntField(obj, "priority", 5), 0, 9);
-    msg.title = normalizeMessageText(jsonStringField(obj, "title", "", LOCAL_DISPLAY_TEXT_MAX_LEN));
-    msg.body = normalizeMessageText(jsonStringField(obj, "body", "", LOCAL_DISPLAY_TEXT_MAX_LEN));
+    msg.title = normalizeMessageText(jsonStringField(obj, "title", "", CHRONOMSG_MAX_TEXT_LEN));
+    msg.body = normalizeMessageText(jsonStringField(obj, "body", "", CHRONOMSG_MAX_TEXT_LEN));
     if (msg.title.length() == 0 && msg.body.length() == 0) return false;
-
     msg.created = jsonUIntField(obj, "created", 0);
     msg.expires = jsonUIntField(obj, "expires", 0);
     time_t nowEpoch = 0;
@@ -220,15 +243,12 @@ bool parseChronoMessageObject(const String& obj, ChronoMessage& msg, TimeProvide
     }
 
     String display = jsonObjectField(obj, "display");
-    msg.repeat = jsonBoolField(display, "repeat", false);
-    msg.durationSec = clampDuration((uint16_t)jsonUIntField(display, "duration", CHRONOMSG_DEFAULT_DURATION_SEC));
-    msg.intervalSec = (uint16_t)jsonUIntField(display, "interval", chronoMessageDefaultIntervalSec(msg.priority));
     msg.indicator = jsonBoolField(display, "indicator", true);
     msg.dismissible = jsonBoolField(display, "dismissible", true);
     msg.autoDismiss = jsonBoolField(display, "autoDismiss", false);
     msg.displayMode = (uint8_t)constrain(jsonIntField(display, "mode", 1), 0, 2);
-    msg.scrollStepMs = (uint16_t)jsonUIntField(display, "scrollStep", 0);
     msg.force = jsonBoolField(display, "force", false);
+    msg.renderText = layoutMessageText(msg.title, msg.body, msg.displayMode).line1;
 
     int bellPos = findJsonKeyValueStart(display, "bell");
     if (bellPos >= 0 && bellPos < (int)display.length()) {
@@ -288,19 +308,12 @@ bool parseChronoMessagesBody(const String& body, ChronoMessage* out, uint8_t& co
 }
 }
 
-uint16_t chronoMessageDefaultIntervalSec(int priority) {
-    if (priority >= 9) return 60;
-    if (priority >= 7) return 180;
-    if (priority >= 5) return 600;
-    return 0;
-}
-
 String normalizeMessageText(const String& text) {
     String out;
-    out.reserve(LOCAL_DISPLAY_TEXT_MAX_LEN);
+    out.reserve(CHRONOMSG_MAX_TEXT_LEN);
     bool pendingSpace = false;
 
-    for (size_t i = 0; i < text.length() && out.length() < LOCAL_DISPLAY_TEXT_MAX_LEN; ++i) {
+    for (size_t i = 0; i < text.length() && out.length() < CHRONOMSG_MAX_TEXT_LEN; ++i) {
         unsigned char c = (unsigned char)text[i];
         char mapped = 0;
 
@@ -334,7 +347,7 @@ String normalizeMessageText(const String& text) {
             pendingSpace = out.length() > 0;
             continue;
         }
-        if (pendingSpace && out.length() < LOCAL_DISPLAY_TEXT_MAX_LEN) {
+        if (pendingSpace && out.length() < CHRONOMSG_MAX_TEXT_LEN) {
             out += ' ';
         }
         pendingSpace = false;
@@ -345,56 +358,24 @@ String normalizeMessageText(const String& text) {
     return out;
 }
 
-MessageLayout layoutMessageText(const String& title, const String& body, uint8_t displayMode, uint16_t scrollStepMs) {
+static String combineMessageText(const String& title, const String& body) {
+    if (title.length() == 0) return body;
+    if (body.length() == 0) return title;
+    String combined = title;
+    combined += ' ';
+    combined += body;
+    return combined;
+}
+
+MessageLayout layoutMessageText(const String& title, const String& body, uint8_t displayMode) {
     MessageLayout layout;
     layout.displayMode = displayMode;
-    layout.scrollStepMs = scrollStepMs;
-    String t = normalizeMessageText(title);
-    String b = normalizeMessageText(body);
-    const int maxW = COLS_PER_ROW;
-
-    auto textW = [&](const String& s) -> int {
-        if (displayMode == 2) return Display::textWidthBig(s.c_str(), 1, 2);
-        return Display::textWidth(s.c_str(), displayMode == 0, 1, 2);
-    };
-
-    if (t.length() == 0 && b.length() > 0 && textW(b) <= maxW) {
-        layout.kind = MessageLayoutKind::OneLine;
-        layout.line1 = b;
+    String combined = combineMessageText(title, body);
+    if (combined.length() == 0) {
         return layout;
     }
-
-    String combined;
-    if (t.length() > 0 && b.length() > 0) combined = t + " " + b;
-    else combined = t.length() > 0 ? t : b;
-    if (combined.length() > 0 && textW(combined) <= maxW) {
-        layout.kind = MessageLayoutKind::OneLine;
-        layout.line1 = combined;
-        return layout;
-    }
-
-    if (displayMode == 0 && t.length() > 0 && b.length() > 0 &&
-        textW(t) <= maxW && textW(b) <= maxW) {
-        layout.kind = MessageLayoutKind::TwoLine;
-        layout.line1 = t;
-        layout.line2 = b;
-        return layout;
-    }
-
-    if (b.length() > 0) {
-        layout.kind = MessageLayoutKind::Scroll;
-        layout.line1 = t;
-        layout.line2 = b;
-        layout.scrollLine1 = t.length() > 0 && textW(t) > maxW;
-        layout.scrollLine2 = b.length() > 0 && textW(b) > maxW;
-        return layout;
-    }
-
-    if (t.length() > 0) {
-        layout.kind = MessageLayoutKind::Scroll;
-        layout.line1 = t;
-        layout.scrollLine1 = true;
-    }
+    layout.kind = MessageLayoutKind::Scroll;
+    layout.line1 = combined;
     return layout;
 }
 
@@ -428,34 +409,54 @@ void MessageClient::update() {
     uint32_t nowMs = millis();
     if (xSemaphoreTake(_mutex, 0) != pdTRUE) return;
     pruneExpiredLocked(nowEpoch, validTime, nowMs);
-    if (_previewVisible && (int32_t)(nowMs - _previewEndMs) >= 0) {
+    if (_previewVisible &&
+        ((_previewWaitForRenderFinish && _previewRenderFinished) ||
+         (int32_t)(nowMs - _previewSafetyEndMs) >= 0 ||
+         ((int32_t)(nowMs - _previewEndMs) >= 0 && !_previewWaitForRenderFinish))) {
+        int previewSlot = _previewSlot;
+        bool currentNeedsRemoval = _previewPendingRemoval;
         if (_previewSlot >= 0 && _slots[_previewSlot].msg.autoDismiss) {
             String dismissedId = _slots[_previewSlot].msg.id;
             rememberDismissedLocked(dismissedId);
             queueDismissalLocked(dismissedId);
             _slots[_previewSlot] = MessageSlot();
+            currentNeedsRemoval = false;
         }
         hidePreviewLocked();
+        if (currentNeedsRemoval && previewSlot >= 0 && previewSlot < CHRONOMSG_MAX_MESSAGES) {
+            _slots[previewSlot] = MessageSlot();
+        }
+        _previewPendingRemoval = false;
     }
     if (!_previewVisible) {
-        int idx = selectedSlotLocked();
-        if (idx >= 0) {
-            MessageSlot& slot = _slots[idx];
+        int bestIdx = -1;
+        for (uint8_t i = 0; i < CHRONOMSG_MAX_MESSAGES; ++i) {
+            const MessageSlot& s = _slots[i];
+            if (!s.msg.valid || !s.unread) continue;
             bool due = false;
-            if (!slot.firstPreviewShown) {
-                due = slot.firstPreviewDueMs > 0 && (int32_t)(nowMs - slot.firstPreviewDueMs) >= 0;
-            } else if (slot.msg.repeat && slot.msg.intervalSec > 0) {
-                due = (nowMs - slot.lastPreviewMs) >= (uint32_t)slot.msg.intervalSec * 1000UL;
+            if (!s.firstPreviewShown) {
+                due = s.firstPreviewDueMs > 0 && (int32_t)(nowMs - s.firstPreviewDueMs) >= 0;
             }
-            if (due) startPreviewLocked(idx, nowMs);
+            if (!due) continue;
+            if (bestIdx < 0 ||
+                s.msg.priority > _slots[bestIdx].msg.priority ||
+                (s.msg.priority == _slots[bestIdx].msg.priority && s.msg.created > _slots[bestIdx].msg.created) ||
+                (s.msg.priority == _slots[bestIdx].msg.priority && s.msg.created == _slots[bestIdx].msg.created && s.order < _slots[bestIdx].order)) {
+                bestIdx = i;
+            }
         }
+        if (bestIdx >= 0) startPreviewLocked(bestIdx, nowMs);
     }
     xSemaphoreGive(_mutex);
 }
 
 bool MessageClient::hasUnread() const {
     if (!_mutex || xSemaphoreTake(_mutex, 0) != pdTRUE) return false;
-    bool found = selectedSlotLocked() >= 0;
+    bool found = false;
+    for (uint8_t i = 0; i < CHRONOMSG_MAX_MESSAGES; ++i) {
+        const MessageSlot& s = _slots[i];
+        if (s.msg.valid && s.unread && s.msg.indicator) { found = true; break; }
+    }
     xSemaphoreGive(_mutex);
     return found;
 }
@@ -464,7 +465,7 @@ int MessageClient::unreadCount() const {
     if (!_mutex || xSemaphoreTake(_mutex, 0) != pdTRUE) return 0;
     int count = 0;
     for (int i = 0; i < CHRONOMSG_MAX_MESSAGES; i++) {
-        if (_slots[i].known && _slots[i].unread) count++;
+        if (_slots[i].known && _slots[i].unread && _slots[i].msg.indicator) count++;
     }
     xSemaphoreGive(_mutex);
     return count;
@@ -474,7 +475,7 @@ int MessageClient::highestPriority() const {
     if (!_mutex || xSemaphoreTake(_mutex, 0) != pdTRUE) return -1;
     int hp = -1;
     for (int i = 0; i < CHRONOMSG_MAX_MESSAGES; i++) {
-        if (_slots[i].known && _slots[i].unread) {
+        if (_slots[i].known && _slots[i].unread && _slots[i].msg.indicator) {
             if (_slots[i].msg.priority > hp) hp = _slots[i].msg.priority;
         }
     }
@@ -484,10 +485,15 @@ int MessageClient::highestPriority() const {
 
 int MessageClient::indicatorPriority() const {
     if (!_mutex || xSemaphoreTake(_mutex, 0) != pdTRUE) return -1;
-    int idx = selectedSlotLocked();
-    int priority = idx >= 0 ? _slots[idx].msg.priority : -1;
+    int hp = -1;
+    for (uint8_t i = 0; i < CHRONOMSG_MAX_MESSAGES; ++i) {
+        const MessageSlot& s = _slots[i];
+        if (s.msg.valid && s.unread && s.msg.indicator) {
+            if (s.msg.priority > hp) hp = s.msg.priority;
+        }
+    }
     xSemaphoreGive(_mutex);
-    return priority;
+    return hp;
 }
 
 bool MessageClient::currentPreview(ChronoMessage& message) const {
@@ -552,6 +558,14 @@ bool MessageClient::hidePreview() {
     hidePreviewLocked();
     xSemaphoreGive(_mutex);
     return true;
+}
+
+void MessageClient::noteCurrentPreviewRendered(bool finished) {
+    if (!_mutex || xSemaphoreTake(_mutex, 0) != pdTRUE) return;
+    if (_previewVisible) {
+        _previewRenderFinished = finished;
+    }
+    xSemaphoreGive(_mutex);
 }
 
 bool MessageClient::dismissCurrentOrHide() {
@@ -670,7 +684,7 @@ void MessageClient::mergeMessages(const ChronoMessage* incoming, uint8_t count) 
         slot.order = i;
         seen[idx] = true;
 
-        if (isNew) {
+    if (isNew) {
             slot.firstPreviewShown = false;
             slot.lastPreviewMs = 0;
             if (msg.priority >= 9) slot.firstPreviewDueMs = nowMs;
@@ -688,6 +702,11 @@ void MessageClient::mergeMessages(const ChronoMessage* incoming, uint8_t count) 
 
     for (uint8_t i = 0; i < CHRONOMSG_MAX_MESSAGES; ++i) {
         if (_slots[i].msg.valid && !seen[i]) {
+            if (_previewSlot == (int)i && _previewVisible &&
+                _previewWaitForRenderFinish && !_previewRenderFinished) {
+                _previewPendingRemoval = true;
+                continue;
+            }
             if (_previewSlot == (int)i) hidePreviewLocked();
             _slots[i] = MessageSlot();
         }
@@ -701,6 +720,11 @@ void MessageClient::pruneExpiredLocked(time_t nowEpoch, bool timeValid, uint32_t
     for (uint8_t i = 0; i < CHRONOMSG_MAX_MESSAGES; ++i) {
         if (_slots[i].msg.valid && _slots[i].msg.expires > 0 &&
             _slots[i].msg.expires <= (uint32_t)nowEpoch) {
+            if (_previewSlot == (int)i && _previewVisible &&
+                _previewWaitForRenderFinish && !_previewRenderFinished) {
+                _previewPendingRemoval = true;
+                continue;
+            }
             if (_previewSlot == (int)i) hidePreviewLocked();
             _slots[i] = MessageSlot();
         }
@@ -756,6 +780,9 @@ bool MessageClient::copySelectedLocked(ChronoMessage& message) const {
     int idx = _previewVisible ? _previewSlot : selectedSlotLocked();
     if (idx < 0 || idx >= CHRONOMSG_MAX_MESSAGES || !_slots[idx].msg.valid) return false;
     message = _slots[idx].msg;
+    if (message.renderText.length() == 0) {
+        message.renderText = layoutMessageText(message.title, message.body, message.displayMode).line1;
+    }
     return true;
 }
 
@@ -765,45 +792,44 @@ void MessageClient::startPreviewLocked(int idx, uint32_t nowMs) {
     _previewVisible = true;
 
     const ChronoMessage& msg = _slots[idx].msg;
-    uint32_t previewMs;
-    if (_manualPreview) {
-        previewMs = MENU_TIMEOUT_SHORT_SECONDS * 1000UL;
-    } else {
-        previewMs = (uint32_t)clampDuration(msg.durationSec) * 1000UL;
-        MessageLayout layout = layoutMessageText(msg.title, msg.body, msg.displayMode, msg.scrollStepMs);
-        if (layout.kind == MessageLayoutKind::Scroll) {
-            int scrollW = 0;
-            auto textW = [&](const String& s) -> int {
-                if (layout.displayMode == 2) return Display::textWidthBig(s.c_str(), 1, 2);
-                return Display::textWidth(s.c_str(), layout.displayMode == 0, 1, 2);
-            };
-            if (layout.line1.length() > 0) {
-                int w = textW(layout.line1);
-                if (w > COLS_PER_ROW) scrollW = max(scrollW, w);
-            }
-            if (layout.line2.length() > 0) {
-                int w = textW(layout.line2);
-                if (w > COLS_PER_ROW) scrollW = max(scrollW, w);
-            }
-            if (scrollW > 0) {
-                uint16_t stepMs = layout.scrollStepMs > 0 ? layout.scrollStepMs : CHRONOMSG_SCROLL_STEP_MS;
-                uint32_t cycleMs = (uint32_t)(scrollW + COLS_PER_ROW + CHRONOMSG_SCROLL_REPEAT_GAP_PX) * stepMs;
-                previewMs = cycleMs * CHRONOMSG_MIN_SCROLL_CYCLES;
-            }
+    uint32_t previewMs = _manualPreview ? MENU_TIMEOUT_SHORT_SECONDS * 1000UL
+                                        : (uint32_t)CHRONOMSG_DEFAULT_DURATION_SEC * 1000UL;
+
+    MessageLayout layout = layoutMessageText(msg.renderText.length() > 0 ? msg.renderText : msg.title,
+                                             msg.renderText.length() > 0 ? String() : msg.body,
+                                             msg.displayMode);
+    _previewWaitForRenderFinish = layout.kind == MessageLayoutKind::Scroll && layout.line1.length() > 0;
+    _previewRenderFinished = !_previewWaitForRenderFinish;
+    if (layout.kind == MessageLayoutKind::Scroll && layout.line1.length() > 0) {
+        int scrollW = chronoScrollTextWidth(layout.line1, layout.displayMode);
+        if (scrollW > 0) {
+            uint32_t passMs = chronoScrollPassMsForWidth(scrollW);
+            uint32_t minScrollMs = passMs * (uint32_t)CHRONOMSG_MIN_SCROLL_CYCLES;
+            previewMs = max(previewMs, minScrollMs);
         }
     }
+
     _previewStartMs = nowMs;
     _previewEndMs = nowMs + previewMs;
+    _previewSafetyEndMs = nowMs + previewMs + 5000UL;
 
     _slots[idx].firstPreviewShown = true;
     _slots[idx].lastPreviewMs = nowMs;
+    _slots[idx].lastPreviewEndMs = _previewEndMs;
 }
 
 void MessageClient::hidePreviewLocked() {
+    if (_previewSlot >= 0 && _previewSlot < CHRONOMSG_MAX_MESSAGES && _slots[_previewSlot].msg.valid) {
+        _slots[_previewSlot].lastPreviewEndMs = millis();
+    }
     _manualPreview = false;
+    _previewWaitForRenderFinish = false;
+    _previewRenderFinished = true;
+    _previewPendingRemoval = false;
     _previewVisible = false;
     _previewSlot = -1;
     _previewEndMs = 0;
+    _previewSafetyEndMs = 0;
 }
 
 void MessageClient::taskEntry(void* arg) {

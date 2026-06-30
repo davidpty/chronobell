@@ -73,6 +73,7 @@ public:
 
     // Top-level render dispatcher used by ClockApp::render().
     void showTime();
+    void drawClockContent();
     // OTA update status display (called from ArduinoOTA callbacks, which fire
     // inside the blocking handle() loop, so we must render here directly).
     void showOtaUpdate(bool active, unsigned int progress, unsigned int total);
@@ -87,11 +88,11 @@ public:
     void runTest(uint8_t seconds);
 
     // --- Pixel buffer / font helpers exposed to the renderer classes ---
-    void setPixel(uint8_t x, uint8_t y, bool value);
-    bool getPixel(uint8_t x, uint8_t y) const;
-    void togglePixel(uint8_t x, uint8_t y);
-    void setAnimationPixel(uint8_t x, uint8_t y, bool value);
-    void setSnapshotPixel(uint8_t x, uint8_t y, bool value);
+    void setPixel(int x, int y, bool value);
+    bool getPixel(int x, int y) const;
+    void togglePixel(int x, int y);
+    void setAnimationPixel(int x, int y, bool value);
+    void setSnapshotPixel(int x, int y, bool value);
     void clearBuffer();
     void renderBuffer();
     void applyBurstBoost(int8_t boost);
@@ -126,8 +127,7 @@ public:
     void drawGuestWifiText(bool showSsid);
 #endif
 #if CHRONOMSG_ENABLED
-    void drawChronoMessage(const ChronoMessage& message, unsigned long nowMs, unsigned long previewStartMs);
-    void drawChronoMessageInfoLine(const ChronoMessage& message, unsigned long nowMs, unsigned long previewStartMs);
+    bool drawChronoMessage(const ChronoMessage& message, unsigned long nowMs, unsigned long previewStartMs);
     void drawUnreadMessageIndicator(int count, int priority, unsigned long nowMs);
 #endif
 
@@ -140,13 +140,28 @@ public:
     void drawBigChar(char c, int x, int y);
 
 private:
+#if CHRONOMSG_ENABLED
+    enum class ChronoScrollRenderState : uint8_t {
+        Inactive,
+        Scrolling,
+        Finished
+    };
+#endif
+
     void noteScreenIdentity();
     void bufferToFrame(uint32_t frame[TOTAL_ROWS]) const;
     void frameToBuffer(const uint32_t frame[TOTAL_ROWS]);
     void flushBufferToLeds();
+#if CHRONOMSG_ENABLED
+    void renderChronoMessageBuffer();
+#endif
     void flushBar(int bufferRow, bool flipX, bool flipY, int colOffset);
     void drawMediumChar(char c, int x, int y);
     void drawInvertedSmallText(const char* s, int x, int y);
+#if CHRONOMSG_ENABLED
+    void resetChronoScroll(const String& text, uint8_t mode, uint16_t stepMs, unsigned long previewStartMs);
+    bool drawChronoScrollFrame(const String& text, int y, uint8_t mode, uint16_t stepMs, unsigned long nowMs, unsigned long previewStartMs);
+#endif
 
 
     // --- Owned child renderers (constructed in ctor) ---
@@ -188,6 +203,16 @@ private:
     int8_t _userBrightness = 4;
     int8_t _brightness     = 4;
     bool   _enabled = true;
+#if CHRONOMSG_ENABLED
+    ChronoScrollRenderState _chronoScrollState = ChronoScrollRenderState::Inactive;
+    String _chronoScrollText;
+    uint8_t _chronoScrollMode = 255;
+    uint16_t _chronoScrollStepMs = 0;
+    unsigned long _chronoScrollPreviewStartMs = 0;
+    unsigned long _chronoScrollLastAdvanceMs = 0;
+    int _chronoScrollX = COLS_PER_ROW;
+    int _chronoScrollTextWidth = 0;
+#endif
 
     PongClockEngine _pong;
 

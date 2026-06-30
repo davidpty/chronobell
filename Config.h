@@ -122,8 +122,8 @@
 // WiFi reconnection backoff (used by WiFiManagerLite)
 // ---------------------------------------------------------------------------
 
-#define CONNECTION_SLOW_RETRY_LIMIT                 12                                         // Max slow-phase retries before deep backoff
-#define CONNECTION_DEEP_BACKOFF_INTERVAL_MINUTES    60                                         // 1 hour deep backoff
+#define CONNECTION_SLOW_RETRY_LIMIT                 12                                         // Internal backoff threshold before deep retry spacing
+#define CONNECTION_DEEP_BACKOFF_INTERVAL_MINUTES    60                                         // Internal deep retry spacing, in minutes
 
 // ═════════════════════════════════════════════════════════════════════════════
 // SECTION 2 — NETWORK & ENVIRONMENT
@@ -134,11 +134,11 @@
 #define ENABLE_WIFI_SYNC                            1                                          // 1 = try WiFi+NTP, 0 = run fully offline
 #define TIME_SYNC_INTERVAL_MINUTES                  60                                         // Minutes between periodic NTP re-syncs (0 = disable)
 
-#define WIFI_CONNECT_ATTEMPTS                       10                                         // Inner-loop connect attempts per sync cycle
+#define WIFI_CONNECT_ATTEMPTS                       10                                         // Internal connect attempts per sync cycle
 
-#define NTP_SYNC_ATTEMPTS                           5                                          // Inner-loop NTP update attempts per cycle
-#define NTP_RETRY_SUCCESS_MINUTES                   60                                         // Sync interval after a successful NTP sync
-#define NTP_RETRY_FAILED_MINUTES                    5                                          // Sync interval after a failed NTP sync
+#define NTP_SYNC_ATTEMPTS                           5                                          // Internal NTP update attempts per cycle
+#define NTP_RETRY_SUCCESS_MINUTES                   60                                         // Internal sync interval after a successful NTP sync
+#define NTP_RETRY_FAILED_MINUTES                    5                                          // Internal sync interval after a failed NTP sync
 
 #define NTP_SERVER                                  "pool.ntp.org"
 
@@ -158,7 +158,9 @@
 #define LOCAL_HTTP_CONNECT_TIMEOUT_MS               500                                        // TCP connect timeout for router-local HTTP fetches
 #define LOCAL_HTTP_TOTAL_TIMEOUT_MS                 3000                                       // Total HTTP fetch budget for router-local background tasks
 #define LOCAL_NETWORK_TASK_PRIORITY                 1                                          // Lower than display/input timing work
-#define LOCAL_DISPLAY_TEXT_MAX_LEN                  64                                         // Max short text displayed from local services
+
+// Internal text limit for short non-ChronoMsg local text.
+#define LOCAL_DISPLAY_TEXT_MAX_LEN                  64                                         // Max short text displayed from guest WiFi and other local services
 
 // ---------------------------------------------------------------------------
 // Guest WiFi password display
@@ -171,6 +173,8 @@
 
 #define GUEST_WIFI_FETCH_HOUR                       0                                          // Hour of day to fetch guest Wi-Fi (0-23)
 #define GUEST_WIFI_FETCH_MINUTE                     1                                          // Minute of hour to fetch guest Wi-Fi (0-59)
+
+// Guest WiFi fetch implementation limits. Usually left alone.
 #define GUEST_WIFI_FETCH_TIMEOUT_SECONDS            60                                         // HTTP timeout and retry cadence for guest Wi-Fi fetch attempts
 #define GUEST_WIFI_FETCH_MAX_FAILURES               10                                         // Stop retrying after this many failed fetches
 #define GUEST_WIFI_TASK_STACK_WORDS                 4096                                       // FreeRTOS stack for background guest Wi-Fi fetch
@@ -185,21 +189,28 @@
 // Generic LAN message endpoint. ChronoBell polls this in a low-priority task,
 // caches active messages, and overlays previews/indicators without blocking
 // the clock renderer.
+//
+// Firmware owns the visible behavior here: scroll timing, scroll-out
+// completion, and how message text is measured/drawn.
 
 #define CHRONOMSG_ENABLED                           1                                          // 1 = compile ChronoMsg in, 0 = remove it at build time
 
 #define CHRONOMSG_URL                               "http://192.168.8.1/cgi-bin/chronomsg"     // Router-side CGI endpoint for ChronoMsg
-#define CHRONOMSG_POLL_INTERVAL_SEC                 60                                         // Background poll interval in seconds
+#define CHRONOMSG_POLL_INTERVAL_SEC                 10                                         // Background poll interval in seconds
+#define CHRONOMSG_DEFAULT_DURATION_SEC              10                                         // Default message lifetime fallback used by firmware
+#define CHRONOMSG_SCROLL_STEP_MS                    140                                        // Firmware scroll animation step in milliseconds
+#define CHRONOMSG_MIN_SCROLL_CYCLES                 1                                          // Minimum complete scroll passes before firmware may time out
+#define CHRONOMSG_SCROLL_DEBUG                      0                                          // 1 = log ChronoMsg scroll position each rendered frame
+#define CHRONOMSG_SCROLL_WORD_GAP_PX                4                                          // Gap between words in ChronoMsg scroll text
+#define CHRONOMSG_SCROLL_EXIT_PAD_PX                0                                          // Extra blank pixels after the last glyph before finish
+
+// Internal ChronoMsg engine limits. These rarely need tuning.
 #define CHRONOMSG_MAX_MESSAGES                      5                                          // Max cached messages kept in memory
 #define CHRONOMSG_MAX_RESPONSE_BYTES                2048                                       // Max HTTP response body size to read
 #define CHRONOMSG_MAX_ID_LEN                        64                                         // Max message id length
+#define CHRONOMSG_MAX_TEXT_LEN                      160                                        // Max rendered title/body text length
 #define CHRONOMSG_TASK_STACK_WORDS                  8192                                       // FreeRTOS stack for ChronoMsg task
-#define CHRONOMSG_DEFAULT_DURATION_SEC              10                                         // Default message preview duration
-#define CHRONOMSG_MIN_DURATION_SEC                  5                                          // Minimum preview duration
-#define CHRONOMSG_MAX_DURATION_SEC                  60                                         // Maximum preview duration
-#define CHRONOMSG_SCROLL_STEP_MS                    140                                        // Scroll animation step in milliseconds
-#define CHRONOMSG_SCROLL_REPEAT_GAP_PX              4                                          // Gap between repeated scroll cycles in pixels
-#define CHRONOMSG_MIN_SCROLL_CYCLES                 2                                          // Minimum scroll cycles before timing out
+
 
 // ═════════════════════════════════════════════════════════════════════════════
 // SECTION 3 — PER-BOARD CALIBRATION

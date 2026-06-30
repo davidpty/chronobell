@@ -10,7 +10,7 @@ ChronoBell is a compact LED clock with a bright, easy-to-read display, simple to
 
 **9 display styles + 5 date views** - Big digits, a configurable INFO overlay, word clock, roman numerals, binary, bar graphs, drift, pong, or a configurable random view. INFO can show seconds, deciseconds, date, WDAY, or alternate between date and WDAY every N seconds after entering ALT. Drift uses the big digital layout, but lets displayed time slowly move away from real time and return. BAR turns hours, minutes, and optional seconds into stacked progress bars. Pong plays a live rally that scores the current time. Date views include day and month, year, moon phase, Western zodiac, and Chinese zodiac. Tap to peek at any view.
 
-**Local messages** - Pulls short notices from any LAN device and shows them as brief previews. Choose font size, auto-dismiss timing, even bell strikes — all from the sender. Integrated with the INFO style: small messages show in the bottom info line instead of taking over the screen.
+**Local messages** - Pulls short notices from any LAN device and shows them as brief previews. Choose font size, auto-dismiss timing, even bell strikes - all from the sender. Rendered by one general ChronoMsg preview path.
 
 **Guest WiFi on screen** - Shows the guest network name and password right on the clock. No phone needed. Good for lobbies, cafes, offices.
 
@@ -82,7 +82,9 @@ When a countdown finishes, ChronoBell shows a blinking `00:00`, plays a short al
 
 ## Local JSON Messages
 
-ChronoBell polls a LAN HTTP endpoint for active messages. Any script or tool on your network can send them. Messages can be fire-and-forget (auto-dismiss, no lingering indicator), appear in a chosen font size, trigger bell strikes, and integrate with the INFO clock style.
+ChronoBell polls a LAN HTTP endpoint for active messages. Any script or tool on your network can send them. Messages can be fire-and-forget (auto-dismiss, no lingering indicator), appear in a chosen font size, trigger bell strikes, and use one general preview renderer regardless of clock style.
+
+Display timing is firmware-owned. The sender only supplies the message text and a small set of presentation flags; the firmware owns scroll completion and how long a preview stays on screen.
 
 Default firmware config in `Config.h`:
 
@@ -95,22 +97,19 @@ Default firmware config in `Config.h`:
 
 ### Display behavior
 
-When a message preview is active, the clock decides where to show it:
+When a message preview is active, the firmware uses one general ChronoMsg renderer for every source. Clock style does not change the routing.
 
-- **Info style + small font + no `force`** — message text replaces the bottom info line (rows 11-15). Clock time digits stay on screen. Text scrolls in-place if it doesn't fit.
-- **All other cases** — full-screen overlay with the requested font size.
-
-Touch interaction per-message: a short press on center shows the next unread message; a long-press on center dismisses it. `force` and `autoDismiss` messages skip the unread queue entirely.
+Touch interaction per-message: a short press on center shows the next unread message; a long-press on center dismisses it. `autoDismiss` messages skip the unread queue entirely.
 
 Message text is normalized: whitespace is collapsed, letters uppercased, accents folded to ASCII, unsupported characters replaced with spaces.
 
 ### Font sizes
 
-| Mode | Value | Font | Height | Info line? | Use case |
-|------|-------|------|--------|------------|----------|
-| small | 0 | small | 5px | yes | Notifications in INFO style |
-| medium | 1 (default) | medium | 10px | no | General messages |
-| big | 2 | big | 16px | no | Full-screen alerts |
+| Mode | Value | Font | Height | Use case |
+|------|-------|------|--------|----------|
+| small | 0 | small | 5px | Compact notifications |
+| medium | 1 (default) | medium | 10px | General messages |
+| big | 2 | big | 16px | Alerts and titles |
 
 ### Expected `?msg` response
 
@@ -129,13 +128,10 @@ Message text is normalized: whitespace is collapsed, letters uppercased, accents
       "created": 1782580000,
       "expires": 0,
       "display": {
-        "repeat": false,
-        "duration": 6,
         "indicator": false,
         "dismissible": false,
         "autoDismiss": true,
         "mode": 1,
-        "scrollStep": 0,
         "force": false,
         "bell": [3]
       }
@@ -148,14 +144,10 @@ Message text is normalized: whitespace is collapsed, letters uppercased, accents
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `repeat` | bool | `false` | Re-display at `interval` after first preview |
-| `duration` | int | `6` | Preview seconds (clamped 5-60) |
-| `interval` | int | priority-based | Repeat interval in seconds |
 | `indicator` | bool | `true` | Show blinking unread dot |
 | `dismissible` | bool | `true` | Allow user to dismiss via center long-press |
 | `autoDismiss` | bool | `false` | Remove from queue after preview (no blinking dot) |
 | `mode` | int | `1` | Font size: 0=small, 1=medium, 2=big |
-| `scrollStep` | int | `0` | Scroll ms/pixel (0 = firmware default 140) |
 | `force` | bool | `false` | Always full-screen, even in INFO style |
 | `bell` | array | `[]` | Bell strike pattern, e.g. `[3]` or `[3,2,1]` |
 
@@ -177,18 +169,18 @@ Priority behavior:
 | Priority | Indicator burst speed | Automatic preview |
 |----------|-----------------------|-------------------|
 | 0-4 | 2400ms period, count × blink, 1500ms pause | None unless center is tapped |
-| 5-6 | 2400ms period, count × blink, 1500ms pause | First calm preview, repeat every 10 minutes if `repeat` |
-| 7-8 | 1200ms period, count × blink, 1500ms pause | Preview soon, repeat every 3 minutes if `repeat` |
-| 9 | 200ms period, count × blink, 1500ms pause | Preview as soon as practical, repeat every 60 seconds if `repeat` |
+| 5-6 | 2400ms period, count × blink, 1500ms pause | First calm preview |
+| 7-8 | 1200ms period, count × blink, 1500ms pause | Preview soon |
+| 9 | 200ms period, count × blink, 1500ms pause | Preview as soon as practical |
 
-The indicator blinks `count` times at the priority period, then pauses 1.5s before repeating. If `display.interval` is present, it overrides the priority repeat interval. Preview duration defaults to 6 seconds and is clamped to 3-15 seconds.
+The indicator blinks `count` times at the priority period, then pauses 1.5s before the next check. Preview duration is firmware-owned and does not depend on sender-side timing hints.
 
 ### Router Message Endpoint
 
-The `router/chronomsg` script is a self-contained POSIX shell tool for GL.iNet/OpenWrt routers. Install it as `/usr/bin/chronomsg` and expose it as a CGI wrapper:
+The `wrt/chronomsg` script is a self-contained POSIX shell tool for GL.iNet/OpenWrt routers. Install it as `/usr/bin/chronomsg` and expose it as a CGI wrapper:
 
 ```sh
-scp router/chronomsg root@192.168.8.1:/usr/bin/chronomsg
+scp wrt/chronomsg root@192.168.8.1:/usr/bin/chronomsg
 ssh root@192.168.8.1
 chmod +x /usr/bin/chronomsg
 mkdir -p /www/cgi-bin
@@ -224,11 +216,7 @@ Useful commands:
   --title DOMAIN \
   --body "AVAILABLE" \
   --ttl 86400 \
-  --repeat true \
-  --duration 8 \
-  --interval 60 \
   --mode 2 \
-  --scroll-step 100 \
   --force \
   --bell 3,2,1
 
@@ -286,7 +274,7 @@ Domain checks run from cron or manually:
 /usr/bin/chronomsg check-domain comonoclaroquesi.com
 ```
 
-The domain checker is conservative. It tries WHOIS first, then falls back to RDAP if WHOIS fails or returns ambiguous results. WHOIS `redemptionPeriod` or `pendingDelete` creates a priority 7 `DOMAIN / REDEMPTION` alert, using the same repeat timing as the other priority 7 domain message. WHOIS or RDAP no-match creates a priority 9 `DOMAIN / AVAILABLE` alert. Registered domains with name servers or registrar fields create no alert. Ambiguous status creates a lower-priority `DOMAIN / CHECK` alert. Network errors update state to `ERROR`.
+The domain checker is conservative. It tries WHOIS first, then falls back to RDAP if WHOIS fails or returns ambiguous results. WHOIS `redemptionPeriod` or `pendingDelete` creates a priority 7 `DOMAIN / REDEMPTION` alert. WHOIS or RDAP no-match creates a priority 9 `DOMAIN / AVAILABLE` alert. Registered domains with name servers or registrar fields create no alert. Ambiguous status creates a lower-priority `DOMAIN / CHECK` alert. Network errors update state to `ERROR`.
 
 Manual tests:
 
@@ -324,26 +312,22 @@ sudo chmod +x /usr/local/bin/chronocli
 ### Usage
 
 ```sh
-chronocli [options] <title> <body>
+chronocli [options] <body>
 ```
 
 ### Options
 
 | Option | Description |
 |--------|-------------|
-| `--url <url>` | CGI endpoint (default `http://192.168.8.1/cgi-bin/chronomsg`) |
-| `--id <id>` | Unique message ID (default: `cli-<unix-timestamp>`) |
-| `--source <name>` | Source label (default `cli`) |
-| `--type <type>` | Message type (default `notification`) |
-| `--priority <0-9>` | Priority (default `5`) |
-| `--ttl <sec>` | Time-to-live (default `600`, max `86400`) |
-| `--duration <sec>`| Preview seconds (default `6`, clamped 5-60) |
+| `CHRONOMSG_URL` | CGI endpoint (default `http://192.168.8.1/cgi-bin/chronomsg`) |
+| `--title <text>` | Optional header line shown above the body |
 | `--mode <0\|1\|2>` | Font size: 0=small, 1=medium, 2=big (default `1`) |
-| `--scroll-step <ms>` | Scroll ms/pixel (default `0` = firmware default) |
-| `--force` | Always full-screen, even in INFO style |
 | `--bell <pattern>` | Bell strikes, e.g. `3` or `3,2,1` |
-| `--dry-run` | Print the JSON instead of sending |
-| `--verbose` | Print the server response |
+| `--ttl <sec>` | Time-to-live (default `600`, max `86400`) |
+| `--force` | Always full-screen, even in INFO style |
+| `--no-auto-dismiss` | Keep message in queue after preview |
+| `--dry-run` | Print the request instead of sending |
+| `--debug` | Print MPD queries and outgoing request data |
 
 ### Examples
 
@@ -352,7 +336,7 @@ chronocli [options] <title> <body>
 chronocli MAKE "EXIT 0"
 
 # Big full-screen alert with bell
-chronocli --mode 2 --bell 3 --priority 9 ALERT "INTRUSION DETECTED"
+chronocli --mode 2 --bell 3 "INTRUSION DETECTED"
 
 # Pipe from a build
 make 2>&1 | head -5 && chronocli MAKE "EXIT 0"
@@ -366,33 +350,50 @@ chronocli --dry-run TEST "MESSAGE"
 
 ### MPD mode
 
-chronocli can watch an MPD server and post now-playing messages:
+`chronocli mpd` watches MPD for song changes and posts now-playing messages using the same general ChronoMsg preview path as custom messages.
 
 ```sh
-chronocli --mpd-host 192.168.8.150 --mpd-port 6600 mpd
+chronocli mpd
 ```
 
-This polls the MPD server every 15 seconds and posts the current song as an info-line message (mode 0). Install as a systemd user service:
+It uses `mpc` to fetch the current song. On each song change, it gets the song duration from `mpc status "%totaltime%"` and sets the message TTL to match (song length + 10s buffer). The firmware always lets scrolling titles complete a full pass from a blank screen back to a blank screen.
 
+When playback stops, the message expires on its own — no stale data. When the next song starts, a new message replaces the old one.
+
+Configure via environment variables:
+
+| Env var | Default | Description |
+|---------|---------|-------------|
+| `CHRONOMSG_MPD_FORMAT` | `%artist% - %title%` | `mpc current -f` format string |
+| `CHRONOMSG_MPD_MODE` | `""` | Display mode: empty=firmware default(medium/1), `0`=small, `1`=medium, `2`=big |
+
+Or edit the header constants in `cli/chronocli`:
+
+| Constant | Default | Description |
+|----------|---------|-------------|
+| `DEFAULT_MPD_TTL_BUFFER` | `10` | Extra seconds beyond song duration |
+
+Set env vars at runtime or in the systemd service:
+
+```sh
+CHRONOMSG_MPD_MODE=0 chronocli mpd
 ```
-~/.config/systemd/user/chronocli-mpd.service
+
+Install as a systemd user service:
+
+```sh
+chronocli install
+```
+
+This copies the script to `~/.local/bin/` and creates a user service at `~/.config/systemd/user/chronocli-mpd.service`. Override any default via:
+
+```sh
+systemctl --user edit chronocli-mpd
 ```
 
 ```ini
-[Unit]
-Description=chronocli MPD now-playing
-
 [Service]
-ExecStart=/usr/local/bin/chronocli --mpd-host 192.168.8.150 mpd
-Restart=on-failure
-
-[Install]
-WantedBy=default.target
-```
-
-```sh
-systemctl --user daemon-reload
-systemctl --user enable --now chronocli-mpd.service
+Environment=CHRONOMSG_MPD_MODE=0
 ```
 
 ## Bell Modes
@@ -524,9 +525,9 @@ Open `Config.h` to adjust these:
 | `GUEST_WIFI_ENABLED` | `1` | Set to `0` to compile guest WiFi out |
 | `CHRONOMSG_URL` | `http://192.168.8.1/cgi-bin/chronomsg` | Base CGI endpoint; append `?msg` or `?wifi` |
 | `CHRONOMSG_POLL_INTERVAL_SEC` | `60` | Message poll interval in seconds |
-| `CHRONOMSG_SCROLL_STEP_MS` | `140` | Default scroll animation ms/pixel (overridden by per-message `scrollStep`); `CHRONOMSG_DEFAULT_DISPLAY_MODE` sets the default font size (1 = medium) |
-| `CHRONOMSG_SCROLL_REPEAT_GAP_PX` | `4` | Pixel gap between scroll repeats |
-| `CHRONOMSG_MIN_SCROLL_CYCLES` | `2` | Minimum full scroll cycles for auto-preview |
+| `CHRONOMSG_DEFAULT_DURATION_SEC` | `10` | Default preview lifetime used by firmware |
+| `CHRONOMSG_SCROLL_STEP_MS` | `140` | Firmware scroll animation ms/pixel |
+| `CHRONOMSG_MIN_SCROLL_CYCLES` | `1` | Minimum complete scroll passes before firmware may time out |
 | `TIME_SYNC_INTERVAL_MINUTES` | `60` | How often NTP re-syncs |
 | `RND_STYLE_INTERVAL_MINUTES` | `360` | RND change interval aligned to local midnight (`360` = 00:00, 06:00, 12:00...; valid 1-1440) |
 | `HOTSPOT_TIMEOUT_MINUTES` | `0` | Auto-stop hotspot after N minutes (`0` = stays on) |
