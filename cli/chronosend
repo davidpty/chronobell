@@ -239,14 +239,18 @@ run_mpd() {
 }
 
 do_install() {
+    printf 'chronosend: creating directories...\n'
     mkdir -p "$INSTALL_DIR" "$SERVICE_DIR"
+
     self="$(realpath "$0" 2>/dev/null || readlink -f "$0" 2>/dev/null || echo "$0")"
     was_active=false
     systemctl --user is-active "$SERVICE_NAME" >/dev/null 2>&1 && was_active=true
 
+    printf 'chronosend: copying binary to %s/chronosend...\n' "$INSTALL_DIR"
     cp "$self" "$INSTALL_DIR/chronosend"
     chmod 755 "$INSTALL_DIR/chronosend"
 
+    printf 'chronosend: writing service to %s/%s.service...\n' "$SERVICE_DIR" "$SERVICE_NAME"
     cat > "$SERVICE_DIR/$SERVICE_NAME.service" <<EOF
 [Unit]
 Description=ChronoBell MPD now-playing
@@ -263,23 +267,36 @@ Environment=CHRONOSEND_MPD_FORMAT="$DEFAULT_MPD_FORMAT"
 WantedBy=default.target
 EOF
 
+    printf 'chronosend: reloading systemd user daemon...\n'
     systemctl --user daemon-reload 2>/dev/null || true
+
     if [ "$was_active" = true ]; then
+        printf 'chronosend: restarting %s...\n' "$SERVICE_NAME"
         systemctl --user restart "$SERVICE_NAME" 2>/dev/null \
             || printf 'chronosend: warning - could not restart %s\n' "$SERVICE_NAME" >&2
     else
+        printf 'chronosend: enabling and starting %s...\n' "$SERVICE_NAME"
         systemctl --user enable --now "$SERVICE_NAME" 2>/dev/null \
             || printf 'chronosend: warning - could not enable %s\n' "$SERVICE_NAME" >&2
     fi
-    echo "chronosend: installed to $INSTALL_DIR/chronosend"
+
+    printf 'chronosend: installed to %s/chronosend\n' "$INSTALL_DIR"
 }
 
 do_uninstall() {
+    printf 'chronosend: stopping and disabling %s...\n' "$SERVICE_NAME"
     systemctl --user disable --now "$SERVICE_NAME" 2>/dev/null || true
+
+    printf 'chronosend: removing service file %s/%s.service...\n' "$SERVICE_DIR" "$SERVICE_NAME"
     rm -f "$SERVICE_DIR/$SERVICE_NAME.service"
+
+    printf 'chronosend: reloading systemd user daemon...\n'
     systemctl --user daemon-reload 2>/dev/null || true
+
+    printf 'chronosend: removing binary %s/chronosend...\n' "$INSTALL_DIR"
     rm -f "$INSTALL_DIR/chronosend"
-    echo "chronosend: removed"
+
+    printf 'chronosend: removed\n'
 }
 
 case "${1:-}" in

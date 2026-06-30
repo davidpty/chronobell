@@ -1443,17 +1443,23 @@ chronoserve_install() {
         return 1
     fi
 
+    printf 'chronoserve: creating state directory %s...\n' "$BASE"
     ensure_base
 
+    printf 'chronoserve: setting executable bit on %s...\n' "$target"
     [ -x "$target" ] || chmod +x "$target"
+
+    printf 'chronoserve: creating CGI directory %s...\n' "$cgi_dir"
     mkdir -p "$cgi_dir"
+
+    printf 'chronoserve: writing CGI wrapper %s/chronoserve...\n' "$cgi_dir"
     cat > "$cgi_dir/chronoserve" <<'CGIEOF'
 #!/bin/sh
 exec /usr/bin/chronoserve serve --cgi
 CGIEOF
     chmod +x "$cgi_dir/chronoserve"
 
-    printf 'chronoserve installed\n'
+    printf 'chronoserve: installed\n'
     printf '  binary:  %s\n' "$target"
     printf '  cgi:     %s/chronoserve\n' "$cgi_dir"
     printf '  state:   %s\n' "$BASE"
@@ -1462,20 +1468,19 @@ CGIEOF
 chronoserve_uninstall() {
     cgi_dir="${1:-/www/cgi-bin}"
 
-    # Remove CGI wrapper
     if [ -f "$cgi_dir/chronoserve" ]; then
+        printf 'chronoserve: removing CGI wrapper %s/chronoserve...\n' "$cgi_dir"
         rm -f "$cgi_dir/chronoserve"
-        printf 'removed: %s/chronoserve\n' "$cgi_dir"
-        # Remove empty CGI dir
         rmdir "$cgi_dir" 2>/dev/null || true
+    else
+        printf 'chronoserve: no CGI wrapper at %s/chronoserve\n' "$cgi_dir"
     fi
 
-    # Remove cron entries
+    printf 'chronoserve: removing cron entries...\n'
     cron_uninstall
 
-    # Warn about state dir (never delete data automatically)
-    printf 'state directory preserved: %s\n' "$BASE"
-    printf 'remove manually: rm -rf %s\n' "$BASE"
+    printf 'chronoserve: state directory preserved: %s\n' "$BASE"
+    printf 'chronoserve: remove manually: rm -rf %s\n' "$BASE"
 }
 
 usage() {
