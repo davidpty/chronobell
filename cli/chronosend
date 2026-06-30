@@ -263,7 +263,7 @@ Wants=mpd.service
 ExecStart=$INSTALL_DIR/chronosend mpd
 Restart=always
 RestartSec=5
-Environment=CHRONOSEND_MPD_FORMAT="$DEFAULT_MPD_FORMAT"
+Environment=CHRONOSEND_MPD_FORMAT="%%artist%% - %%title%%"
 
 [Install]
 WantedBy=default.target
