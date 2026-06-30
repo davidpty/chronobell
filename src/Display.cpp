@@ -1082,6 +1082,8 @@ void Display::resetChronoScroll(const String& text, uint8_t mode, uint16_t stepM
     _chronoScrollMode = mode;
     _chronoScrollStepMs = stepMs > 0 ? stepMs : CHRONOSERVE_SCROLL_STEP_MS;
     _chronoScrollPreviewStartMs = previewStartMs;
+    _chronoScrollLastAdvanceMs = 0;
+    _chronoScrollX = COLS_PER_ROW;
     _chronoScrollTextWidth = chronoTextWidth(text, mode);
     _chronoScrollState = _chronoScrollTextWidth > 0
         ? ChronoScrollRenderState::Scrolling
@@ -1099,12 +1101,21 @@ bool Display::drawChronoScrollFrame(const String& text, int y, uint8_t mode, uin
     }
 
     if (_chronoScrollState == ChronoScrollRenderState::Scrolling) {
-        unsigned long elapsed = nowMs - _chronoScrollPreviewStartMs;
-        int pos = COLS_PER_ROW - (int)(elapsed / _chronoScrollStepMs);
-        drawChronoTextClipped(*this, text, pos, y, mode);
-        if (pos <= -_chronoScrollTextWidth) {
+        drawChronoTextClipped(*this, text, _chronoScrollX, y, mode);
+        if (_chronoScrollX <= -_chronoScrollTextWidth) {
             _chronoScrollState = ChronoScrollRenderState::Finished;
             return true;
+        }
+
+        bool advance = false;
+        if (_chronoScrollLastAdvanceMs == 0) {
+            advance = true;
+        } else if ((int32_t)(nowMs - _chronoScrollLastAdvanceMs) >= (int32_t)stepMs) {
+            advance = true;
+        }
+        if (advance) {
+            _chronoScrollLastAdvanceMs = nowMs;
+            _chronoScrollX--;
         }
     }
 

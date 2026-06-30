@@ -209,6 +209,8 @@ private:
     uint8_t _chronoScrollMode = 255;
     uint16_t _chronoScrollStepMs = 0;
     unsigned long _chronoScrollPreviewStartMs = 0;
+    unsigned long _chronoScrollLastAdvanceMs = 0;
+    int _chronoScrollX = COLS_PER_ROW;
     int _chronoScrollTextWidth = 0;
 #endif
 
