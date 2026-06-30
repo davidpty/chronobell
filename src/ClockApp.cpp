@@ -430,6 +430,12 @@ void ClockApp::render() {
         _lastDisplayModeSeen = _displayMode;
     }
 
+    if (_alarmRinging && (millis() % (BLINK_ON_MS + BLINK_OFF_MS)) >= BLINK_ON_MS) {
+        _display.clearBuffer();
+        _display.renderBuffer();
+        return;
+    }
+
     _display.showTime();
 
 #if CHRONOSERVE_ENABLED

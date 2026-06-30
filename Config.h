@@ -77,9 +77,9 @@
 // Alarm
 // ---------------------------------------------------------------------------
 
-#define ALARM_BELL_PATTERN                          {1, 2, 1, 2, 1}                                          // alarm bell group pattern
-#define ALARM_BELL_REPEAT_SEC                       30                                         // Re-ring interval while active
-#define ALARM_BELL_MAX_CYCLES                       10                                         // Auto-stop after N rings (0 = infinite)
+#define ALARM_BELL_PATTERN                          {1,2,1,2,1,2,1,2,1,2}                      // alarm bell group pattern
+#define ALARM_BELL_REPEAT_SEC                       10                                         // Re-ring interval while active
+#define ALARM_BELL_MAX_CYCLES                       60                                         // Auto-stop after N rings (0 = infinite)
 
 // ---------------------------------------------------------------------------
 // UI / interaction
@@ -206,7 +206,7 @@
 #define CHRONOSERVE_URL                               "http://192.168.8.1/cgi-bin/chronoserve"   // Router-side CGI endpoint for ChronoServe
 #define CHRONOSERVE_POLL_INTERVAL_SEC                 10                                         // Background poll interval in seconds
 #define CHRONOSERVE_MIN_DURATION_SEC                  10                                         // Minimum message lifetime; scrolling extends beyond this as needed
-#define CHRONOSERVE_SONG_REPEAT_SEC                   60                                         // Default repeat interval for MPD / repeat-policy messages
+#define CHRONOSERVE_SONG_REPEAT_SEC                   120                                        // Default repeat interval for MPD / repeat-policy messages
 #define CHRONOSERVE_SCROLL_STEP_MS                    180                                        // Firmware scroll animation step in milliseconds
 #define CHRONOSERVE_MIN_SCROLL_CYCLES                 1                                          // Minimum complete scroll passes before firmware may time out
 #define CHRONOSERVE_SCROLL_WORD_GAP_PX                4                                          // Gap between words in ChronoServe scroll text
