@@ -78,7 +78,7 @@
 // ---------------------------------------------------------------------------
 
 #define ALARM_BELL_PATTERN                          {1,2,1,2,1,2,1,2,1,2}                      // alarm bell group pattern
-#define ALARM_BELL_GAP_SEC                          20                                         // Gap between bell pattern replays
+#define ALARM_BELL_GAP_SEC                          10                                         // Gap between bell pattern replays
 #define ALARM_BELL_MAX_CYCLES                       30                                         // Auto-stop after N rings (0 = infinite)
 
 // ---------------------------------------------------------------------------
@@ -207,8 +207,8 @@
 #define CHRONOSERVE_POLL_INTERVAL_SEC                 10                                         // Background poll interval in seconds
 #define CHRONOSERVE_MIN_DURATION_SEC                  10                                         // Minimum message lifetime; scrolling extends beyond this as needed
 #define CHRONOSERVE_SONG_REPEAT_SEC                   120                                        // Default repeat interval for MPD / repeat-policy messages
-#define CHRONOSERVE_SCROLL_STEP_MS                    180                                        // Firmware scroll animation step in milliseconds
 #define CHRONOSERVE_MIN_SCROLL_CYCLES                 1                                          // Minimum complete scroll passes before firmware may time out
+#define CHRONOSERVE_SCROLL_STEP_MS                    180                                        // Firmware scroll animation step in milliseconds
 #define CHRONOSERVE_SCROLL_WORD_GAP_PX                4                                          // Gap between words in ChronoServe scroll text
 #define CHRONOSERVE_SCROLL_EXIT_PAD_PX                5                                          // Extra blank pixels after the last glyph before finish
 
