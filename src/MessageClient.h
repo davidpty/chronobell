@@ -123,7 +123,6 @@ private:
     bool _manualPreview = false;
     bool _previewWaitForRenderFinish = false;
     bool _previewRenderFinished = true;
-    bool _previewPendingRemoval = false;
     uint32_t _previewStartMs = 0;
     uint32_t _previewEndMs = 0;
     uint32_t _previewSafetyEndMs = 0;

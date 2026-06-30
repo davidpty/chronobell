@@ -495,13 +495,7 @@ void MessageClient::update() {
         ((_previewWaitForRenderFinish && _previewRenderFinished) ||
          (int32_t)(nowMs - _previewSafetyEndMs) >= 0 ||
          ((int32_t)(nowMs - _previewEndMs) >= 0 && !_previewWaitForRenderFinish))) {
-        int previewSlot = _previewSlot;
-        bool currentNeedsRemoval = _previewPendingRemoval;
         hidePreviewLocked();
-        if (currentNeedsRemoval && previewSlot >= 0 && previewSlot < CHRONOSERVE_MAX_MESSAGES) {
-            _slots[previewSlot] = MessageSlot();
-        }
-        _previewPendingRemoval = false;
     }
     if (!_previewVisible) {
         int bestIdx = -1;
@@ -788,11 +782,6 @@ void MessageClient::mergeMessages(const ChronoMessage* incoming, uint8_t count) 
 
     for (uint8_t i = 0; i < CHRONOSERVE_MAX_MESSAGES; ++i) {
         if (_slots[i].msg.valid && !seen[i]) {
-            if (_previewSlot == (int)i && _previewVisible &&
-                _previewWaitForRenderFinish && !_previewRenderFinished) {
-                _previewPendingRemoval = true;
-                continue;
-            }
             if (_previewSlot == (int)i) hidePreviewLocked();
             _slots[i] = MessageSlot();
         }
@@ -806,11 +795,6 @@ void MessageClient::pruneExpiredLocked(time_t nowEpoch, bool timeValid, uint32_t
     for (uint8_t i = 0; i < CHRONOSERVE_MAX_MESSAGES; ++i) {
         if (_slots[i].msg.valid && _slots[i].msg.expires > 0 &&
             _slots[i].msg.expires <= (uint32_t)nowEpoch) {
-            if (_previewSlot == (int)i && _previewVisible &&
-                _previewWaitForRenderFinish && !_previewRenderFinished) {
-                _previewPendingRemoval = true;
-                continue;
-            }
             if (_previewSlot == (int)i) hidePreviewLocked();
             _slots[i] = MessageSlot();
         }
@@ -912,7 +896,6 @@ void MessageClient::hidePreviewLocked() {
     _manualPreview = false;
     _previewWaitForRenderFinish = false;
     _previewRenderFinished = true;
-    _previewPendingRemoval = false;
     _previewVisible = false;
     _previewSlot = -1;
     _previewEndMs = 0;
