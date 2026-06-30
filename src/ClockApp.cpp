@@ -501,10 +501,18 @@ void ClockApp::tickAlarm() {
 
     if (_alarmRinging) {
         unsigned long now = millis();
+        if (_alarmNextRingMs == 0) {
+            _alarmNextRingMs = now + (unsigned long)ALARM_BELL_GAP_SEC * 1000UL;
+        }
         if ((int32_t)(now - _alarmNextRingMs) >= 0) {
             if (ALARM_BELL_MAX_CYCLES > 0 && _alarmRingCount >= ALARM_BELL_MAX_CYCLES) {
                 _alarmRinging = false;
                 _alarmRingCount = 0;
+                if (_alarmMode == 1) {
+                    _alarmMode = 0;
+                    _appSettings.alarm.mode = 0;
+                    _settingsStore.saveAlarmMode(0);
+                }
                 return;
             }
             fireAlarmBell();
@@ -516,11 +524,6 @@ void ClockApp::tickAlarm() {
     _lastAlarmCheckMin = m;
 
     if (h == (int)_alarmHour && m == (int)_alarmMin) {
-        if (_alarmMode == 1) {
-            _alarmMode = 0;
-            _appSettings.alarm.mode = 0;
-            _settingsStore.saveAlarmMode(0);
-        }
         if (_alarmMode == 3 || _alarmMode == 4) {
             ClockDate d;
             if (_timeProvider.currentDate(d)) {
@@ -544,7 +547,7 @@ void ClockApp::fireAlarmBell() {
     _bellController.queuePattern(total, pattern, count, true, "alarm");
     _alarmRinging = true;
     _alarmRingCount++;
-    _alarmNextRingMs = millis() + (unsigned long)ALARM_BELL_REPEAT_SEC * 1000UL;
+    _alarmNextRingMs = 0;
 }
 
 #if GUEST_WIFI_ENABLED
@@ -981,6 +984,11 @@ void ClockApp::onTouchMiddleShort(uint8_t pad) {
         _alarmRinging = false;
         _alarmRingCount = 0;
         _bellController.stop();
+        if (_alarmMode == 1) {
+            _alarmMode = 0;
+            _appSettings.alarm.mode = 0;
+            _settingsStore.saveAlarmMode(0);
+        }
         return;
     }
     if (_menuController.isActive()) {
