@@ -246,9 +246,11 @@ do_install() {
     was_active=false
     systemctl --user is-active "$SERVICE_NAME" >/dev/null 2>&1 && was_active=true
 
-    printf 'chronosend: copying binary to %s/chronosend...\n' "$INSTALL_DIR"
-    cp "$self" "$INSTALL_DIR/chronosend"
-    chmod 755 "$INSTALL_DIR/chronosend"
+    if [ "$self" != "$INSTALL_DIR/chronosend" ]; then
+        printf 'chronosend: copying binary to %s/chronosend...\n' "$INSTALL_DIR"
+        cp "$self" "$INSTALL_DIR/chronosend"
+        chmod 755 "$INSTALL_DIR/chronosend"
+    fi
 
     printf 'chronosend: writing service to %s/%s.service...\n' "$SERVICE_DIR" "$SERVICE_NAME"
     cat > "$SERVICE_DIR/$SERVICE_NAME.service" <<EOF
