@@ -248,7 +248,7 @@ void BellController::updateSequence() {
             _sequenceGroupPatternIndex++;
             groupComplete = true;
         }
-    } else if (_sequenceGroupSize > 1 && _sequenceIndex % _sequenceGroupSize == 0) {
+    } else if (_sequenceGroupSize <= 1 || _sequenceIndex % _sequenceGroupSize == 0) {
         groupComplete = true;
     }
 
