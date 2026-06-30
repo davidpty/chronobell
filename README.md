@@ -181,14 +181,19 @@ The `cli/chronoserve` script is a self-contained POSIX shell tool for GL.iNet/Op
 
 ```sh
 scp cli/chronoserve root@192.168.8.1:/usr/bin/chronoserve
-ssh root@192.168.8.1
-chmod +x /usr/bin/chronoserve
-mkdir -p /www/cgi-bin
-cat > /www/cgi-bin/chronoserve <<'EOF'
-#!/bin/sh
-exec /usr/bin/chronoserve serve --cgi
-EOF
-chmod +x /www/cgi-bin/chronoserve
+ssh root@192.168.8.1 -- /usr/bin/chronoserve install
+```
+
+To use a custom CGI directory:
+
+```sh
+ssh root@192.168.8.1 -- /usr/bin/chronoserve install /custom/cgi/path
+```
+
+To reverse:
+
+```sh
+ssh root@192.168.8.1 -- /usr/bin/chronoserve uninstall
 ```
 
 Test the endpoint:

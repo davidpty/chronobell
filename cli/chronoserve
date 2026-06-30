@@ -1433,6 +1433,51 @@ cron_uninstall() {
     printf 'removed all chronoserve cron entries\n'
 }
 
+chronoserve_install() {
+    cgi_dir="${1:-/www/cgi-bin}"
+    self="$(readlink -f "$0" 2>/dev/null || realpath "$0" 2>/dev/null || echo "$0")"
+    target="/usr/bin/chronoserve"
+
+    if [ "$self" != "$target" ]; then
+        printf 'copy chronoserve to %s first:\n  scp %s root@<router>:%s\n' "$target" "$self" "$target" >&2
+        return 1
+    fi
+
+    ensure_base
+
+    [ -x "$target" ] || chmod +x "$target"
+    mkdir -p "$cgi_dir"
+    cat > "$cgi_dir/chronoserve" <<'CGIEOF'
+#!/bin/sh
+exec /usr/bin/chronoserve serve --cgi
+CGIEOF
+    chmod +x "$cgi_dir/chronoserve"
+
+    printf 'chronoserve installed\n'
+    printf '  binary:  %s\n' "$target"
+    printf '  cgi:     %s/chronoserve\n' "$cgi_dir"
+    printf '  state:   %s\n' "$BASE"
+}
+
+chronoserve_uninstall() {
+    cgi_dir="${1:-/www/cgi-bin}"
+
+    # Remove CGI wrapper
+    if [ -f "$cgi_dir/chronoserve" ]; then
+        rm -f "$cgi_dir/chronoserve"
+        printf 'removed: %s/chronoserve\n' "$cgi_dir"
+        # Remove empty CGI dir
+        rmdir "$cgi_dir" 2>/dev/null || true
+    fi
+
+    # Remove cron entries
+    cron_uninstall
+
+    # Warn about state dir (never delete data automatically)
+    printf 'state directory preserved: %s\n' "$BASE"
+    printf 'remove manually: rm -rf %s\n' "$BASE"
+}
+
 usage() {
     cat <<'EOF'
 Usage:
@@ -1447,7 +1492,9 @@ Usage:
   chronoserve check-domain <domain> [--id suffix] [--force]
   chronoserve test-domain <domain>
   chronoserve guestqr [options]
-  chronoserve cron list|add|remove|uninstall
+   chronoserve cron list|add|remove|uninstall
+  chronoserve install [/www/cgi-bin]
+  chronoserve uninstall [/www/cgi-bin]
   chronoserve help
 
 Add options:
@@ -1542,6 +1589,12 @@ case "$cmd" in
             uninstall) cron_uninstall ;;
             *) printf 'Usage: chronoserve cron list|add|remove|uninstall\n' >&2; exit 2 ;;
         esac
+        ;;
+    install)
+        chronoserve_install "$@"
+        ;;
+    uninstall)
+        chronoserve_uninstall "$@"
         ;;
     help|-h|--help)
         usage
