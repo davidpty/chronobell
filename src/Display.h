@@ -13,7 +13,7 @@
 #if SCREEN_TRANSITION
 #include "ScreenTransition.h"
 #endif
-#if CHRONOMSG_ENABLED
+#if CHRONOSERVE_ENABLED
 #include "MessageClient.h"
 #endif
 
@@ -126,7 +126,7 @@ public:
 #if GUEST_WIFI_ENABLED
     void drawGuestWifiText(bool showSsid);
 #endif
-#if CHRONOMSG_ENABLED
+#if CHRONOSERVE_ENABLED
     bool drawChronoMessage(const ChronoMessage& message, unsigned long nowMs, unsigned long previewStartMs);
     void drawUnreadMessageIndicator(int count, int priority, unsigned long nowMs);
 #endif
@@ -140,7 +140,7 @@ public:
     void drawBigChar(char c, int x, int y);
 
 private:
-#if CHRONOMSG_ENABLED
+#if CHRONOSERVE_ENABLED
     enum class ChronoScrollRenderState : uint8_t {
         Inactive,
         Scrolling,
@@ -152,13 +152,13 @@ private:
     void bufferToFrame(uint32_t frame[TOTAL_ROWS]) const;
     void frameToBuffer(const uint32_t frame[TOTAL_ROWS]);
     void flushBufferToLeds();
-#if CHRONOMSG_ENABLED
+#if CHRONOSERVE_ENABLED
     void renderChronoMessageBuffer();
 #endif
     void flushBar(int bufferRow, bool flipX, bool flipY, int colOffset);
     void drawMediumChar(char c, int x, int y);
     void drawInvertedSmallText(const char* s, int x, int y);
-#if CHRONOMSG_ENABLED
+#if CHRONOSERVE_ENABLED
     void resetChronoScroll(const String& text, uint8_t mode, uint16_t stepMs, unsigned long previewStartMs);
     bool drawChronoScrollFrame(const String& text, int y, uint8_t mode, uint16_t stepMs, unsigned long nowMs, unsigned long previewStartMs);
 #endif
@@ -203,7 +203,7 @@ private:
     int8_t _userBrightness = 4;
     int8_t _brightness     = 4;
     bool   _enabled = true;
-#if CHRONOMSG_ENABLED
+#if CHRONOSERVE_ENABLED
     ChronoScrollRenderState _chronoScrollState = ChronoScrollRenderState::Inactive;
     String _chronoScrollText;
     uint8_t _chronoScrollMode = 255;

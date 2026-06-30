@@ -25,7 +25,7 @@
 #if GUEST_WIFI_ENABLED
 #include "GuestWifiController.h"
 #endif
-#if CHRONOMSG_ENABLED
+#if CHRONOSERVE_ENABLED
 #include "MessageClient.h"
 #endif
 
@@ -95,7 +95,7 @@ public:
 #if GUEST_WIFI_ENABLED
     void tickGuestWifi();
 #endif
-#if CHRONOMSG_ENABLED
+#if CHRONOSERVE_ENABLED
     void tickMessages();
 #endif
     void pollLongPress();
@@ -154,7 +154,7 @@ private:
 #if GUEST_WIFI_ENABLED
     GuestWifiController _guestWifi;
 #endif
-#if CHRONOMSG_ENABLED
+#if CHRONOSERVE_ENABLED
     MessageClient   _messageClient;
     bool            _msgBellFired = false;
 #endif

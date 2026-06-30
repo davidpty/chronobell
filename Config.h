@@ -159,13 +159,13 @@
 #define LOCAL_HTTP_TOTAL_TIMEOUT_MS                 3000                                       // Total HTTP fetch budget for router-local background tasks
 #define LOCAL_NETWORK_TASK_PRIORITY                 1                                          // Lower than display/input timing work
 
-// Internal text limit for short non-ChronoMsg local text.
+// Internal text limit for short non-ChronoServe local text.
 #define LOCAL_DISPLAY_TEXT_MAX_LEN                  64                                         // Max short text displayed from guest WiFi and other local services
 
 // ---------------------------------------------------------------------------
 // Guest WiFi password display
 // ---------------------------------------------------------------------------
-// Fetches guest WiFi details from the router-side ChronoMsg JSON payload at
+// Fetches guest WiFi details from the router-side ChronoServe JSON payload at
 // boot and daily at the configured time, then shows them in the middle-button
 // view cycle (as "GUEST"). Set GUEST_WIFI_ENABLED to 0 to compile it out.
 
@@ -193,24 +193,23 @@
 // Firmware owns the visible behavior here: scroll timing, scroll-out
 // completion, and how message text is measured/drawn.
 
-#define CHRONOMSG_ENABLED                           1                                          // 1 = compile ChronoMsg in, 0 = remove it at build time
+#define CHRONOSERVE_ENABLED                           1                                          // 1 = compile ChronoServe in, 0 = remove it at build time
 
-#define CHRONOMSG_URL                               "http://192.168.8.1/cgi-bin/chronomsg"     // Router-side CGI endpoint for ChronoMsg
-#define CHRONOMSG_POLL_INTERVAL_SEC                 10                                         // Background poll interval in seconds
-#define CHRONOMSG_DEFAULT_DURATION_SEC              10                                         // Default message lifetime fallback used by firmware
-#define CHRONOMSG_SONG_REPEAT_SEC                   30                                         // Default repeat interval for MPD / repeat-policy messages
-#define CHRONOMSG_SCROLL_STEP_MS                    140                                        // Firmware scroll animation step in milliseconds
-#define CHRONOMSG_MIN_SCROLL_CYCLES                 1                                          // Minimum complete scroll passes before firmware may time out
-#define CHRONOMSG_SCROLL_DEBUG                      0                                          // 1 = log ChronoMsg scroll position each rendered frame
-#define CHRONOMSG_SCROLL_WORD_GAP_PX                4                                          // Gap between words in ChronoMsg scroll text
-#define CHRONOMSG_SCROLL_EXIT_PAD_PX                0                                          // Extra blank pixels after the last glyph before finish
+#define CHRONOSERVE_URL                               "http://192.168.8.1/cgi-bin/chronoserve"   // Router-side CGI endpoint for ChronoServe
+#define CHRONOSERVE_POLL_INTERVAL_SEC                 10                                         // Background poll interval in seconds
+#define CHRONOSERVE_MIN_DURATION_SEC                  10                                         // Minimum message lifetime; scrolling extends beyond this as needed
+#define CHRONOSERVE_SONG_REPEAT_SEC                   30                                         // Default repeat interval for MPD / repeat-policy messages
+#define CHRONOSERVE_SCROLL_STEP_MS                    140                                        // Firmware scroll animation step in milliseconds
+#define CHRONOSERVE_MIN_SCROLL_CYCLES                 1                                          // Minimum complete scroll passes before firmware may time out
+#define CHRONOSERVE_SCROLL_WORD_GAP_PX                4                                          // Gap between words in ChronoServe scroll text
+#define CHRONOSERVE_SCROLL_EXIT_PAD_PX                0                                          // Extra blank pixels after the last glyph before finish
 
-// Internal ChronoMsg engine limits. These rarely need tuning.
-#define CHRONOMSG_MAX_MESSAGES                      5                                          // Max cached messages kept in memory
-#define CHRONOMSG_MAX_RESPONSE_BYTES                2048                                       // Max HTTP response body size to read
-#define CHRONOMSG_MAX_ID_LEN                        64                                         // Max message id length
-#define CHRONOMSG_MAX_TEXT_LEN                      160                                        // Max rendered title/body text length
-#define CHRONOMSG_TASK_STACK_WORDS                  8192                                       // FreeRTOS stack for ChronoMsg task
+// Internal ChronoServe engine limits. These rarely need tuning.
+#define CHRONOSERVE_MAX_MESSAGES                      5                                          // Max cached messages kept in memory
+#define CHRONOSERVE_MAX_RESPONSE_BYTES                2048                                       // Max HTTP response body size to read
+#define CHRONOSERVE_MAX_ID_LEN                        64                                         // Max message id length
+#define CHRONOSERVE_MAX_TEXT_LEN                      160                                        // Max rendered title/body text length
+#define CHRONOSERVE_TASK_STACK_WORDS                  8192                                       // FreeRTOS stack for ChronoServe task
 
 
 // ═════════════════════════════════════════════════════════════════════════════

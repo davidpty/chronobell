@@ -6,7 +6,7 @@
 
 #include "Config.h"
 
-#if CHRONOMSG_ENABLED
+#if CHRONOSERVE_ENABLED
 
 enum class MessagePolicyKind : uint8_t {
     Temporary = 0,
@@ -113,11 +113,11 @@ private:
     volatile bool _taskStop = false;
     bool _started = false;
 
-    String _pendingDismissalIds[CHRONOMSG_MAX_MESSAGES];
+    String _pendingDismissalIds[CHRONOSERVE_MAX_MESSAGES];
     uint8_t _pendingDismissalCount = 0;
 
-    MessageSlot _slots[CHRONOMSG_MAX_MESSAGES];
-    DismissedId _dismissed[CHRONOMSG_MAX_MESSAGES];
+    MessageSlot _slots[CHRONOSERVE_MAX_MESSAGES];
+    DismissedId _dismissed[CHRONOSERVE_MAX_MESSAGES];
     int _previewSlot = -1;
     bool _previewVisible = false;
     bool _manualPreview = false;

@@ -1,9 +1,9 @@
 #!/bin/sh
-# chronocli - send display messages to ChronoBell
+# chronosend - send display messages to ChronoBell
 
 set -eu
 
-CHRONOMSG_URL="${CHRONOMSG_URL:-http://192.168.8.1/cgi-bin/chronomsg}"
+CHRONOSERVE_URL="${CHRONOSERVE_URL:-http://192.168.8.1/cgi-bin/chronoserve}"
 
 DEFAULT_MPD_FORMAT="%artist% - %title%"
 DEFAULT_MPD_TTL_BUFFER=10
@@ -11,19 +11,19 @@ DEFAULT_MPD_FALLBACK_TTL=300
 
 INSTALL_DIR="${INSTALL_DIR:-${HOME}/.local/bin}"
 SERVICE_DIR="${SERVICE_DIR:-${HOME}/.config/systemd/user}"
-SERVICE_NAME="chronocli-mpd"
+SERVICE_NAME="chronosend-mpd"
 
-CHRONOCLI_DEBUG="${CHRONOCLI_DEBUG:-false}"
-CHRONOCLI_DRY_RUN="${CHRONOCLI_DRY_RUN:-false}"
+CHRONOSEND_DEBUG="${CHRONOSEND_DEBUG:-false}"
+CHRONOSEND_DRY_RUN="${CHRONOSEND_DRY_RUN:-false}"
 
 usage() {
     cat <<'EOF'
 Usage:
-  chronocli [options] "message"
-  echo "message" | chronocli
-  chronocli mpd [options]
-  chronocli install
-  chronocli uninstall
+  chronosend [options] "message"
+  echo "message" | chronosend
+  chronosend mpd [options]
+  chronosend install
+  chronosend uninstall
 
 Message policy:
   -i, --inbox          keep in message view until dismissed
@@ -40,7 +40,7 @@ Display:
   --bell PATTERN      bell strikes, e.g. 3 or 3,2,1
 
 MPD:
-  chronocli mpd --interval SEC --ttl-buffer SEC --fallback-ttl SEC --format FORMAT
+  chronosend mpd --interval SEC --ttl-buffer SEC --fallback-ttl SEC --format FORMAT
 
 Utility:
   --id ID
@@ -51,7 +51,7 @@ EOF
 }
 
 debug_log() {
-    [ "$CHRONOCLI_DEBUG" = true ] && echo "[debug] $*" >&2
+    [ "$CHRONOSEND_DEBUG" = true ] && echo "[debug] $*" >&2
     return 0
 }
 
@@ -60,12 +60,12 @@ have_cmd() {
 }
 
 curl_get() {
-    if [ "$CHRONOCLI_DRY_RUN" = true ]; then
-        echo "[dry-run] $CHRONOMSG_URL"
+    if [ "$CHRONOSEND_DRY_RUN" = true ]; then
+        echo "[dry-run] $CHRONOSERVE_URL"
         for arg do echo "  $arg"; done
         return 0
     fi
-    curl -s -G "$CHRONOMSG_URL" "$@" >/dev/null 2>&1
+    curl -s -G "$CHRONOSERVE_URL" "$@" >/dev/null 2>&1
 }
 
 parse_time() {
@@ -98,11 +98,11 @@ send_message() {
             --id) id="${2:-}"; shift 2 ;;
             -t|--title) title="${2:-}"; shift 2 ;;
             -i|--inbox)
-                [ "$policy" = temporary ] || { echo "chronocli: choose only one policy: default temporary, --inbox, or --repeat" >&2; exit 2; }
+                [ "$policy" = temporary ] || { echo "chronosend: choose only one policy: default temporary, --inbox, or --repeat" >&2; exit 2; }
                 policy=inbox
                 shift ;;
             -r|--repeat)
-                [ "$policy" = temporary ] || { echo "chronocli: choose only one policy: default temporary, --inbox, or --repeat" >&2; exit 2; }
+                [ "$policy" = temporary ] || { echo "chronosend: choose only one policy: default temporary, --inbox, or --repeat" >&2; exit 2; }
                 policy=repeat
                 repeat="${2:-}"
                 shift 2 ;;
@@ -110,26 +110,26 @@ send_message() {
             --forever) ttl=forever; shift ;;
             -p|--priority) priority="${2:-}"; shift 2 ;;
             --small)
-                [ "$size_set" = false ] || { echo "chronocli: choose only one font size: --small, --medium, or --big" >&2; exit 2; }
+                [ "$size_set" = false ] || { echo "chronosend: choose only one font size: --small, --medium, or --big" >&2; exit 2; }
                 size=small
                 size_set=true
                 shift ;;
             --medium)
-                [ "$size_set" = false ] || { echo "chronocli: choose only one font size: --small, --medium, or --big" >&2; exit 2; }
+                [ "$size_set" = false ] || { echo "chronosend: choose only one font size: --small, --medium, or --big" >&2; exit 2; }
                 size=medium
                 size_set=true
                 shift ;;
             --big)
-                [ "$size_set" = false ] || { echo "chronocli: choose only one font size: --small, --medium, or --big" >&2; exit 2; }
+                [ "$size_set" = false ] || { echo "chronosend: choose only one font size: --small, --medium, or --big" >&2; exit 2; }
                 size=big
                 size_set=true
                 shift ;;
             --bell) bell="${2:-}"; shift 2 ;;
-            --dry-run) CHRONOCLI_DRY_RUN=true; shift ;;
-            --debug) CHRONOCLI_DEBUG=true; shift ;;
+            --dry-run) CHRONOSEND_DRY_RUN=true; shift ;;
+            --debug) CHRONOSEND_DEBUG=true; shift ;;
             --help|-h) usage ;;
             --stdin) shift ;;
-            -*) echo "chronocli: unknown option: $1" >&2; exit 2 ;;
+            -*) echo "chronosend: unknown option: $1" >&2; exit 2 ;;
             *) body="$1"; shift ;;
         esac
     done
@@ -137,9 +137,9 @@ send_message() {
     if [ -z "$body" ] && [ ! -t 0 ]; then
         read -r body || true
     fi
-    [ -n "$body" ] || { echo "chronocli: message required (argument or pipe)" >&2; exit 2; }
-    [ "$policy" != repeat ] || [ -n "$repeat" ] || { echo "chronocli: --repeat requires seconds" >&2; exit 2; }
-    have_cmd curl || { echo "chronocli: curl not found" >&2; exit 1; }
+    [ -n "$body" ] || { echo "chronosend: message required (argument or pipe)" >&2; exit 2; }
+    [ "$policy" != repeat ] || [ -n "$repeat" ] || { echo "chronosend: --repeat requires seconds" >&2; exit 2; }
+    have_cmd curl || { echo "chronosend: curl not found" >&2; exit 1; }
 
     set -- --data-urlencode "add=" \
            --data-urlencode "body=$body" \
@@ -155,30 +155,30 @@ send_message() {
 
     debug_log "send policy=$policy size=$size ttl=$ttl body=\"$body\""
     curl_get "$@" || {
-        echo "chronocli: failed to send (router unreachable?)" >&2
+        echo "chronosend: failed to send (router unreachable?)" >&2
         return 1
     }
 }
 
 clear_message() {
     id="$1"
-    if [ "$CHRONOCLI_DRY_RUN" = true ]; then
+    if [ "$CHRONOSEND_DRY_RUN" = true ]; then
         echo "[dry-run] clear $id"
         return 0
     fi
-    curl -s -G "$CHRONOMSG_URL" \
+    curl -s -G "$CHRONOSERVE_URL" \
         --data-urlencode "clear=" \
         --data-urlencode "id=$id" >/dev/null 2>&1 || true
 }
 
 run_mpd() {
-    have_cmd mpc || { echo "chronocli: mpc not found (install with: apt install mpc)" >&2; exit 1; }
-    have_cmd curl || { echo "chronocli: curl not found" >&2; exit 1; }
+    have_cmd mpc || { echo "chronosend: mpc not found (install with: apt install mpc)" >&2; exit 1; }
+    have_cmd curl || { echo "chronosend: curl not found" >&2; exit 1; }
 
-    format="${CHRONOMSG_MPD_FORMAT:-$DEFAULT_MPD_FORMAT}"
+    format="${CHRONOSEND_MPD_FORMAT:-$DEFAULT_MPD_FORMAT}"
     interval=""
-    ttl_buffer="${CHRONOMSG_MPD_TTL_BUFFER:-$DEFAULT_MPD_TTL_BUFFER}"
-    fallback_ttl="${CHRONOMSG_MPD_FALLBACK_TTL:-$DEFAULT_MPD_FALLBACK_TTL}"
+    ttl_buffer="${CHRONOSEND_MPD_TTL_BUFFER:-$DEFAULT_MPD_TTL_BUFFER}"
+    fallback_ttl="${CHRONOSEND_MPD_FALLBACK_TTL:-$DEFAULT_MPD_FALLBACK_TTL}"
     size=medium
     last=""
 
@@ -191,10 +191,10 @@ run_mpd() {
             --small) size=small; shift ;;
             --medium) size=medium; shift ;;
             --big) size=big; shift ;;
-            --dry-run) CHRONOCLI_DRY_RUN=true; shift ;;
-            --debug) CHRONOCLI_DEBUG=true; shift ;;
+            --dry-run) CHRONOSEND_DRY_RUN=true; shift ;;
+            --debug) CHRONOSEND_DEBUG=true; shift ;;
             --help|-h) usage ;;
-            *) echo "chronocli mpd: unknown option: $1" >&2; exit 2 ;;
+            *) echo "chronosend mpd: unknown option: $1" >&2; exit 2 ;;
         esac
     done
 
@@ -244,8 +244,8 @@ do_install() {
     was_active=false
     systemctl --user is-active "$SERVICE_NAME" >/dev/null 2>&1 && was_active=true
 
-    cp "$self" "$INSTALL_DIR/chronocli"
-    chmod 755 "$INSTALL_DIR/chronocli"
+    cp "$self" "$INSTALL_DIR/chronosend"
+    chmod 755 "$INSTALL_DIR/chronosend"
 
     cat > "$SERVICE_DIR/$SERVICE_NAME.service" <<EOF
 [Unit]
@@ -254,10 +254,10 @@ After=network-online.target
 Wants=mpd.service
 
 [Service]
-ExecStart=$INSTALL_DIR/chronocli mpd
+ExecStart=$INSTALL_DIR/chronosend mpd
 Restart=always
 RestartSec=5
-Environment=CHRONOMSG_MPD_FORMAT="$DEFAULT_MPD_FORMAT"
+Environment=CHRONOSEND_MPD_FORMAT="$DEFAULT_MPD_FORMAT"
 
 [Install]
 WantedBy=default.target
@@ -269,15 +269,15 @@ EOF
     else
         systemctl --user enable --now "$SERVICE_NAME" 2>/dev/null || return 1
     fi
-    echo "chronocli: installed to $INSTALL_DIR/chronocli"
+    echo "chronosend: installed to $INSTALL_DIR/chronosend"
 }
 
 do_uninstall() {
     systemctl --user disable --now "$SERVICE_NAME" 2>/dev/null || true
     rm -f "$SERVICE_DIR/$SERVICE_NAME.service"
     systemctl --user daemon-reload 2>/dev/null || true
-    rm -f "$INSTALL_DIR/chronocli"
-    echo "chronocli: removed"
+    rm -f "$INSTALL_DIR/chronosend"
+    echo "chronosend: removed"
 }
 
 case "${1:-}" in

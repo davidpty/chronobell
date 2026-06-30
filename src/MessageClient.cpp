@@ -1,6 +1,6 @@
 #include "MessageClient.h"
 
-#if CHRONOMSG_ENABLED
+#if CHRONOSERVE_ENABLED
 
 #include <WiFi.h>
 #include <WiFiClient.h>
@@ -82,7 +82,7 @@ bool currentEpoch(TimeProvider* provider, time_t& epoch) {
 uint32_t chronoScrollPassMsForWidth(int textWidthPx) {
     if (textWidthPx <= 0) return 0;
     uint32_t finalFrame = (uint32_t)COLS_PER_ROW + (uint32_t)textWidthPx;
-    return (finalFrame + 1UL) * (uint32_t)CHRONOMSG_SCROLL_STEP_MS;
+    return (finalFrame + 1UL) * (uint32_t)CHRONOSERVE_SCROLL_STEP_MS;
 }
 
 int chronoScrollTextWidth(const String& text, uint8_t mode) {
@@ -92,7 +92,7 @@ int chronoScrollTextWidth(const String& text, uint8_t mode) {
         char c = text[i];
         if (c == ' ') {
             if (inWord) {
-                width += CHRONOMSG_SCROLL_WORD_GAP_PX;
+                width += CHRONOSERVE_SCROLL_WORD_GAP_PX;
                 inWord = false;
             }
             continue;
@@ -104,7 +104,7 @@ int chronoScrollTextWidth(const String& text, uint8_t mode) {
         inWord = true;
     }
     if (width > 0) {
-        width += CHRONOMSG_SCROLL_EXIT_PAD_PX;
+        width += CHRONOSERVE_SCROLL_EXIT_PAD_PX;
     }
     return width;
 }
@@ -285,7 +285,7 @@ String jsonObjectField(const String& obj, const char* key) {
 
 bool parseChronoMessageObject(const String& obj, ChronoMessage& msg, TimeProvider* timeProvider) {
     msg = ChronoMessage();
-    msg.id = jsonStringField(obj, "id", "", CHRONOMSG_MAX_ID_LEN);
+    msg.id = jsonStringField(obj, "id", "", CHRONOSERVE_MAX_ID_LEN);
     msg.id.trim();
     if (msg.id.length() == 0) return false;
 
@@ -293,8 +293,8 @@ bool parseChronoMessageObject(const String& obj, ChronoMessage& msg, TimeProvide
     msg.type = jsonStringField(obj, "type", "", LOCAL_DISPLAY_TEXT_MAX_LEN);
     msg.revision = jsonUIntField(obj, "revision", 0);
     msg.priority = constrain(jsonIntField(obj, "priority", 5), 0, 9);
-    msg.title = normalizeMessageText(jsonStringField(obj, "title", "", CHRONOMSG_MAX_TEXT_LEN));
-    msg.body = normalizeMessageText(jsonStringField(obj, "body", "", CHRONOMSG_MAX_TEXT_LEN));
+    msg.title = normalizeMessageText(jsonStringField(obj, "title", "", CHRONOSERVE_MAX_TEXT_LEN));
+    msg.body = normalizeMessageText(jsonStringField(obj, "body", "", CHRONOSERVE_MAX_TEXT_LEN));
     if (msg.title.length() == 0 && msg.body.length() == 0) return false;
     msg.created = jsonUIntField(obj, "created", 0);
     msg.expires = jsonUIntField(obj, "expires", 0);
@@ -309,7 +309,7 @@ bool parseChronoMessageObject(const String& obj, ChronoMessage& msg, TimeProvide
     msg.dismissible = jsonBoolField(policy, "dismissible", msg.policy == MessagePolicyKind::Inbox);
     msg.repeatSec = (uint16_t)constrain(jsonIntField(policy, "repeatSec", 0), 0, 3600);
     if (msg.policy == MessagePolicyKind::Repeat && msg.repeatSec == 0) {
-        msg.repeatSec = CHRONOMSG_SONG_REPEAT_SEC;
+        msg.repeatSec = CHRONOSERVE_SONG_REPEAT_SEC;
     }
 
     String display = jsonObjectField(obj, "display");
@@ -355,7 +355,7 @@ bool parseChronoMessagesBody(const String& body, ChronoMessage* out, uint8_t& co
     if (arrayEnd < 0) return false;
 
     int pos = value + 1;
-    while (pos < arrayEnd && count < CHRONOMSG_MAX_MESSAGES) {
+    while (pos < arrayEnd && count < CHRONOSERVE_MAX_MESSAGES) {
         pos = skipJsonWhitespace(body, pos);
         if (pos >= arrayEnd) break;
         if (body[pos] == ',') {
@@ -377,10 +377,10 @@ bool parseChronoMessagesBody(const String& body, ChronoMessage* out, uint8_t& co
 
 String normalizeMessageText(const String& text) {
     String out;
-    out.reserve(CHRONOMSG_MAX_TEXT_LEN);
+    out.reserve(CHRONOSERVE_MAX_TEXT_LEN);
     bool pendingSpace = false;
 
-    for (size_t i = 0; i < text.length() && out.length() < CHRONOMSG_MAX_TEXT_LEN; ++i) {
+    for (size_t i = 0; i < text.length() && out.length() < CHRONOSERVE_MAX_TEXT_LEN; ++i) {
         unsigned char c = (unsigned char)text[i];
         char mapped = 0;
 
@@ -414,7 +414,7 @@ String normalizeMessageText(const String& text) {
             pendingSpace = out.length() > 0;
             continue;
         }
-        if (pendingSpace && out.length() < CHRONOMSG_MAX_TEXT_LEN) {
+        if (pendingSpace && out.length() < CHRONOSERVE_MAX_TEXT_LEN) {
             out += ' ';
         }
         pendingSpace = false;
@@ -463,17 +463,17 @@ MessageLayout layoutMessageText(const String& title, const String& body, uint8_t
 
 void MessageClient::begin(TimeProvider* timeProvider) {
     _timeProvider = timeProvider;
-    if (!CHRONOMSG_ENABLED || _started) return;
+    if (!CHRONOSERVE_ENABLED || _started) return;
     _mutex = xSemaphoreCreateMutex();
     if (!_mutex) {
-        LOGLN("ChronoMsg: mutex create failed");
+        LOGLN("ChronoServe: mutex create failed");
         return;
     }
     _taskStop = false;
-    BaseType_t ok = xTaskCreatePinnedToCore(taskEntry, "chronomsg", CHRONOMSG_TASK_STACK_WORDS,
+    BaseType_t ok = xTaskCreatePinnedToCore(taskEntry, "chronoserve", CHRONOSERVE_TASK_STACK_WORDS,
                                             this, LOCAL_NETWORK_TASK_PRIORITY, &_task, 0);
     if (ok != pdPASS) {
-        LOGLN("ChronoMsg: task create failed");
+        LOGLN("ChronoServe: task create failed");
         _task = nullptr;
         return;
     }
@@ -498,21 +498,21 @@ void MessageClient::update() {
         int previewSlot = _previewSlot;
         bool currentNeedsRemoval = _previewPendingRemoval;
         hidePreviewLocked();
-        if (currentNeedsRemoval && previewSlot >= 0 && previewSlot < CHRONOMSG_MAX_MESSAGES) {
+        if (currentNeedsRemoval && previewSlot >= 0 && previewSlot < CHRONOSERVE_MAX_MESSAGES) {
             _slots[previewSlot] = MessageSlot();
         }
         _previewPendingRemoval = false;
     }
     if (!_previewVisible) {
         int bestIdx = -1;
-        for (uint8_t i = 0; i < CHRONOMSG_MAX_MESSAGES; ++i) {
+        for (uint8_t i = 0; i < CHRONOSERVE_MAX_MESSAGES; ++i) {
             const MessageSlot& s = _slots[i];
             if (!s.msg.valid || !s.unread) continue;
             bool due = false;
             if (!s.firstPreviewShown) {
                 due = s.firstPreviewDueMs > 0 && (int32_t)(nowMs - s.firstPreviewDueMs) >= 0;
             } else if (s.msg.policy == MessagePolicyKind::Repeat) {
-                uint32_t repeatMs = (uint32_t)(s.msg.repeatSec > 0 ? s.msg.repeatSec : CHRONOMSG_SONG_REPEAT_SEC) * 1000UL;
+                uint32_t repeatMs = (uint32_t)(s.msg.repeatSec > 0 ? s.msg.repeatSec : CHRONOSERVE_SONG_REPEAT_SEC) * 1000UL;
                 uint32_t basis = s.lastPreviewEndMs > 0 ? s.lastPreviewEndMs : s.lastPreviewMs;
                 due = basis > 0 && (int32_t)(nowMs - (basis + repeatMs)) >= 0;
             }
@@ -532,7 +532,7 @@ void MessageClient::update() {
 bool MessageClient::hasUnread() const {
     if (!_mutex || xSemaphoreTake(_mutex, 0) != pdTRUE) return false;
     bool found = false;
-    for (uint8_t i = 0; i < CHRONOMSG_MAX_MESSAGES; ++i) {
+    for (uint8_t i = 0; i < CHRONOSERVE_MAX_MESSAGES; ++i) {
         const MessageSlot& s = _slots[i];
         if (s.msg.valid && s.unread && s.msg.policy == MessagePolicyKind::Inbox && s.msg.indicator) { found = true; break; }
     }
@@ -543,7 +543,7 @@ bool MessageClient::hasUnread() const {
 int MessageClient::unreadCount() const {
     if (!_mutex || xSemaphoreTake(_mutex, 0) != pdTRUE) return 0;
     int count = 0;
-    for (int i = 0; i < CHRONOMSG_MAX_MESSAGES; i++) {
+    for (int i = 0; i < CHRONOSERVE_MAX_MESSAGES; i++) {
         if (_slots[i].known && _slots[i].unread &&
             _slots[i].msg.policy == MessagePolicyKind::Inbox && _slots[i].msg.indicator) count++;
     }
@@ -554,7 +554,7 @@ int MessageClient::unreadCount() const {
 int MessageClient::highestPriority() const {
     if (!_mutex || xSemaphoreTake(_mutex, 0) != pdTRUE) return -1;
     int hp = -1;
-    for (int i = 0; i < CHRONOMSG_MAX_MESSAGES; i++) {
+    for (int i = 0; i < CHRONOSERVE_MAX_MESSAGES; i++) {
         if (_slots[i].known && _slots[i].unread &&
             _slots[i].msg.policy == MessagePolicyKind::Inbox && _slots[i].msg.indicator) {
             if (_slots[i].msg.priority > hp) hp = _slots[i].msg.priority;
@@ -567,7 +567,7 @@ int MessageClient::highestPriority() const {
 int MessageClient::indicatorPriority() const {
     if (!_mutex || xSemaphoreTake(_mutex, 0) != pdTRUE) return -1;
     int hp = -1;
-    for (uint8_t i = 0; i < CHRONOMSG_MAX_MESSAGES; ++i) {
+    for (uint8_t i = 0; i < CHRONOSERVE_MAX_MESSAGES; ++i) {
         const MessageSlot& s = _slots[i];
         if (s.msg.valid && s.unread && s.msg.policy == MessagePolicyKind::Inbox && s.msg.indicator) {
             if (s.msg.priority > hp) hp = s.msg.priority;
@@ -599,8 +599,8 @@ bool MessageClient::showNextUnread() {
     if (!_mutex || xSemaphoreTake(_mutex, 0) != pdTRUE) return false;
     int start = _previewVisible ? _previewSlot : -1;
     int next = -1;
-    for (int i = 1; i < CHRONOMSG_MAX_MESSAGES; ++i) {
-        int idx = (start + i) % CHRONOMSG_MAX_MESSAGES;
+    for (int i = 1; i < CHRONOSERVE_MAX_MESSAGES; ++i) {
+        int idx = (start + i) % CHRONOSERVE_MAX_MESSAGES;
         if (_slots[idx].msg.valid && _slots[idx].unread &&
             _slots[idx].msg.policy == MessagePolicyKind::Inbox) {
             next = idx;
@@ -619,8 +619,8 @@ bool MessageClient::showPrevUnread() {
     if (!_mutex || xSemaphoreTake(_mutex, 0) != pdTRUE) return false;
     int start = _previewVisible ? _previewSlot : 0;
     int prev = -1;
-    for (int i = 1; i < CHRONOMSG_MAX_MESSAGES; ++i) {
-        int idx = (start - i + CHRONOMSG_MAX_MESSAGES) % CHRONOMSG_MAX_MESSAGES;
+    for (int i = 1; i < CHRONOSERVE_MAX_MESSAGES; ++i) {
+        int idx = (start - i + CHRONOSERVE_MAX_MESSAGES) % CHRONOSERVE_MAX_MESSAGES;
         if (_slots[idx].msg.valid && _slots[idx].unread &&
             _slots[idx].msg.policy == MessagePolicyKind::Inbox) {
             prev = idx;
@@ -653,7 +653,7 @@ void MessageClient::noteCurrentPreviewRendered(bool finished) {
 
 bool MessageClient::dismissCurrentOrHide() {
     if (!_mutex || xSemaphoreTake(_mutex, 0) != pdTRUE) return false;
-    if (!_previewVisible || _previewSlot < 0 || _previewSlot >= CHRONOMSG_MAX_MESSAGES) {
+    if (!_previewVisible || _previewSlot < 0 || _previewSlot >= CHRONOSERVE_MAX_MESSAGES) {
         xSemaphoreGive(_mutex);
         return false;
     }
@@ -666,8 +666,8 @@ bool MessageClient::dismissCurrentOrHide() {
         slot = MessageSlot();
 
         int next = -1;
-        for (int i = 1; i < CHRONOMSG_MAX_MESSAGES; ++i) {
-            int idx = (start + i) % CHRONOMSG_MAX_MESSAGES;
+        for (int i = 1; i < CHRONOSERVE_MAX_MESSAGES; ++i) {
+            int idx = (start + i) % CHRONOSERVE_MAX_MESSAGES;
             if (_slots[idx].msg.valid && _slots[idx].unread &&
                 _slots[idx].msg.policy == MessagePolicyKind::Inbox) {
                 next = idx;
@@ -688,7 +688,7 @@ bool MessageClient::dismissCurrentOrHide() {
 
 void MessageClient::queueDismissalLocked(const String& id) {
     if (id.length() == 0) return;
-    if (_pendingDismissalCount >= CHRONOMSG_MAX_MESSAGES) return;
+    if (_pendingDismissalCount >= CHRONOSERVE_MAX_MESSAGES) return;
     for (uint8_t i = 0; i < _pendingDismissalCount; ++i) {
         if (_pendingDismissalIds[i] == id) return;
     }
@@ -697,7 +697,7 @@ void MessageClient::queueDismissalLocked(const String& id) {
 
 bool MessageClient::sendDismissal(const String& id) {
     if (id.length() == 0 || WiFi.status() != WL_CONNECTED) return false;
-    String url = String(CHRONOMSG_URL) + "?msg&dismiss=" + id;
+    String url = String(CHRONOSERVE_URL) + "?msg&dismiss=" + id;
     ParsedHttpUrl parsed;
     if (!parseHttpUrl(url.c_str(), parsed)) return false;
     WiFiClient client;
@@ -727,12 +727,12 @@ void MessageClient::mergeMessages(const ChronoMessage* incoming, uint8_t count) 
     uint32_t nowMs = millis();
 
     if (xSemaphoreTake(_mutex, pdMS_TO_TICKS(50)) != pdTRUE) return;
-    bool seen[CHRONOMSG_MAX_MESSAGES] = {};
+    bool seen[CHRONOSERVE_MAX_MESSAGES] = {};
 
-    for (uint8_t d = 0; d < CHRONOMSG_MAX_MESSAGES; ++d) {
+    for (uint8_t d = 0; d < CHRONOSERVE_MAX_MESSAGES; ++d) {
         if (!_dismissed[d].valid) continue;
         bool stillPresent = false;
-        for (uint8_t i = 0; i < count && i < CHRONOMSG_MAX_MESSAGES; ++i) {
+        for (uint8_t i = 0; i < count && i < CHRONOSERVE_MAX_MESSAGES; ++i) {
             if (incoming[i].valid && incoming[i].id == _dismissed[d].id) {
                 stillPresent = true;
                 break;
@@ -743,7 +743,7 @@ void MessageClient::mergeMessages(const ChronoMessage* incoming, uint8_t count) 
         }
     }
 
-    for (uint8_t i = 0; i < count && i < CHRONOMSG_MAX_MESSAGES; ++i) {
+    for (uint8_t i = 0; i < count && i < CHRONOSERVE_MAX_MESSAGES; ++i) {
         ChronoMessage msg = incoming[i];
         if (!msg.valid || msg.id.length() == 0 || isDismissedLocked(msg.id)) continue;
         if (validTime && msg.expires > 0 && msg.expires <= (uint32_t)nowEpoch) continue;
@@ -751,7 +751,7 @@ void MessageClient::mergeMessages(const ChronoMessage* incoming, uint8_t count) 
         int idx = findSlotByIdLocked(msg.id);
         bool isNew = idx < 0;
         if (idx < 0) {
-            for (uint8_t s = 0; s < CHRONOMSG_MAX_MESSAGES; ++s) {
+            for (uint8_t s = 0; s < CHRONOSERVE_MAX_MESSAGES; ++s) {
                 if (!_slots[s].msg.valid) {
                     idx = s;
                     break;
@@ -786,7 +786,7 @@ void MessageClient::mergeMessages(const ChronoMessage* incoming, uint8_t count) 
         }
     }
 
-    for (uint8_t i = 0; i < CHRONOMSG_MAX_MESSAGES; ++i) {
+    for (uint8_t i = 0; i < CHRONOSERVE_MAX_MESSAGES; ++i) {
         if (_slots[i].msg.valid && !seen[i]) {
             if (_previewSlot == (int)i && _previewVisible &&
                 _previewWaitForRenderFinish && !_previewRenderFinished) {
@@ -803,7 +803,7 @@ void MessageClient::mergeMessages(const ChronoMessage* incoming, uint8_t count) 
 
 void MessageClient::pruneExpiredLocked(time_t nowEpoch, bool timeValid, uint32_t) {
     if (!timeValid) return;
-    for (uint8_t i = 0; i < CHRONOMSG_MAX_MESSAGES; ++i) {
+    for (uint8_t i = 0; i < CHRONOSERVE_MAX_MESSAGES; ++i) {
         if (_slots[i].msg.valid && _slots[i].msg.expires > 0 &&
             _slots[i].msg.expires <= (uint32_t)nowEpoch) {
             if (_previewSlot == (int)i && _previewVisible &&
@@ -819,7 +819,7 @@ void MessageClient::pruneExpiredLocked(time_t nowEpoch, bool timeValid, uint32_t
 
 int MessageClient::selectedSlotLocked(bool inboxOnly) const {
     int best = -1;
-    for (uint8_t i = 0; i < CHRONOMSG_MAX_MESSAGES; ++i) {
+    for (uint8_t i = 0; i < CHRONOSERVE_MAX_MESSAGES; ++i) {
         const MessageSlot& s = _slots[i];
         if (!s.msg.valid || !s.unread) continue;
         if (inboxOnly && s.msg.policy != MessagePolicyKind::Inbox) continue;
@@ -834,14 +834,14 @@ int MessageClient::selectedSlotLocked(bool inboxOnly) const {
 }
 
 int MessageClient::findSlotByIdLocked(const String& id) const {
-    for (uint8_t i = 0; i < CHRONOMSG_MAX_MESSAGES; ++i) {
+    for (uint8_t i = 0; i < CHRONOSERVE_MAX_MESSAGES; ++i) {
         if (_slots[i].msg.valid && _slots[i].msg.id == id) return i;
     }
     return -1;
 }
 
 bool MessageClient::isDismissedLocked(const String& id) const {
-    for (uint8_t i = 0; i < CHRONOMSG_MAX_MESSAGES; ++i) {
+    for (uint8_t i = 0; i < CHRONOSERVE_MAX_MESSAGES; ++i) {
         if (_dismissed[i].valid && _dismissed[i].id == id) return true;
     }
     return false;
@@ -849,23 +849,23 @@ bool MessageClient::isDismissedLocked(const String& id) const {
 
 void MessageClient::rememberDismissedLocked(const String& id) {
     if (id.length() == 0) return;
-    for (uint8_t i = 0; i < CHRONOMSG_MAX_MESSAGES; ++i) {
+    for (uint8_t i = 0; i < CHRONOSERVE_MAX_MESSAGES; ++i) {
         if (!_dismissed[i].valid) {
             _dismissed[i].id = id;
             _dismissed[i].valid = true;
             return;
         }
     }
-    for (uint8_t i = 1; i < CHRONOMSG_MAX_MESSAGES; ++i) {
+    for (uint8_t i = 1; i < CHRONOSERVE_MAX_MESSAGES; ++i) {
         _dismissed[i - 1] = _dismissed[i];
     }
-    _dismissed[CHRONOMSG_MAX_MESSAGES - 1].id = id;
-    _dismissed[CHRONOMSG_MAX_MESSAGES - 1].valid = true;
+    _dismissed[CHRONOSERVE_MAX_MESSAGES - 1].id = id;
+    _dismissed[CHRONOSERVE_MAX_MESSAGES - 1].valid = true;
 }
 
 bool MessageClient::copySelectedLocked(ChronoMessage& message) const {
     int idx = _previewVisible ? _previewSlot : selectedSlotLocked(true);
-    if (idx < 0 || idx >= CHRONOMSG_MAX_MESSAGES || !_slots[idx].msg.valid) return false;
+    if (idx < 0 || idx >= CHRONOSERVE_MAX_MESSAGES || !_slots[idx].msg.valid) return false;
     message = _slots[idx].msg;
     if (message.renderText.length() == 0) {
         message.renderText = combineMessageText(message.title, message.body);
@@ -874,13 +874,13 @@ bool MessageClient::copySelectedLocked(ChronoMessage& message) const {
 }
 
 void MessageClient::startPreviewLocked(int idx, uint32_t nowMs) {
-    if (idx < 0 || idx >= CHRONOMSG_MAX_MESSAGES || !_slots[idx].msg.valid) return;
+    if (idx < 0 || idx >= CHRONOSERVE_MAX_MESSAGES || !_slots[idx].msg.valid) return;
     _previewSlot = idx;
     _previewVisible = true;
 
     const ChronoMessage& msg = _slots[idx].msg;
     uint32_t previewMs = _manualPreview ? MENU_TIMEOUT_SHORT_SECONDS * 1000UL
-                                        : (uint32_t)CHRONOMSG_DEFAULT_DURATION_SEC * 1000UL;
+                                        : (uint32_t)CHRONOSERVE_MIN_DURATION_SEC * 1000UL;
 
     MessageLayout layout = layoutMessageText(msg.renderText.length() > 0 ? msg.renderText : msg.title,
                                              msg.renderText.length() > 0 ? String() : msg.body,
@@ -891,7 +891,7 @@ void MessageClient::startPreviewLocked(int idx, uint32_t nowMs) {
         int scrollW = chronoScrollTextWidth(layout.line1, layout.displayMode);
         if (scrollW > 0) {
             uint32_t passMs = chronoScrollPassMsForWidth(scrollW);
-            uint32_t minScrollMs = passMs * (uint32_t)CHRONOMSG_MIN_SCROLL_CYCLES;
+            uint32_t minScrollMs = passMs * (uint32_t)CHRONOSERVE_MIN_SCROLL_CYCLES;
             previewMs = max(previewMs, minScrollMs);
         }
     }
@@ -906,7 +906,7 @@ void MessageClient::startPreviewLocked(int idx, uint32_t nowMs) {
 }
 
 void MessageClient::hidePreviewLocked() {
-    if (_previewSlot >= 0 && _previewSlot < CHRONOMSG_MAX_MESSAGES && _slots[_previewSlot].msg.valid) {
+    if (_previewSlot >= 0 && _previewSlot < CHRONOSERVE_MAX_MESSAGES && _slots[_previewSlot].msg.valid) {
         _slots[_previewSlot].lastPreviewEndMs = millis();
     }
     _manualPreview = false;
@@ -935,7 +935,7 @@ void MessageClient::taskLoop() {
             vTaskDelay(pdMS_TO_TICKS(250));
             continue;
         }
-        if (lastPollMs == 0 || (now - lastPollMs) >= (uint32_t)CHRONOMSG_POLL_INTERVAL_SEC * 1000UL) {
+        if (lastPollMs == 0 || (now - lastPollMs) >= (uint32_t)CHRONOSERVE_POLL_INTERVAL_SEC * 1000UL) {
             lastPollMs = now;
             while (true) {
                 String dismissId;
@@ -957,7 +957,7 @@ void MessageClient::taskLoop() {
                 }
                 vTaskDelay(pdMS_TO_TICKS(50));
             }
-            ChronoMessage parsed[CHRONOMSG_MAX_MESSAGES];
+            ChronoMessage parsed[CHRONOSERVE_MAX_MESSAGES];
             uint8_t count = 0;
             if (pollOnce(parsed, count)) {
                 mergeMessages(parsed, count);
@@ -971,7 +971,7 @@ void MessageClient::taskLoop() {
 bool MessageClient::pollOnce(ChronoMessage* out, uint8_t& count) {
     count = 0;
     if (WiFi.status() != WL_CONNECTED) return false;
-    String url = String(CHRONOMSG_URL) + "?msg";
+    String url = String(CHRONOSERVE_URL) + "?msg";
     ParsedHttpUrl parsed;
     if (!parseHttpUrl(url.c_str(), parsed)) return false;
 
@@ -989,11 +989,11 @@ bool MessageClient::pollOnce(ChronoMessage* out, uint8_t& count) {
     client.print("\r\nConnection: close\r\nUser-Agent: ChronoBell\r\nAccept: application/json\r\n\r\n");
 
     String response;
-    response.reserve(CHRONOMSG_MAX_RESPONSE_BYTES);
+    response.reserve(CHRONOSERVE_MAX_RESPONSE_BYTES);
     while ((client.connected() || client.available()) &&
            (millis() - startMs) < LOCAL_HTTP_TOTAL_TIMEOUT_MS) {
         while (client.available()) {
-            if (response.length() >= CHRONOMSG_MAX_RESPONSE_BYTES) {
+            if (response.length() >= CHRONOSERVE_MAX_RESPONSE_BYTES) {
                 client.stop();
                 return false;
             }
@@ -1012,7 +1012,7 @@ bool MessageClient::pollOnce(ChronoMessage* out, uint8_t& count) {
     if (body.length() == 0 || body[0] != '{') return false;
 
     if (!parseChronoMessagesBody(body, out, count, _timeProvider)) return false;
-    LOGF("ChronoMsg: parsed %u message(s)\n", (unsigned)count);
+    LOGF("ChronoServe: parsed %u message(s)\n", (unsigned)count);
     return true;
 }
 

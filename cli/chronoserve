@@ -1,22 +1,22 @@
 #!/bin/sh
 
-BASE="${CHRONOMSG_BASE:-/etc/chronomsg}"
-MSG_DIR="${CHRONOMSG_MSG_DIR:-$BASE/messages.d}"
-OUT="${CHRONOMSG_OUT:-$BASE/messages.json}"
-STATE_FILE="${CHRONOMSG_STATE_FILE:-$BASE/domain-state}"
-LOCK_FILE="${CHRONOMSG_LOCK_FILE:-$BASE/check-domain.lock}"
-LOG_FILE="${CHRONOMSG_LOG_FILE:-$BASE/chronomsg.log}"
-CRON_FILE="${CHRONOMSG_CRON_FILE:-/etc/crontabs/root}"
-GQR_STATE="${CHRONOMSG_GQR_STATE:-$BASE/guestqr-state}"
-GQR_CONFIG="${CHRONOMSG_GQR_CONFIG:-$BASE/guestqr-config}"
-GQR_SEED="${CHRONOMSG_GQR_SEED:-$BASE/guestqr-seed}"
-GQR_SSID="${CHRONOMSG_GQR_SSID:-NEXO-GUEST}"
-GQR_SECTION="${CHRONOMSG_GQR_SECTION:-guest2g}"
-GQR_ROTATE="${CHRONOMSG_GQR_ROTATE:-weekly}"
-GQR_LENGTH="${CHRONOMSG_GQR_LENGTH:-12}"
-GQR_ALPHABET="${CHRONOMSG_GQR_ALPHABET:-ABCDEFGHJKLNPQRTUVXYZ}"
-GQR_OUTDIR="${CHRONOMSG_GQR_OUTDIR:-/www/qr}"
-DISMISSED_FILE="${CHRONOMSG_DISMISSED_FILE:-$BASE/dismissed}"
+BASE="${CHRONOSERVE_BASE:-/etc/chronoserve}"
+MSG_DIR="${CHRONOSERVE_MSG_DIR:-$BASE/messages.d}"
+OUT="${CHRONOSERVE_OUT:-$BASE/messages.json}"
+STATE_FILE="${CHRONOSERVE_STATE_FILE:-$BASE/domain-state}"
+LOCK_FILE="${CHRONOSERVE_LOCK_FILE:-$BASE/check-domain.lock}"
+LOG_FILE="${CHRONOSERVE_LOG_FILE:-$BASE/chronoserve.log}"
+CRON_FILE="${CHRONOSERVE_CRON_FILE:-/etc/crontabs/root}"
+GQR_STATE="${CHRONOSERVE_GQR_STATE:-$BASE/guestqr-state}"
+GQR_CONFIG="${CHRONOSERVE_GQR_CONFIG:-$BASE/guestqr-config}"
+GQR_SEED="${CHRONOSERVE_GQR_SEED:-$BASE/guestqr-seed}"
+GQR_SSID="${CHRONOSERVE_GQR_SSID:-NEXO-GUEST}"
+GQR_SECTION="${CHRONOSERVE_GQR_SECTION:-guest2g}"
+GQR_ROTATE="${CHRONOSERVE_GQR_ROTATE:-weekly}"
+GQR_LENGTH="${CHRONOSERVE_GQR_LENGTH:-12}"
+GQR_ALPHABET="${CHRONOSERVE_GQR_ALPHABET:-ABCDEFGHJKLNPQRTUVXYZ}"
+GQR_OUTDIR="${CHRONOSERVE_GQR_OUTDIR:-/www/qr}"
+DISMISSED_FILE="${CHRONOSERVE_DISMISSED_FILE:-$BASE/dismissed}"
 LOCK_STALE_SEC=900
 DISMISSED_RETENTION_SEC=31536000
 
@@ -104,7 +104,7 @@ guestqr_resolve_seed() {
         sed -n '1p' "$GQR_SEED" 2>/dev/null
         return 0
     fi
-    tr -dc 'a-z0-9' < /dev/urandom | head -c 24 2>/dev/null || printf 'chronomsg-default-seed'
+    tr -dc 'a-z0-9' < /dev/urandom | head -c 24 2>/dev/null || printf 'chronoserve-default-seed'
 }
 
 guestqr_save_seed() {
@@ -141,7 +141,7 @@ guestwifi_json_fragment() {
     fi
     if [ -z "$password" ]; then
         seed="$(guestqr_resolve_seed)"
-        [ -n "$seed" ] || seed="chronomsg-default-seed"
+        [ -n "$seed" ] || seed="chronoserve-default-seed"
         [ -f "$GQR_SEED" ] || guestqr_save_seed "$seed"
         password="$(guestqr_current_password)"
     fi
@@ -210,7 +210,7 @@ request_data() {
 }
 
 query_param_value() {
-    query="${CHRONOMSG_REQUEST_DATA:-${QUERY_STRING:-}}"
+    query="${CHRONOSERVE_REQUEST_DATA:-${QUERY_STRING:-}}"
     key="$1"
     case "$query" in
         "$key="*|*"&$key="*) url_decode "$(printf '%s' "$query" | sed "s/.*$key=//; s/&.*//")" ;;
@@ -219,7 +219,7 @@ query_param_value() {
 }
 
 query_param_present() {
-    query="${CHRONOMSG_REQUEST_DATA:-${QUERY_STRING:-}}"
+    query="${CHRONOSERVE_REQUEST_DATA:-${QUERY_STRING:-}}"
     key="$1"
     case "&$query&" in
         *"&$key&"*|*"&$key="*) return 0 ;;
@@ -375,7 +375,7 @@ serve_payload() {
     cgi="${1:-false}"
     ensure_base
     mode=""
-    CHRONOMSG_REQUEST_DATA="$(request_data)"
+    CHRONOSERVE_REQUEST_DATA="$(request_data)"
     if [ "$cgi" = true ]; then
         first_param="${QUERY_STRING%%&*}"
         first_param="${first_param%%=*}"
@@ -631,7 +631,7 @@ add_message() {
     fi
     if [ -z "$id" ]; then
         slug="$(safe_id "$(printf '%s-%s' "$title" "$now")")"
-        id="${slug:-chronomsg-$now}"
+        id="${slug:-chronoserve-$now}"
     fi
     id="$(safe_id "$id")"
     [ -n "$id" ] || {
@@ -692,7 +692,7 @@ clear_message() {
         return 0
     fi
     [ "$#" -eq 1 ] || {
-        printf 'Usage: chronomsg clear <id>  or  chronomsg clear --all\n' >&2
+        printf 'Usage: chronoserve clear <id>  or  chronoserve clear --all\n' >&2
         return 2
     }
     ensure_base
@@ -703,7 +703,7 @@ clear_message() {
 
 dismiss_message() {
     id="${1:-}"
-    [ -z "$id" ] && { printf 'Usage: chronomsg dismiss <id>\n' >&2; return 2; }
+    [ -z "$id" ] && { printf 'Usage: chronoserve dismiss <id>\n' >&2; return 2; }
     ensure_base
     id="$(safe_id "$id")"
     [ -z "$id" ] && { printf 'Invalid id\n' >&2; return 2; }
@@ -719,7 +719,7 @@ dismiss_message() {
 
 undismiss_message() {
     id="${1:-}"
-    [ -z "$id" ] && { printf 'Usage: chronomsg undismiss <id>\n' >&2; return 2; }
+    [ -z "$id" ] && { printf 'Usage: chronoserve undismiss <id>\n' >&2; return 2; }
     ensure_base
     id="$(safe_id "$id")"
     [ -z "$id" ] && { printf 'Invalid id\n' >&2; return 2; }
@@ -943,7 +943,7 @@ check_domain() {
                 shift ;;
         esac
     done
-    [ -z "$domain" ] && { printf 'Usage: chronomsg check-domain <domain> [--id suffix] [--force]\n' >&2; return 2; }
+    [ -z "$domain" ] && { printf 'Usage: chronoserve check-domain <domain> [--id suffix] [--force]\n' >&2; return 2; }
     domain="$(printf '%s' "$domain" | tr 'A-Z' 'a-z')"
     [ -n "$suffix" ] || suffix="$(domain_suffix "$domain")"
     [ -n "$suffix" ] || suffix=domain
@@ -1034,7 +1034,7 @@ check_domain() {
 
 test_domain() {
     domain="$1"
-    [ -z "$domain" ] && { printf 'Usage: chronomsg test-domain <domain>\n' >&2; return 2; }
+    [ -z "$domain" ] && { printf 'Usage: chronoserve test-domain <domain>\n' >&2; return 2; }
     suffix="$(domain_suffix "$domain")"
     domain="$(printf '%s' "$domain" | tr 'A-Z' 'a-z')"
 
@@ -1190,7 +1190,7 @@ guestqr_run() {
         esac
     done
 
-    [ -z "$seed" ] && seed=$(tr -dc 'a-z0-9' < /dev/urandom | head -c 24 2>/dev/null || printf 'chronomsg-default-seed')
+    [ -z "$seed" ] && seed=$(tr -dc 'a-z0-9' < /dev/urandom | head -c 24 2>/dev/null || printf 'chronoserve-default-seed')
     ensure_base
     guestqr_save_config
     guestqr_save_seed "$seed"
@@ -1356,7 +1356,7 @@ PAGE
 # ===== Cron management =====
 
 reload_cron() {
-    [ "${CHRONOMSG_NO_CRON_RELOAD:-0}" = 1 ] && return 0
+    [ "${CHRONOSERVE_NO_CRON_RELOAD:-0}" = 1 ] && return 0
     if [ -x /etc/init.d/cron ]; then
         /etc/init.d/cron restart >/dev/null 2>&1 || /etc/init.d/cron reload >/dev/null 2>&1 || true
     fi
@@ -1364,24 +1364,24 @@ reload_cron() {
 
 cron_list() {
     if [ -f "$CRON_FILE" ]; then
-        grep "/usr/bin/chronomsg" "$CRON_FILE" || printf 'no chronomsg cron entries\n'
+        grep "/usr/bin/chronoserve" "$CRON_FILE" || printf 'no chronoserve cron entries\n'
     else
-        printf 'no chronomsg cron entries\n'
+        printf 'no chronoserve cron entries\n'
     fi
 }
 
 cron_add() {
     feature="${1:-}"
     shift 2>/dev/null || true
-    [ -z "$feature" ] && { printf 'Usage: chronomsg cron add check-domain <domain>|guestqr [--hour H] [--minute M] [--weekday N]\n' >&2; return 2; }
+    [ -z "$feature" ] && { printf 'Usage: chronoserve cron add check-domain <domain>|guestqr [--hour H] [--minute M] [--weekday N]\n' >&2; return 2; }
     ensure_base
     mkdir -p "$(dirname "$CRON_FILE")" 2>/dev/null || true
     line=""
     case "$feature" in
         check-domain)
             domain="${1:-}"
-            [ -z "$domain" ] && { printf 'Usage: chronomsg cron add check-domain <domain>\n' >&2; return 2; }
-            line="0 * * * * /usr/bin/chronomsg check-domain $domain >/dev/null 2>&1"
+            [ -z "$domain" ] && { printf 'Usage: chronoserve cron add check-domain <domain>\n' >&2; return 2; }
+            line="0 * * * * /usr/bin/chronoserve check-domain $domain >/dev/null 2>&1"
             ;;
         guestqr)
             hour=3; minute=0; weekday="*"
@@ -1393,7 +1393,7 @@ cron_add() {
                     *) shift ;;
                 esac
             done
-            line="$minute $hour * * $weekday /usr/bin/chronomsg guestqr >/dev/null 2>&1"
+            line="$minute $hour * * $weekday /usr/bin/chronoserve guestqr >/dev/null 2>&1"
             ;;
         *)
             printf 'Unknown cron feature: %s\n' "$feature" >&2
@@ -1411,11 +1411,11 @@ cron_add() {
 
 cron_remove() {
     feature="${1:-}"
-    [ -z "$feature" ] && { printf 'Usage: chronomsg cron remove check-domain|guestqr\n' >&2; return 2; }
+    [ -z "$feature" ] && { printf 'Usage: chronoserve cron remove check-domain|guestqr\n' >&2; return 2; }
     ensure_base
     tmp="$BASE/crontab.$$"
     if [ -f "$CRON_FILE" ]; then
-        grep -v "/usr/bin/chronomsg $feature " "$CRON_FILE" > "$tmp" 2>/dev/null || true
+        grep -v "/usr/bin/chronoserve $feature " "$CRON_FILE" > "$tmp" 2>/dev/null || true
         mv "$tmp" "$CRON_FILE"
     fi
     reload_cron
@@ -1426,29 +1426,29 @@ cron_uninstall() {
     ensure_base
     tmp="$BASE/crontab.$$"
     if [ -f "$CRON_FILE" ]; then
-        grep -v "/usr/bin/chronomsg" "$CRON_FILE" > "$tmp" 2>/dev/null || true
+        grep -v "/usr/bin/chronoserve" "$CRON_FILE" > "$tmp" 2>/dev/null || true
         mv "$tmp" "$CRON_FILE"
     fi
     reload_cron
-    printf 'removed all chronomsg cron entries\n'
+    printf 'removed all chronoserve cron entries\n'
 }
 
 usage() {
     cat <<'EOF'
 Usage:
-  chronomsg serve [--cgi]
-  chronomsg add [options] TITLE BODY
-  chronomsg clear ID
-  chronomsg list [--all]
-  chronomsg rebuild
-  chronomsg dismiss ID
-  chronomsg undismiss ID
-  chronomsg dismissed
-  chronomsg check-domain <domain> [--id suffix] [--force]
-  chronomsg test-domain <domain>
-  chronomsg guestqr [options]
-  chronomsg cron list|add|remove|uninstall
-  chronomsg help
+  chronoserve serve [--cgi]
+  chronoserve add [options] TITLE BODY
+  chronoserve clear ID
+  chronoserve list [--all]
+  chronoserve rebuild
+  chronoserve dismiss ID
+  chronoserve undismiss ID
+  chronoserve dismissed
+  chronoserve check-domain <domain> [--id suffix] [--force]
+  chronoserve test-domain <domain>
+  chronoserve guestqr [options]
+  chronoserve cron list|add|remove|uninstall
+  chronoserve help
 
 Add options:
   -i, --inbox         Keep in message view until dismissed
@@ -1477,11 +1477,11 @@ Guestqr options:
   --no-html            Skip HTML/QR file generation
 
 Cron commands:
-  cron list            List active chronomsg cron entries
+  cron list            List active chronoserve cron entries
   cron add check-domain <domain>             Hourly domain check
   cron add guestqr [--hour H] [--minute M] [--weekday N]   Guest QR rotation (default: daily)
   cron remove check-domain|guestqr           Remove cron entries by feature
-  cron uninstall                             Remove all chronomsg cron entries
+  cron uninstall                             Remove all chronoserve cron entries
 EOF
 }
 
@@ -1540,7 +1540,7 @@ case "$cmd" in
             add) cron_add "$@" ;;
             remove) cron_remove "$@" ;;
             uninstall) cron_uninstall ;;
-            *) printf 'Usage: chronomsg cron list|add|remove|uninstall\n' >&2; exit 2 ;;
+            *) printf 'Usage: chronoserve cron list|add|remove|uninstall\n' >&2; exit 2 ;;
         esac
         ;;
     help|-h|--help)

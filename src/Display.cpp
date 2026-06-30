@@ -492,7 +492,7 @@ void Display::renderBuffer() {
     flushBufferToLeds();
 }
 
-#if CHRONOMSG_ENABLED
+#if CHRONOSERVE_ENABLED
 void Display::renderChronoMessageBuffer() {
 #if SCREEN_TRANSITION
     _screenTransition.cancel();
@@ -977,7 +977,7 @@ void Display::drawGuestWifiText(bool showSsid) {
 }
 #endif
 
-#if CHRONOMSG_ENABLED
+#if CHRONOSERVE_ENABLED
 static void drawChronoGlyphClipped(Display& display, char c, int x, int y, uint8_t mode) {
     if (c == ' ') return;
 
@@ -1019,7 +1019,7 @@ static int chronoTextWidth(const String& text, uint8_t mode) {
         char c = text[i];
         if (c == ' ') {
             if (inWord) {
-                width += CHRONOMSG_SCROLL_WORD_GAP_PX;
+                width += CHRONOSERVE_SCROLL_WORD_GAP_PX;
                 inWord = false;
             }
             continue;
@@ -1031,7 +1031,7 @@ static int chronoTextWidth(const String& text, uint8_t mode) {
         inWord = true;
     }
     if (width > 0) {
-        width += CHRONOMSG_SCROLL_EXIT_PAD_PX;
+        width += CHRONOSERVE_SCROLL_EXIT_PAD_PX;
     }
     return mode == 2
         ? width
@@ -1065,7 +1065,7 @@ static void drawChronoTextClipped(Display& display, const String& text, int x, i
         char c = text[i];
         if (c == ' ') {
             if (inWord) {
-                x += CHRONOMSG_SCROLL_WORD_GAP_PX;
+                x += CHRONOSERVE_SCROLL_WORD_GAP_PX;
                 inWord = false;
             }
             continue;
@@ -1080,7 +1080,7 @@ static void drawChronoTextClipped(Display& display, const String& text, int x, i
 void Display::resetChronoScroll(const String& text, uint8_t mode, uint16_t stepMs, unsigned long previewStartMs) {
     _chronoScrollText = text;
     _chronoScrollMode = mode;
-    _chronoScrollStepMs = stepMs > 0 ? stepMs : CHRONOMSG_SCROLL_STEP_MS;
+    _chronoScrollStepMs = stepMs > 0 ? stepMs : CHRONOSERVE_SCROLL_STEP_MS;
     _chronoScrollPreviewStartMs = previewStartMs;
     _chronoScrollLastAdvanceMs = 0;
     _chronoScrollX = COLS_PER_ROW;
@@ -1091,7 +1091,7 @@ void Display::resetChronoScroll(const String& text, uint8_t mode, uint16_t stepM
 }
 
 bool Display::drawChronoScrollFrame(const String& text, int y, uint8_t mode, uint16_t stepMs, unsigned long nowMs, unsigned long previewStartMs) {
-    if (stepMs == 0) stepMs = CHRONOMSG_SCROLL_STEP_MS;
+    if (stepMs == 0) stepMs = CHRONOSERVE_SCROLL_STEP_MS;
     if (_chronoScrollState == ChronoScrollRenderState::Inactive ||
         _chronoScrollPreviewStartMs != previewStartMs ||
         _chronoScrollText != text ||
@@ -1106,14 +1106,6 @@ bool Display::drawChronoScrollFrame(const String& text, int y, uint8_t mode, uin
             _chronoScrollState = ChronoScrollRenderState::Finished;
             return true;
         }
-
-#if CHRONOMSG_SCROLL_DEBUG
-        Serial.printf("ChronoMsg scrollX=%d textWidth=%d visible=%d finished=%d\n",
-                      _chronoScrollX,
-                      _chronoScrollTextWidth,
-                      (_chronoScrollX < COLS_PER_ROW && _chronoScrollX + _chronoScrollTextWidth > 0),
-                      (_chronoScrollX <= -_chronoScrollTextWidth));
-#endif
 
         bool advance = false;
         if (_chronoScrollLastAdvanceMs == 0) {
@@ -1141,7 +1133,7 @@ bool Display::drawChronoMessage(const ChronoMessage& message, unsigned long nowM
         return true;
     }
 
-    uint16_t stepMs = CHRONOMSG_SCROLL_STEP_MS;
+    uint16_t stepMs = CHRONOSERVE_SCROLL_STEP_MS;
     uint8_t mode = layout.displayMode;
     bool finished = true;
 

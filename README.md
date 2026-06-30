@@ -10,7 +10,7 @@ ChronoBell is a compact LED clock with a bright, easy-to-read display, simple to
 
 **9 display styles + 5 date views** - Big digits, a configurable INFO overlay, word clock, roman numerals, binary, bar graphs, drift, pong, or a configurable random view. INFO can show seconds, deciseconds, date, WDAY, or alternate between date and WDAY every N seconds after entering ALT. Drift uses the big digital layout, but lets displayed time slowly move away from real time and return. BAR turns hours, minutes, and optional seconds into stacked progress bars. Pong plays a live rally that scores the current time. Date views include day and month, year, moon phase, Western zodiac, and Chinese zodiac. Tap to peek at any view.
 
-**Local messages** - Pulls short notices from any LAN device and shows them as brief previews. Choose font size, auto-dismiss timing, even bell strikes - all from the sender. Rendered by one general ChronoMsg preview path.
+**Local messages** - Pulls short notices from any LAN device and shows them as brief previews. Choose font size, auto-dismiss timing, even bell strikes - all from the sender. Rendered by one general ChronoServe preview path.
 
 **Guest WiFi on screen** - Shows the guest network name and password right on the clock. No phone needed. Good for lobbies, cafes, offices.
 
@@ -30,7 +30,7 @@ ChronoBell is a compact LED clock with a bright, easy-to-read display, simple to
 - **Manual time** - Switch from atomic (NTP + RTC) to manual and step through HH→MM→SS→Month→Day→Year. Persists across reboots.
 - **Config portal** - Scan WiFi networks, pick a timezone, tune display and bell settings, upload firmware - all from a browser.
 - **New Year's Eve feature** - On Dec 31 from 9 PM, tiny sparkles appear and grow more frequent. At 23:50 the countdown begins, at midnight the display cycles through "HAPPY NEW YEAR" with 12 bell strikes.
-- **Local messages** - Send one-shot messages from any machine using `cli/chronocli`. Attach bell strikes, pick font size, pipe from build tools. Router-side scripts can also post messages for domain expiry, backup status, etc.
+- **Local messages** - Send one-shot messages from any machine using `cli/chronosend`. Attach bell strikes, pick font size, pipe from build tools. Router-side scripts can also post messages for domain expiry, backup status, etc.
 - **Timekeeping** - NTP syncs every 60 minutes when WiFi is available. The RTC keeps time when it's not. Manual mode bypasses both.
 - **OTA updates** - Push firmware over the air at `chronobell.local`.
 
@@ -89,15 +89,15 @@ Display timing is firmware-owned. The sender only supplies the message text and 
 Default firmware config in `Config.h`:
 
 ```cpp
-#define CHRONOMSG_ENABLED 1
-#define CHRONOMSG_URL "http://192.168.8.1/cgi-bin/chronomsg"
-#define CHRONOMSG_POLL_INTERVAL_SEC 60
-#define CHRONOMSG_MAX_MESSAGES 5
+#define CHRONOSERVE_ENABLED 1
+#define CHRONOSERVE_URL "http://192.168.8.1/cgi-bin/chronoserve"
+#define CHRONOSERVE_POLL_INTERVAL_SEC 10
+#define CHRONOSERVE_MAX_MESSAGES 5
 ```
 
 ### Display behavior
 
-When a message preview is active, the firmware uses one general ChronoMsg renderer for every source. Clock style does not change the routing.
+When a message preview is active, the firmware uses one general ChronoServe renderer for every source. Clock style does not change the routing.
 
 Touch interaction per-message: a short press on center shows the next unread message; a long-press on center dismisses it. `autoDismiss` messages skip the unread queue entirely.
 
@@ -177,38 +177,38 @@ The indicator blinks `count` times at the priority period, then pauses 1.5s befo
 
 ### Router Message Endpoint
 
-The `wrt/chronomsg` script is a self-contained POSIX shell tool for GL.iNet/OpenWrt routers. Install it as `/usr/bin/chronomsg` and expose it as a CGI wrapper:
+The `cli/chronoserve` script is a self-contained POSIX shell tool for GL.iNet/OpenWrt routers. Install it as `/usr/bin/chronoserve` and expose it as a CGI wrapper:
 
 ```sh
-scp wrt/chronomsg root@192.168.8.1:/usr/bin/chronomsg
+scp cli/chronoserve root@192.168.8.1:/usr/bin/chronoserve
 ssh root@192.168.8.1
-chmod +x /usr/bin/chronomsg
+chmod +x /usr/bin/chronoserve
 mkdir -p /www/cgi-bin
-cat > /www/cgi-bin/chronomsg <<'EOF'
+cat > /www/cgi-bin/chronoserve <<'EOF'
 #!/bin/sh
-exec /usr/bin/chronomsg serve --cgi
+exec /usr/bin/chronoserve serve --cgi
 EOF
-chmod +x /www/cgi-bin/chronomsg
+chmod +x /www/cgi-bin/chronoserve
 ```
 
 Test the endpoint:
 
 ```sh
-/usr/bin/chronomsg add DOMAIN "AVAILABLE"
-wget -qO- "http://192.168.8.1/cgi-bin/chronomsg?msg"
-wget -qO- "http://192.168.8.1/cgi-bin/chronomsg?wifi"
+/usr/bin/chronoserve add DOMAIN "AVAILABLE"
+wget -qO- "http://192.168.8.1/cgi-bin/chronoserve?msg"
+wget -qO- "http://192.168.8.1/cgi-bin/chronoserve?wifi"
 ```
 
-`chronomsg` stores state under `$BASE` (default `/etc/chronomsg/`), including message files, the cached message payload, domain-check state, guest QR seed/config state, a cron lock, and dismissed IDs. State persists across reboots; the tool recreates missing directories on use.
+`chronoserve` stores state under `$BASE` (default `/etc/chronoserve/`), including message files, the cached message payload, domain-check state, guest QR seed/config state, a cron lock, and dismissed IDs. State persists across reboots; the tool recreates missing directories on use.
 
 Useful commands:
 
 ```sh
-/usr/bin/chronomsg serve
-/usr/bin/chronomsg serve --cgi
-/usr/bin/chronomsg add DOMAIN "AVAILABLE"
+/usr/bin/chronoserve serve
+/usr/bin/chronoserve serve --cgi
+/usr/bin/chronoserve add DOMAIN "AVAILABLE"
 
-/usr/bin/chronomsg add \
+/usr/bin/chronoserve add \
   --id domain-drop-comonoclaroquesi \
   --source domain-watch \
   --type alert \
@@ -220,19 +220,19 @@ Useful commands:
   --force \
   --bell 3,2,1
 
-/usr/bin/chronomsg clear domain-drop-comonoclaroquesi
-/usr/bin/chronomsg list
-/usr/bin/chronomsg rebuild
-/usr/bin/chronomsg check-domain comonoclaroquesi.com
-/usr/bin/chronomsg cron add check-domain comonoclaroquesi.com
-/usr/bin/chronomsg cron remove check-domain
+/usr/bin/chronoserve clear domain-drop-comonoclaroquesi
+/usr/bin/chronoserve list
+/usr/bin/chronoserve rebuild
+/usr/bin/chronoserve check-domain comonoclaroquesi.com
+/usr/bin/chronoserve cron add check-domain comonoclaroquesi.com
+/usr/bin/chronoserve cron remove check-domain
 ```
 
 The CGI endpoint is query-driven:
 
 - `?msg` serves the cached message JSON and accepts `dismiss=<id>`
 - `?wifi` serves the guest WiFi JSON
-- `?add` creates a message using the same fields as `chronomsg add`
+- `?add` creates a message using the same fields as `chronoserve add`
 - `?clear&id=<id>` clears a message, and `?clear&all=true` clears all messages
 - `?dismiss&id=<id>` dismisses a message, and `?undismiss&id=<id>` makes it visible again
 - `?dismissed` lists dismissed message IDs
@@ -244,21 +244,21 @@ The write/control API accepts both query strings and `application/x-www-form-url
 Examples:
 
 ```sh
-curl -G "http://192.168.8.1/cgi-bin/chronomsg?add" \
+curl -G "http://192.168.8.1/cgi-bin/chronoserve?add" \
   --data-urlencode title="BACKUP" \
   --data-urlencode body="DONE" \
   --data-urlencode priority=7 \
   --data-urlencode ttl=3600
 
-curl -G "http://192.168.8.1/cgi-bin/chronomsg?clear" \
+curl -G "http://192.168.8.1/cgi-bin/chronoserve?clear" \
   --data-urlencode id="backup-1782580100"
 
-curl -G "http://192.168.8.1/cgi-bin/chronomsg?guestqr" \
+curl -G "http://192.168.8.1/cgi-bin/chronoserve?guestqr" \
   --data-urlencode rotate=weekly \
   --data-urlencode ssid="NEXO-GUEST" \
   --data-urlencode length=12
 
-curl -G "http://192.168.8.1/cgi-bin/chronomsg?check-domain" \
+curl -G "http://192.168.8.1/cgi-bin/chronoserve?check-domain" \
   --data-urlencode domain="comonoclaroquesi.com" \
   --data-urlencode force=true
 ```
@@ -270,8 +270,8 @@ curl -G "http://192.168.8.1/cgi-bin/chronomsg?check-domain" \
 Domain checks run from cron or manually:
 
 ```sh
-/usr/bin/chronomsg cron add check-domain comonoclaroquesi.com
-/usr/bin/chronomsg check-domain comonoclaroquesi.com
+/usr/bin/chronoserve cron add check-domain comonoclaroquesi.com
+/usr/bin/chronoserve check-domain comonoclaroquesi.com
 ```
 
 The domain checker is conservative. It tries WHOIS first, then falls back to RDAP if WHOIS fails or returns ambiguous results. WHOIS `redemptionPeriod` or `pendingDelete` creates a priority 7 `DOMAIN / REDEMPTION` alert. WHOIS or RDAP no-match creates a priority 9 `DOMAIN / AVAILABLE` alert. Registered domains with name servers or registrar fields create no alert. Ambiguous status creates a lower-priority `DOMAIN / CHECK` alert. Network errors update state to `ERROR`.
@@ -279,47 +279,47 @@ The domain checker is conservative. It tries WHOIS first, then falls back to RDA
 Manual tests:
 
 ```sh
-rm -rf /etc/chronomsg
-/usr/bin/chronomsg serve
-/usr/bin/chronomsg add DOMAIN "AVAILABLE"
-/usr/bin/chronomsg serve
-/usr/bin/chronomsg clear <id>
-/usr/bin/chronomsg add --ttl 1 TEST EXPIRE
+rm -rf /etc/chronoserve
+/usr/bin/chronoserve serve
+/usr/bin/chronoserve add DOMAIN "AVAILABLE"
+/usr/bin/chronoserve serve
+/usr/bin/chronoserve clear <id>
+/usr/bin/chronoserve add --ttl 1 TEST EXPIRE
 sleep 2
-/usr/bin/chronomsg rebuild
-/usr/bin/chronomsg cron add check-domain comonoclaroquesi.com
-grep chronomsg /etc/crontabs/root
-/usr/bin/chronomsg cron remove check-domain
+/usr/bin/chronoserve rebuild
+/usr/bin/chronoserve cron add check-domain comonoclaroquesi.com
+grep chronoserve /etc/crontabs/root
+/usr/bin/chronoserve cron remove check-domain
 ```
 
-Troubleshooting starts with `$BASE/chronomsg.log` and `$BASE/domain-state`. Set `CHRONOMSG_BASE` to change the state directory. If neither `whois` nor `curl`/`wget` exists on the router, `check-domain` enters the safe `ERROR` state and does not create alerts.
+Troubleshooting starts with `$BASE/chronoserve.log` and `$BASE/domain-state`. Set `CHRONOSERVE_BASE` to change the state directory. If neither `whois` nor `curl`/`wget` exists on the router, `check-domain` enters the safe `ERROR` state and does not create alerts.
 
 ---
 
-## chronocli — send messages from your laptop
+## chronosend — send messages from your laptop
 
-`cli/chronocli` is a standalone POSIX shell script that sends one-shot messages to the chronomsg CGI endpoint. It mirrors all `chronomsg add` options and adds fire-and-forget defaults — no lingering indicator, no user dismiss needed.
+`cli/chronosend` is a standalone POSIX shell script that sends one-shot messages to the chronoserve CGI endpoint. It mirrors all `chronoserve add` options and adds fire-and-forget defaults — no lingering indicator, no user dismiss needed.
 
 ### Install
 
-Copy `cli/chronocli` somewhere on your `$PATH`:
+Copy `cli/chronosend` somewhere on your `$PATH`:
 
 ```sh
-sudo cp cli/chronocli /usr/local/bin/chronocli
-sudo chmod +x /usr/local/bin/chronocli
+sudo cp cli/chronosend /usr/local/bin/chronosend
+sudo chmod +x /usr/local/bin/chronosend
 ```
 
 ### Usage
 
 ```sh
-chronocli [options] <body>
+chronosend [options] <body>
 ```
 
 ### Options
 
 | Option | Description |
 |--------|-------------|
-| `CHRONOMSG_URL` | CGI endpoint (default `http://192.168.8.1/cgi-bin/chronomsg`) |
+| `CHRONOSERVE_URL` | CGI endpoint (default `http://192.168.8.1/cgi-bin/chronoserve`) |
 | `--title <text>` | Optional header line shown above the body |
 | `--mode <0\|1\|2>` | Font size: 0=small, 1=medium, 2=big (default `1`) |
 | `--bell <pattern>` | Bell strikes, e.g. `3` or `3,2,1` |
@@ -333,27 +333,27 @@ chronocli [options] <body>
 
 ```sh
 # Basic notification
-chronocli MAKE "EXIT 0"
+chronosend MAKE "EXIT 0"
 
 # Big full-screen alert with bell
-chronocli --mode 2 --bell 3 "INTRUSION DETECTED"
+chronosend --mode 2 --bell 3 "INTRUSION DETECTED"
 
 # Pipe from a build
-make 2>&1 | head -5 && chronocli MAKE "EXIT 0"
+make 2>&1 | head -5 && chronosend MAKE "EXIT 0"
 
 # Info-line notification (small font)
-chronocli --mode 0 BACKUP "DONE"
+chronosend --mode 0 BACKUP "DONE"
 
 # Dry-run to see what would be sent
-chronocli --dry-run TEST "MESSAGE"
+chronosend --dry-run TEST "MESSAGE"
 ```
 
 ### MPD mode
 
-`chronocli mpd` watches MPD for song changes and posts now-playing messages using the same general ChronoMsg preview path as custom messages.
+`chronosend mpd` watches MPD for song changes and posts now-playing messages using the same general ChronoServe preview path as custom messages.
 
 ```sh
-chronocli mpd
+chronosend mpd
 ```
 
 It uses `mpc` to fetch the current song. On each song change, it gets the song duration from `mpc status "%totaltime%"` and sets the message TTL to match (song length + 10s buffer). The firmware always lets scrolling titles complete a full pass from a blank screen back to a blank screen.
@@ -364,10 +364,10 @@ Configure via environment variables:
 
 | Env var | Default | Description |
 |---------|---------|-------------|
-| `CHRONOMSG_MPD_FORMAT` | `%artist% - %title%` | `mpc current -f` format string |
-| `CHRONOMSG_MPD_MODE` | `""` | Display mode: empty=firmware default(medium/1), `0`=small, `1`=medium, `2`=big |
+| `CHRONOSEND_MPD_FORMAT` | `%artist% - %title%` | `mpc current -f` format string |
+| `CHRONOSEND_MPD_MODE` | `""` | Display mode: empty=firmware default(medium/1), `0`=small, `1`=medium, `2`=big |
 
-Or edit the header constants in `cli/chronocli`:
+Or edit the header constants in `cli/chronosend`:
 
 | Constant | Default | Description |
 |----------|---------|-------------|
@@ -376,24 +376,24 @@ Or edit the header constants in `cli/chronocli`:
 Set env vars at runtime or in the systemd service:
 
 ```sh
-CHRONOMSG_MPD_MODE=0 chronocli mpd
+CHRONOSEND_MPD_MODE=0 chronosend mpd
 ```
 
 Install as a systemd user service:
 
 ```sh
-chronocli install
+chronosend install
 ```
 
-This copies the script to `~/.local/bin/` and creates a user service at `~/.config/systemd/user/chronocli-mpd.service`. Override any default via:
+This copies the script to `~/.local/bin/` and creates a user service at `~/.config/systemd/user/chronosend-mpd.service`. Override any default via:
 
 ```sh
-systemctl --user edit chronocli-mpd
+systemctl --user edit chronosend-mpd
 ```
 
 ```ini
 [Service]
-Environment=CHRONOMSG_MPD_MODE=0
+Environment=CHRONOSEND_MPD_MODE=0
 ```
 
 ## Bell Modes
@@ -523,11 +523,11 @@ Open `Config.h` to adjust these:
 | `CAP1188_TOUCH_THRESHOLD` | `0x35` | Touch sensitivity - lower numbers trip more easily |
 | `NIGHT_DIM_START_HOUR` | `19` (7 PM) | When night dimming starts |
 | `GUEST_WIFI_ENABLED` | `1` | Set to `0` to compile guest WiFi out |
-| `CHRONOMSG_URL` | `http://192.168.8.1/cgi-bin/chronomsg` | Base CGI endpoint; append `?msg` or `?wifi` |
-| `CHRONOMSG_POLL_INTERVAL_SEC` | `60` | Message poll interval in seconds |
-| `CHRONOMSG_DEFAULT_DURATION_SEC` | `10` | Default preview lifetime used by firmware |
-| `CHRONOMSG_SCROLL_STEP_MS` | `140` | Firmware scroll animation ms/pixel |
-| `CHRONOMSG_MIN_SCROLL_CYCLES` | `1` | Minimum complete scroll passes before firmware may time out |
+| `CHRONOSERVE_URL` | `http://192.168.8.1/cgi-bin/chronoserve` | Base CGI endpoint; append `?msg` or `?wifi` |
+| `CHRONOSERVE_POLL_INTERVAL_SEC` | `60` | Message poll interval in seconds |
+| `CHRONOSERVE_MIN_DURATION_SEC` | `10` | Minimum preview lifetime; scrolling extends beyond this as needed |
+| `CHRONOSERVE_SCROLL_STEP_MS` | `140` | Firmware scroll animation ms/pixel |
+| `CHRONOSERVE_MIN_SCROLL_CYCLES` | `1` | Minimum complete scroll passes before firmware may time out |
 | `TIME_SYNC_INTERVAL_MINUTES` | `60` | How often NTP re-syncs |
 | `RND_STYLE_INTERVAL_MINUTES` | `360` | RND change interval aligned to local midnight (`360` = 00:00, 06:00, 12:00...; valid 1-1440) |
 | `HOTSPOT_TIMEOUT_MINUTES` | `0` | Auto-stop hotspot after N minutes (`0` = stays on) |

@@ -310,9 +310,9 @@ bool textFitsDisplay(const char* text) {
 void GuestWifiController::begin() {
     _ssid[0] = '\0';
     _password[0] = '\0';
-    _disabled = (CHRONOMSG_URL[0] == '\0');
+    _disabled = (CHRONOSERVE_URL[0] == '\0');
     if (_disabled) {
-        LOGLN("Guest WiFi: disabled (ChronoMsg URL is empty)");
+        LOGLN("Guest WiFi: disabled (ChronoServe URL is empty)");
         return;
     }
 
@@ -485,7 +485,7 @@ void GuestWifiController::taskLoop() {
         if (shouldFetch) {
             char ssid[LOCAL_DISPLAY_TEXT_MAX_LEN];
             char password[LOCAL_DISPLAY_TEXT_MAX_LEN];
-            String url = String(CHRONOMSG_URL) + "?wifi";
+            String url = String(CHRONOSERVE_URL) + "?wifi";
             bool ok = fetchBlocking(url.c_str(), ssid, sizeof(ssid), password, sizeof(password));
             applyFetchResult(ok, reason, ssid, password);
         }

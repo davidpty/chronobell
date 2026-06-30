@@ -119,7 +119,7 @@ void ClockApp::beginControllers() {
 #if GUEST_WIFI_ENABLED
     _guestWifi.begin();
 #endif
-#if CHRONOMSG_ENABLED
+#if CHRONOSERVE_ENABLED
     _messageClient.begin(&_timeProvider);
 #endif
 
@@ -383,7 +383,7 @@ void ClockApp::render() {
     syncDateStyleSelection();
     applyEffectiveDisplayBrightness();
 
-#if CHRONOMSG_ENABLED
+#if CHRONOSERVE_ENABLED
     ChronoMessage previewMessage;
     if (_messageClient.currentPreview(previewMessage)) {
         bool finished = _display.drawChronoMessage(previewMessage, millis(), _messageClient.previewStartMs());
@@ -427,7 +427,7 @@ void ClockApp::render() {
 
     _display.showTime();
 
-#if CHRONOMSG_ENABLED
+#if CHRONOSERVE_ENABLED
     if (!_messageClient.isPreviewVisible() && _messageClient.hasUnread()) {
         _display.drawUnreadMessageIndicator(_messageClient.unreadCount(), _messageClient.highestPriority(), millis());
     }
@@ -506,7 +506,7 @@ void ClockApp::tickGuestWifi() {
 }
 #endif
 
-#if CHRONOMSG_ENABLED
+#if CHRONOSERVE_ENABLED
 void ClockApp::tickMessages() {
     _messageClient.update();
     if (_messageClient.isPreviewVisible() && !_msgBellFired) {
@@ -855,7 +855,7 @@ void ClockApp::onTouchLeft(uint8_t pad) {
         return;
     }
     _nightModeController.noteUserActivity();
-#if CHRONOMSG_ENABLED
+#if CHRONOSERVE_ENABLED
     if (_messageClient.isPreviewVisible()) {
         _messageClient.showPrevUnread();
         return;
@@ -888,7 +888,7 @@ void ClockApp::onTouchRight(uint8_t pad) {
         return;
     }
     _nightModeController.noteUserActivity();
-#if CHRONOMSG_ENABLED
+#if CHRONOSERVE_ENABLED
     if (_messageClient.isPreviewVisible()) {
         _messageClient.showNextUnread();
         return;
@@ -920,7 +920,7 @@ void ClockApp::onTouchMiddleShort(uint8_t pad) {
         return;
     }
     _nightModeController.noteUserActivity();
-#if CHRONOMSG_ENABLED
+#if CHRONOSERVE_ENABLED
     if (_messageClient.isPreviewVisible()) {
         _messageClient.hidePreview();
         return;
@@ -937,7 +937,7 @@ void ClockApp::onTouchMiddleShort(uint8_t pad) {
 
 void ClockApp::onTouchMiddleLong(uint8_t pad) {
     (void)pad;
-#if CHRONOMSG_ENABLED
+#if CHRONOSERVE_ENABLED
     if (_messageClient.isPreviewVisible()) {
         LOGLN("T4 1.5s: dismiss message");
         _messageClient.dismissCurrentOrHide();
