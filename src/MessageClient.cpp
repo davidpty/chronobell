@@ -493,7 +493,6 @@ void MessageClient::update() {
     pruneExpiredLocked(nowEpoch, validTime, nowMs);
     if (_previewVisible &&
         ((_previewWaitForRenderFinish && _previewRenderFinished) ||
-         (int32_t)(nowMs - _previewSafetyEndMs) >= 0 ||
          ((int32_t)(nowMs - _previewEndMs) >= 0 && !_previewWaitForRenderFinish))) {
         hidePreviewLocked();
     }
@@ -882,7 +881,6 @@ void MessageClient::startPreviewLocked(int idx, uint32_t nowMs) {
 
     _previewStartMs = nowMs;
     _previewEndMs = nowMs + previewMs;
-    _previewSafetyEndMs = nowMs + previewMs + 5000UL;
 
     _slots[idx].firstPreviewShown = true;
     _slots[idx].lastPreviewMs = nowMs;
@@ -899,7 +897,6 @@ void MessageClient::hidePreviewLocked() {
     _previewVisible = false;
     _previewSlot = -1;
     _previewEndMs = 0;
-    _previewSafetyEndMs = 0;
 }
 
 void MessageClient::taskEntry(void* arg) {

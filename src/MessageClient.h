@@ -125,7 +125,6 @@ private:
     bool _previewRenderFinished = true;
     uint32_t _previewStartMs = 0;
     uint32_t _previewEndMs = 0;
-    uint32_t _previewSafetyEndMs = 0;
 };
 
 #endif
