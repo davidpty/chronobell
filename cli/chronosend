@@ -5,7 +5,7 @@ set -eu
 
 CHRONOSERVE_URL="${CHRONOSERVE_URL:-http://192.168.8.1/cgi-bin/chronoserve}"
 
-DEFAULT_MPD_FORMAT="%artist% - %title%"
+DEFAULT_MPD_FORMAT="%title% BY %artist%"
 DEFAULT_MPD_TTL_BUFFER=10
 DEFAULT_MPD_FALLBACK_TTL=300
 
@@ -263,7 +263,7 @@ Wants=mpd.service
 ExecStart=$INSTALL_DIR/chronosend mpd
 Restart=always
 RestartSec=5
-Environment=CHRONOSEND_MPD_FORMAT="%%artist%% - %%title%%"
+Environment=CHRONOSEND_MPD_FORMAT="%%title%% BY %%artist%%"
 
 [Install]
 WantedBy=default.target

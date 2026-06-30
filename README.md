@@ -369,7 +369,7 @@ Configure via environment variables:
 
 | Env var | Default | Description |
 |---------|---------|-------------|
-| `CHRONOSEND_MPD_FORMAT` | `%artist% - %title%` | `mpc current -f` format string |
+| `CHRONOSEND_MPD_FORMAT` | `%title% BY %artist%` | `mpc current -f` format string |
 | `CHRONOSEND_MPD_MODE` | `""` | Display mode: empty=firmware default(medium/1), `0`=small, `1`=medium, `2`=big |
 
 Or edit the header constants in `cli/chronosend`:
