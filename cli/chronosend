@@ -265,9 +265,11 @@ EOF
 
     systemctl --user daemon-reload 2>/dev/null || true
     if [ "$was_active" = true ]; then
-        systemctl --user restart "$SERVICE_NAME" 2>/dev/null || return 1
+        systemctl --user restart "$SERVICE_NAME" 2>/dev/null \
+            || printf 'chronosend: warning - could not restart %s\n' "$SERVICE_NAME" >&2
     else
-        systemctl --user enable --now "$SERVICE_NAME" 2>/dev/null || return 1
+        systemctl --user enable --now "$SERVICE_NAME" 2>/dev/null \
+            || printf 'chronosend: warning - could not enable %s\n' "$SERVICE_NAME" >&2
     fi
     echo "chronosend: installed to $INSTALL_DIR/chronosend"
 }
