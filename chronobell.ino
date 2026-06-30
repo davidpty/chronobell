@@ -147,7 +147,7 @@ void loop() {
 #if GUEST_WIFI_ENABLED
     app.tickGuestWifi();
 #endif
-#if CHRONOMSG_ENABLED
+#if CHRONOSERVE_ENABLED
     app.tickMessages();
 #endif
     app.pollLongPress();
