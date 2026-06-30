@@ -8,10 +8,17 @@
 
 #if CHRONOMSG_ENABLED
 
+enum class MessagePolicyKind : uint8_t {
+    Temporary = 0,
+    Repeat,
+    Inbox
+};
+
 struct ChronoMessage {
     String id;
     String source;
     String type;
+    uint32_t revision = 0;
     int priority = 5;
     String title;
     String body;
@@ -20,7 +27,8 @@ struct ChronoMessage {
     uint32_t expires = 0;
     bool indicator = true;
     bool dismissible = true;
-    bool autoDismiss = false;
+    MessagePolicyKind policy = MessagePolicyKind::Temporary;
+    uint16_t repeatSec = 0;
     uint8_t displayMode = 1;
     bool force = false;
     uint8_t bellPattern[8] = {};
@@ -30,6 +38,8 @@ struct ChronoMessage {
 
 enum class MessageLayoutKind : uint8_t {
     None = 0,
+    CenteredOneLine,
+    CenteredTwoLine,
     Scroll
 };
 
@@ -84,7 +94,7 @@ private:
 
     void mergeMessages(const ChronoMessage* incoming, uint8_t count);
     void pruneExpiredLocked(time_t nowEpoch, bool timeValid, uint32_t nowMs);
-    int selectedSlotLocked() const;
+    int selectedSlotLocked(bool inboxOnly) const;
     int findSlotByIdLocked(const String& id) const;
     bool isDismissedLocked(const String& id) const;
     void rememberDismissedLocked(const String& id);

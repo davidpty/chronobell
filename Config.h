@@ -198,6 +198,7 @@
 #define CHRONOMSG_URL                               "http://192.168.8.1/cgi-bin/chronomsg"     // Router-side CGI endpoint for ChronoMsg
 #define CHRONOMSG_POLL_INTERVAL_SEC                 10                                         // Background poll interval in seconds
 #define CHRONOMSG_DEFAULT_DURATION_SEC              10                                         // Default message lifetime fallback used by firmware
+#define CHRONOMSG_SONG_REPEAT_SEC                   30                                         // Default repeat interval for MPD / repeat-policy messages
 #define CHRONOMSG_SCROLL_STEP_MS                    140                                        // Firmware scroll animation step in milliseconds
 #define CHRONOMSG_MIN_SCROLL_CYCLES                 1                                          // Minimum complete scroll passes before firmware may time out
 #define CHRONOMSG_SCROLL_DEBUG                      0                                          // 1 = log ChronoMsg scroll position each rendered frame

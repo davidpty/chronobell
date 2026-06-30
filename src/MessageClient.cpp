@@ -5,10 +5,13 @@
 #include <WiFi.h>
 #include <WiFiClient.h>
 #include <ctype.h>
+#include <limits.h>
 #include <string.h>
 
 #include "Display.h"
 #include "TimeProvider.h"
+
+static String combineMessageText(const String& title, const String& body);
 
 namespace {
 struct ParsedHttpUrl {
@@ -60,6 +63,18 @@ bool lowerEquals(const String& a, const char* b) {
     return true;
 }
 
+MessagePolicyKind policyKindFromString(const String& value) {
+    if (lowerEquals(value, "repeat")) return MessagePolicyKind::Repeat;
+    if (lowerEquals(value, "inbox")) return MessagePolicyKind::Inbox;
+    return MessagePolicyKind::Temporary;
+}
+
+uint8_t displayModeFromSize(const String& value) {
+    if (lowerEquals(value, "small")) return 0;
+    if (lowerEquals(value, "big")) return 2;
+    return 1;
+}
+
 bool currentEpoch(TimeProvider* provider, time_t& epoch) {
     return provider && provider->currentEpoch(epoch);
 }
@@ -92,6 +107,51 @@ int chronoScrollTextWidth(const String& text, uint8_t mode) {
         width += CHRONOMSG_SCROLL_EXIT_PAD_PX;
     }
     return width;
+}
+
+static bool chronoTextFitsOneLine(const String& text, uint8_t mode) {
+    int width = (mode == 2)
+        ? Display::textWidthBig(text.c_str(), 1, 2)
+        : Display::textWidth(text.c_str(), mode == 0, 1, 2);
+    return width <= COLS_PER_ROW;
+}
+
+static bool chronoTextFitsTwoSmallLines(const String& text, String& line1, String& line2) {
+    line1 = String();
+    line2 = String();
+    if (text.length() == 0) return false;
+
+    int bestScore = INT_MAX;
+    bool found = false;
+    String bestLine1;
+    String bestLine2;
+
+    for (size_t i = 0; i < text.length(); ++i) {
+        if (text[i] != ' ') continue;
+
+        String a = text.substring(0, i);
+        String b = text.substring(i + 1);
+        a.trim();
+        b.trim();
+        if (a.length() == 0 || b.length() == 0) continue;
+
+        int w1 = Display::textWidth(a.c_str(), true, 1, 2);
+        int w2 = Display::textWidth(b.c_str(), true, 1, 2);
+        if (w1 > COLS_PER_ROW || w2 > COLS_PER_ROW) continue;
+
+        int score = abs(w1 - w2);
+        if (!found || score < bestScore || (score == bestScore && (w1 + w2) > (Display::textWidth(bestLine1.c_str(), true, 1, 2) + Display::textWidth(bestLine2.c_str(), true, 1, 2)))) {
+            bestScore = score;
+            found = true;
+            bestLine1 = a;
+            bestLine2 = b;
+        }
+    }
+
+    if (!found) return false;
+    line1 = bestLine1;
+    line2 = bestLine2;
+    return true;
 }
 
 int skipJsonWhitespace(const String& json, int pos) {
@@ -231,6 +291,7 @@ bool parseChronoMessageObject(const String& obj, ChronoMessage& msg, TimeProvide
 
     msg.source = jsonStringField(obj, "source", "", LOCAL_DISPLAY_TEXT_MAX_LEN);
     msg.type = jsonStringField(obj, "type", "", LOCAL_DISPLAY_TEXT_MAX_LEN);
+    msg.revision = jsonUIntField(obj, "revision", 0);
     msg.priority = constrain(jsonIntField(obj, "priority", 5), 0, 9);
     msg.title = normalizeMessageText(jsonStringField(obj, "title", "", CHRONOMSG_MAX_TEXT_LEN));
     msg.body = normalizeMessageText(jsonStringField(obj, "body", "", CHRONOMSG_MAX_TEXT_LEN));
@@ -242,13 +303,19 @@ bool parseChronoMessageObject(const String& obj, ChronoMessage& msg, TimeProvide
         return false;
     }
 
+    String policy = jsonObjectField(obj, "policy");
+    msg.policy = policyKindFromString(jsonStringField(policy, "kind", "temporary", LOCAL_DISPLAY_TEXT_MAX_LEN));
+    msg.indicator = jsonBoolField(policy, "indicator", msg.policy == MessagePolicyKind::Inbox);
+    msg.dismissible = jsonBoolField(policy, "dismissible", msg.policy == MessagePolicyKind::Inbox);
+    msg.repeatSec = (uint16_t)constrain(jsonIntField(policy, "repeatSec", 0), 0, 3600);
+    if (msg.policy == MessagePolicyKind::Repeat && msg.repeatSec == 0) {
+        msg.repeatSec = CHRONOMSG_SONG_REPEAT_SEC;
+    }
+
     String display = jsonObjectField(obj, "display");
-    msg.indicator = jsonBoolField(display, "indicator", true);
-    msg.dismissible = jsonBoolField(display, "dismissible", true);
-    msg.autoDismiss = jsonBoolField(display, "autoDismiss", false);
-    msg.displayMode = (uint8_t)constrain(jsonIntField(display, "mode", 1), 0, 2);
+    msg.displayMode = displayModeFromSize(jsonStringField(display, "size", "medium", LOCAL_DISPLAY_TEXT_MAX_LEN));
     msg.force = jsonBoolField(display, "force", false);
-    msg.renderText = layoutMessageText(msg.title, msg.body, msg.displayMode).line1;
+    msg.renderText = combineMessageText(msg.title, msg.body);
 
     int bellPos = findJsonKeyValueStart(display, "bell");
     if (bellPos >= 0 && bellPos < (int)display.length()) {
@@ -374,6 +441,21 @@ MessageLayout layoutMessageText(const String& title, const String& body, uint8_t
     if (combined.length() == 0) {
         return layout;
     }
+    if (chronoTextFitsOneLine(combined, displayMode)) {
+        layout.kind = MessageLayoutKind::CenteredOneLine;
+        layout.line1 = combined;
+        return layout;
+    }
+    if (displayMode == 0) {
+        String line1;
+        String line2;
+        if (chronoTextFitsTwoSmallLines(combined, line1, line2)) {
+            layout.kind = MessageLayoutKind::CenteredTwoLine;
+            layout.line1 = line1;
+            layout.line2 = line2;
+            return layout;
+        }
+    }
     layout.kind = MessageLayoutKind::Scroll;
     layout.line1 = combined;
     return layout;
@@ -415,13 +497,6 @@ void MessageClient::update() {
          ((int32_t)(nowMs - _previewEndMs) >= 0 && !_previewWaitForRenderFinish))) {
         int previewSlot = _previewSlot;
         bool currentNeedsRemoval = _previewPendingRemoval;
-        if (_previewSlot >= 0 && _slots[_previewSlot].msg.autoDismiss) {
-            String dismissedId = _slots[_previewSlot].msg.id;
-            rememberDismissedLocked(dismissedId);
-            queueDismissalLocked(dismissedId);
-            _slots[_previewSlot] = MessageSlot();
-            currentNeedsRemoval = false;
-        }
         hidePreviewLocked();
         if (currentNeedsRemoval && previewSlot >= 0 && previewSlot < CHRONOMSG_MAX_MESSAGES) {
             _slots[previewSlot] = MessageSlot();
@@ -436,6 +511,10 @@ void MessageClient::update() {
             bool due = false;
             if (!s.firstPreviewShown) {
                 due = s.firstPreviewDueMs > 0 && (int32_t)(nowMs - s.firstPreviewDueMs) >= 0;
+            } else if (s.msg.policy == MessagePolicyKind::Repeat) {
+                uint32_t repeatMs = (uint32_t)(s.msg.repeatSec > 0 ? s.msg.repeatSec : CHRONOMSG_SONG_REPEAT_SEC) * 1000UL;
+                uint32_t basis = s.lastPreviewEndMs > 0 ? s.lastPreviewEndMs : s.lastPreviewMs;
+                due = basis > 0 && (int32_t)(nowMs - (basis + repeatMs)) >= 0;
             }
             if (!due) continue;
             if (bestIdx < 0 ||
@@ -455,7 +534,7 @@ bool MessageClient::hasUnread() const {
     bool found = false;
     for (uint8_t i = 0; i < CHRONOMSG_MAX_MESSAGES; ++i) {
         const MessageSlot& s = _slots[i];
-        if (s.msg.valid && s.unread && s.msg.indicator) { found = true; break; }
+        if (s.msg.valid && s.unread && s.msg.policy == MessagePolicyKind::Inbox && s.msg.indicator) { found = true; break; }
     }
     xSemaphoreGive(_mutex);
     return found;
@@ -465,7 +544,8 @@ int MessageClient::unreadCount() const {
     if (!_mutex || xSemaphoreTake(_mutex, 0) != pdTRUE) return 0;
     int count = 0;
     for (int i = 0; i < CHRONOMSG_MAX_MESSAGES; i++) {
-        if (_slots[i].known && _slots[i].unread && _slots[i].msg.indicator) count++;
+        if (_slots[i].known && _slots[i].unread &&
+            _slots[i].msg.policy == MessagePolicyKind::Inbox && _slots[i].msg.indicator) count++;
     }
     xSemaphoreGive(_mutex);
     return count;
@@ -475,7 +555,8 @@ int MessageClient::highestPriority() const {
     if (!_mutex || xSemaphoreTake(_mutex, 0) != pdTRUE) return -1;
     int hp = -1;
     for (int i = 0; i < CHRONOMSG_MAX_MESSAGES; i++) {
-        if (_slots[i].known && _slots[i].unread && _slots[i].msg.indicator) {
+        if (_slots[i].known && _slots[i].unread &&
+            _slots[i].msg.policy == MessagePolicyKind::Inbox && _slots[i].msg.indicator) {
             if (_slots[i].msg.priority > hp) hp = _slots[i].msg.priority;
         }
     }
@@ -488,7 +569,7 @@ int MessageClient::indicatorPriority() const {
     int hp = -1;
     for (uint8_t i = 0; i < CHRONOMSG_MAX_MESSAGES; ++i) {
         const MessageSlot& s = _slots[i];
-        if (s.msg.valid && s.unread && s.msg.indicator) {
+        if (s.msg.valid && s.unread && s.msg.policy == MessagePolicyKind::Inbox && s.msg.indicator) {
             if (s.msg.priority > hp) hp = s.msg.priority;
         }
     }
@@ -505,7 +586,7 @@ bool MessageClient::currentPreview(ChronoMessage& message) const {
 
 bool MessageClient::showCurrentNow() {
     if (!_mutex || xSemaphoreTake(_mutex, 0) != pdTRUE) return false;
-    int idx = selectedSlotLocked();
+    int idx = selectedSlotLocked(true);
     if (idx >= 0) {
         _manualPreview = true;
         startPreviewLocked(idx, millis());
@@ -520,7 +601,8 @@ bool MessageClient::showNextUnread() {
     int next = -1;
     for (int i = 1; i < CHRONOMSG_MAX_MESSAGES; ++i) {
         int idx = (start + i) % CHRONOMSG_MAX_MESSAGES;
-        if (_slots[idx].msg.valid && _slots[idx].unread) {
+        if (_slots[idx].msg.valid && _slots[idx].unread &&
+            _slots[idx].msg.policy == MessagePolicyKind::Inbox) {
             next = idx;
             break;
         }
@@ -539,7 +621,8 @@ bool MessageClient::showPrevUnread() {
     int prev = -1;
     for (int i = 1; i < CHRONOMSG_MAX_MESSAGES; ++i) {
         int idx = (start - i + CHRONOMSG_MAX_MESSAGES) % CHRONOMSG_MAX_MESSAGES;
-        if (_slots[idx].msg.valid && _slots[idx].unread) {
+        if (_slots[idx].msg.valid && _slots[idx].unread &&
+            _slots[idx].msg.policy == MessagePolicyKind::Inbox) {
             prev = idx;
             break;
         }
@@ -576,7 +659,7 @@ bool MessageClient::dismissCurrentOrHide() {
     }
     int start = _previewSlot;
     MessageSlot& slot = _slots[start];
-    if (slot.msg.dismissible) {
+    if (slot.msg.policy == MessagePolicyKind::Inbox && slot.msg.dismissible) {
         String dismissedId = slot.msg.id;
         rememberDismissedLocked(dismissedId);
         queueDismissalLocked(dismissedId);
@@ -585,7 +668,8 @@ bool MessageClient::dismissCurrentOrHide() {
         int next = -1;
         for (int i = 1; i < CHRONOMSG_MAX_MESSAGES; ++i) {
             int idx = (start + i) % CHRONOMSG_MAX_MESSAGES;
-            if (_slots[idx].msg.valid && _slots[idx].unread) {
+            if (_slots[idx].msg.valid && _slots[idx].unread &&
+                _slots[idx].msg.policy == MessagePolicyKind::Inbox) {
                 next = idx;
                 break;
             }
@@ -678,15 +762,17 @@ void MessageClient::mergeMessages(const ChronoMessage* incoming, uint8_t count) 
 
         MessageSlot& slot = _slots[idx];
         int oldPriority = slot.msg.priority;
+        uint32_t oldRevision = slot.msg.revision;
         slot.msg = msg;
         slot.unread = true;
         slot.known = true;
         slot.order = i;
         seen[idx] = true;
 
-    if (isNew) {
+        if (isNew || msg.revision != oldRevision) {
             slot.firstPreviewShown = false;
             slot.lastPreviewMs = 0;
+            slot.lastPreviewEndMs = 0;
             if (msg.priority >= 9) slot.firstPreviewDueMs = nowMs;
             else if (msg.priority >= 7) slot.firstPreviewDueMs = nowMs + 5000UL;
             else if (msg.priority >= 5) slot.firstPreviewDueMs = nowMs + 1000UL;
@@ -731,11 +817,12 @@ void MessageClient::pruneExpiredLocked(time_t nowEpoch, bool timeValid, uint32_t
     }
 }
 
-int MessageClient::selectedSlotLocked() const {
+int MessageClient::selectedSlotLocked(bool inboxOnly) const {
     int best = -1;
     for (uint8_t i = 0; i < CHRONOMSG_MAX_MESSAGES; ++i) {
         const MessageSlot& s = _slots[i];
         if (!s.msg.valid || !s.unread) continue;
+        if (inboxOnly && s.msg.policy != MessagePolicyKind::Inbox) continue;
         if (best < 0 ||
             s.msg.priority > _slots[best].msg.priority ||
             (s.msg.priority == _slots[best].msg.priority && s.msg.created > _slots[best].msg.created) ||
@@ -777,11 +864,11 @@ void MessageClient::rememberDismissedLocked(const String& id) {
 }
 
 bool MessageClient::copySelectedLocked(ChronoMessage& message) const {
-    int idx = _previewVisible ? _previewSlot : selectedSlotLocked();
+    int idx = _previewVisible ? _previewSlot : selectedSlotLocked(true);
     if (idx < 0 || idx >= CHRONOMSG_MAX_MESSAGES || !_slots[idx].msg.valid) return false;
     message = _slots[idx].msg;
     if (message.renderText.length() == 0) {
-        message.renderText = layoutMessageText(message.title, message.body, message.displayMode).line1;
+        message.renderText = combineMessageText(message.title, message.body);
     }
     return true;
 }
@@ -850,12 +937,24 @@ void MessageClient::taskLoop() {
         }
         if (lastPollMs == 0 || (now - lastPollMs) >= (uint32_t)CHRONOMSG_POLL_INTERVAL_SEC * 1000UL) {
             lastPollMs = now;
-            while (_pendingDismissalCount > 0) {
-                sendDismissal(_pendingDismissalIds[0]);
-                for (uint8_t i = 1; i < _pendingDismissalCount; ++i) {
-                    _pendingDismissalIds[i - 1] = _pendingDismissalIds[i];
+            while (true) {
+                String dismissId;
+                if (_mutex && xSemaphoreTake(_mutex, pdMS_TO_TICKS(20)) == pdTRUE) {
+                    if (_pendingDismissalCount > 0) dismissId = _pendingDismissalIds[0];
+                    xSemaphoreGive(_mutex);
                 }
-                _pendingDismissalCount--;
+                if (dismissId.length() == 0) break;
+                if (!sendDismissal(dismissId)) break;
+                if (_mutex && xSemaphoreTake(_mutex, pdMS_TO_TICKS(20)) == pdTRUE) {
+                    if (_pendingDismissalCount > 0 && _pendingDismissalIds[0] == dismissId) {
+                        for (uint8_t i = 1; i < _pendingDismissalCount; ++i) {
+                            _pendingDismissalIds[i - 1] = _pendingDismissalIds[i];
+                        }
+                        _pendingDismissalIds[_pendingDismissalCount - 1] = String();
+                        _pendingDismissalCount--;
+                    }
+                    xSemaphoreGive(_mutex);
+                }
                 vTaskDelay(pdMS_TO_TICKS(50));
             }
             ChronoMessage parsed[CHRONOMSG_MAX_MESSAGES];

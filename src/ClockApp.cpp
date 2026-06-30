@@ -923,6 +923,7 @@ void ClockApp::onTouchMiddleShort(uint8_t pad) {
 #if CHRONOMSG_ENABLED
     if (_messageClient.isPreviewVisible()) {
         _messageClient.hidePreview();
+        return;
     } else {
         if (_timerController.isClockView() && _messageClient.hasUnread()) {
             if (_messageClient.showCurrentNow()) {

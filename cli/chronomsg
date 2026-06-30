@@ -241,6 +241,23 @@ num_value() {
     esac
 }
 
+policy_value() {
+    case "${1:-temporary}" in
+        temporary|repeat|inbox) printf '%s' "$1" ;;
+        *) printf 'temporary' ;;
+    esac
+}
+
+size_value() {
+    case "${1:-medium}" in
+        small|medium|big) printf '%s' "$1" ;;
+        0) printf 'small' ;;
+        1) printf 'medium' ;;
+        2) printf 'big' ;;
+        *) printf 'medium' ;;
+    esac
+}
+
 message_file_for_id() {
     printf '%s/%s.json' "$MSG_DIR" "$(safe_id "$1")"
 }
@@ -312,6 +329,7 @@ is_message_valid() {
     f="$1"
     grep -q '"id"[[:space:]]*:' "$f" 2>/dev/null || return 1
     grep -q '"display"[[:space:]]*:' "$f" 2>/dev/null || return 1
+    grep -q '"policy"[[:space:]]*:' "$f" 2>/dev/null || return 1
     grep -q '"created"[[:space:]]*:' "$f" 2>/dev/null || return 1
     grep -q '"title"[[:space:]]*:' "$f" 2>/dev/null || grep -q '"body"[[:space:]]*:' "$f" 2>/dev/null || return 1
     case "$(cat "$f" 2>/dev/null)" in
@@ -477,7 +495,7 @@ serve_control() {
     case "$action" in
         add)
             set --
-            for name in id source type priority title body detail ttl indicator dismissible auto-dismiss mode force bell; do
+            for name in id source type priority title body detail ttl policy repeat size bell; do
                 value="$(query_param_value "$name")"
                 if [ -n "$value" ]; then
                     set -- "$@" "--$name" "$value"
@@ -546,16 +564,23 @@ add_message() {
     title=""
     body=""
     detail=""
-    ttl=3600
-    indicator=true
-    dismissible=true
-    autoDismiss=false
-    mode=1
-    force=false
+    ttl=600
+    policy=temporary
+    repeat=0
+    size=medium
     bell=
 
     while [ "$#" -gt 0 ]; do
         case "$1" in
+            -i|--inbox)
+                [ "$policy" = temporary ] || { printf 'choose only one policy: default temporary, --inbox, or --repeat\n' >&2; return 2; }
+                policy=inbox
+                shift ;;
+            -r|--repeat)
+                [ "$policy" != inbox ] || { printf 'choose only one policy: default temporary, --inbox, or --repeat\n' >&2; return 2; }
+                policy=repeat
+                repeat="${2:-0}"
+                shift 2 ;;
             --id) id="${2:-}"; shift 2 ;;
             --source) source="${2:-}"; shift 2 ;;
             --type) type="${2:-}"; shift 2 ;;
@@ -564,11 +589,12 @@ add_message() {
             --body) body="${2:-}"; shift 2 ;;
             --detail) detail="${2:-}"; shift 2 ;;
             --ttl) ttl="${2:-}"; shift 2 ;;
-            --indicator) indicator="${2:-}"; shift 2 ;;
-            --dismissible) dismissible="${2:-}"; shift 2 ;;
-            --auto-dismiss) autoDismiss="${2:-}"; shift 2 ;;
-            --mode) mode="${2:-}"; shift 2 ;;
-            --force) force="${2:-}"; shift 2 ;;
+            --forever) ttl=forever; shift ;;
+            --policy) policy="$(policy_value "${2:-temporary}")"; shift 2 ;;
+            --size) size="$(size_value "${2:-medium}")"; shift 2 ;;
+            --small) size=small; shift ;;
+            --medium) size=medium; shift ;;
+            --big) size=big; shift ;;
             --bell) bell="${2:-}"; shift 2 ;;
             --*) printf 'Unknown option: %s\n' "$1" >&2; return 2 ;;
             *)
@@ -590,9 +616,12 @@ add_message() {
     }
 
     priority="$(num_value "$priority" 5)"
+    policy="$(policy_value "$policy")"
+    repeat="$(num_value "$repeat" 0)"
+    size="$(size_value "$size")"
     case "$ttl" in
         0|forever|FOREVER|never|NEVER) ttl=forever ;;
-        *) ttl="$(num_value "$ttl" 3600)" ;;
+        *) ttl="$(num_value "$ttl" 600)" ;;
     esac
     now="$(now_epoch)"
     if [ "$ttl" = forever ]; then
@@ -612,24 +641,34 @@ add_message() {
 
     ensure_base
     file="$(message_file_for_id "$id")"
+    old_revision="$(extract_num_field "$file" revision 2>/dev/null || true)"
+    old_revision="$(num_value "$old_revision" 0)"
+    revision=$((old_revision + 1))
+    [ "$revision" -gt 0 ] || revision="$now"
     tmp="$file.$$"
     {
         printf '{'
         printf '"id":"%s",' "$(json_escape "$id")"
         printf '"source":"%s",' "$(json_escape "$source")"
         printf '"type":"%s",' "$(json_escape "$type")"
+        printf '"revision":%s,' "$revision"
         printf '"priority":%s,' "$priority"
         printf '"title":"%s",' "$(json_escape "$title")"
         printf '"body":"%s",' "$(json_escape "$body")"
         [ -n "$detail" ] && printf '"detail":"%s",' "$(json_escape "$detail")"
         printf '"created":%s,' "$now"
         [ -n "$expires" ] && printf '"expires":%s,' "$expires"
+        printf '"policy":{'
+        printf '"kind":"%s",' "$policy"
+        if [ "$policy" = inbox ]; then
+            printf '"indicator":true,"dismissible":true'
+        else
+            printf '"indicator":false,"dismissible":false'
+        fi
+        [ "$policy" = repeat ] && printf ',"repeatSec":%s' "$repeat"
+        printf '},'
         printf '"display":{'
-        printf '"indicator":%s,' "$(bool_value "$indicator")"
-        printf '"dismissible":%s,' "$(bool_value "$dismissible")"
-        printf '"autoDismiss":%s,' "$(bool_value "$autoDismiss")"
-        printf '"mode":%s,' "$mode"
-        printf '"force":%s,' "$(bool_value "$force")"
+        printf '"size":"%s",' "$size"
         if [ -n "$bell" ]; then
             printf '"bell":[%s]' "$bell"
         else
@@ -727,11 +766,14 @@ list_messages() {
         found=1
         title="$(sed -n 's/.*"title"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$f" | sed -n '1p')"
         body="$(sed -n 's/.*"body"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$f" | sed -n '1p')"
+        policy="$(sed -n 's/.*"kind"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$f" | sed -n '1p')"
+        size="$(sed -n 's/.*"size"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$f" | sed -n '1p')"
         exp="$(extract_num_field "$f" expires)"
         name="${f##*/}"
         name="${name%.json}"
-        printf '%s%s priority=%s expires=%s title="%s" body="%s"\n' \
+        printf '%s%s policy=%s size=%s priority=%s expires=%s title="%s" body="%s"\n' \
             "$marker" "${id:-$name}" \
+            "${policy:-unknown}" "${size:-medium}" \
             "$(extract_num_field "$f" priority)" \
             "${exp:-unknown}" "$title" "$body"
     done
@@ -822,6 +864,7 @@ publish_available() {
         --id "domain-drop-$suffix" \
         --source domain-watch \
         --type alert \
+        --inbox \
         --priority 9 \
         --title AVAILABLE \
         --body "$suffix" \
@@ -836,6 +879,7 @@ publish_ambiguous() {
         --id "domain-check-$suffix" \
         --source domain-watch \
         --type alert \
+        --inbox \
         --priority 7 \
         --title CHECK \
         --body "$suffix" \
@@ -849,10 +893,10 @@ publish_pending() {
         --id "domain-pending-$suffix" \
         --source domain-watch \
         --type info \
+        --inbox \
         --priority 5 \
         --title REGISTERED \
         --body "$suffix" \
-        --indicator false \
         --detail "$domain is registered" >/dev/null
 }
 
@@ -863,6 +907,7 @@ publish_error() {
         --id "domain-error-$suffix" \
         --source domain-watch \
         --type alert \
+        --inbox \
         --priority 5 \
         --title "CHECK ERROR" \
         --body "$suffix" \
@@ -876,6 +921,7 @@ publish_redemption() {
         --id "domain-redemption-$suffix" \
         --source domain-watch \
         --type alert \
+        --inbox \
         --priority 7 \
         --title REDEMPTION \
         --body "$suffix" \
@@ -1405,18 +1451,18 @@ Usage:
   chronomsg help
 
 Add options:
+  -i, --inbox         Keep in message view until dismissed
+  -r, --repeat SEC   Repeat preview until TTL expires
   --id ID              Message identifier (auto-generated if omitted)
   --source SOURCE      Source label (default: manual)
   --type TYPE          Message type (default: alert)
   --priority N         Priority 0-9 (default: 5)
-  --ttl SEC|forever    Time-to-live seconds, 0/forever never expires (default: 3600)
+  --ttl SEC|forever    Time-to-live seconds, 0/forever never expires (default: 600)
+  --forever            Never expire
   --title TITLE        Override displayed title
   --body BODY          Override displayed body
   --detail TEXT        Internal detail (not shown on clock)
-  --indicator true|false  Show blinking indicator (default: true)
-  --dismissible true|false  Allow dismiss via center tap (default: true)
-  --mode 0|1|2         Font size: 0=small, 1=medium, 2=big (default: 1)
-  --force true|false   Force full-screen overlay (default: false)
+  --small|--medium|--big  Font size (default: medium)
   --bell COUNT|PATTERN  Bell strikes: 3 or "3,2,1" (default: no bell)
 
 Guestqr options:

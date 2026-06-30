@@ -1038,6 +1038,27 @@ static int chronoTextWidth(const String& text, uint8_t mode) {
         : width;
 }
 
+static int chronoStaticLineY(uint8_t mode) {
+    int height = mode == 2 ? TIME_FONT_BIG_HEIGHT : (mode == 1 ? TIME_FONT_MEDIUM_HEIGHT : SEC_FONT_HEIGHT);
+    return (TOTAL_ROWS - height) / 2;
+}
+
+static void drawChronoCenteredStaticLine(Display& display, const String& text, uint8_t mode) {
+    int y = chronoStaticLineY(mode);
+    switch (mode) {
+        case 0:
+            display.drawCenteredSmallText(text.c_str(), y);
+            break;
+        case 2:
+            display.drawCenteredBigText(text.c_str(), y);
+            break;
+        case 1:
+        default:
+            display.drawCenteredMediumText(text.c_str(), y);
+            break;
+    }
+}
+
 static void drawChronoTextClipped(Display& display, const String& text, int x, int y, uint8_t mode) {
     bool inWord = false;
     for (size_t i = 0; i < text.length(); ++i) {
@@ -1125,6 +1146,15 @@ bool Display::drawChronoMessage(const ChronoMessage& message, unsigned long nowM
     bool finished = true;
 
     switch (layout.kind) {
+        case MessageLayoutKind::CenteredOneLine:
+            drawChronoCenteredStaticLine(*this, layout.line1, mode);
+            break;
+        case MessageLayoutKind::CenteredTwoLine: {
+            int top = (TOTAL_ROWS - (SEC_FONT_HEIGHT * 2 + 1)) / 2;
+            drawCenteredSmallText(layout.line1.c_str(), top);
+            drawCenteredSmallText(layout.line2.c_str(), top + SEC_FONT_HEIGHT + 1);
+            break;
+        }
         case MessageLayoutKind::Scroll:
             finished = drawChronoScrollFrame(layout.line1, mode == 2 ? 0 : (mode == 1 ? 3 : 5), mode, stepMs, nowMs, previewStartMs);
             break;
