@@ -908,14 +908,31 @@ void MessageClient::taskLoop() {
     uint32_t lastWifiWaitMs = 0;
     while (!_taskStop) {
         uint32_t now = millis();
+
+        // WiFi wait with timeout — bounded, no infinite busy-wait
         if (WiFi.status() != WL_CONNECTED) {
-            if (lastWifiWaitMs == 0 || (now - lastWifiWaitMs) >= 1000UL) {
+            if (lastWifiWaitMs == 0) {
                 lastWifiWaitMs = now;
             }
+            if ((now - lastWifiWaitMs) < (uint32_t)CHRONOSERVE_WIFI_WAIT_MAX_MS) {
+                vTaskDelay(pdMS_TO_TICKS(250));
+                continue;
+            }
+            // WiFi wait timed out — skip this poll cycle
+            lastWifiWaitMs = 0;
+            lastPollMs = now;
             vTaskDelay(pdMS_TO_TICKS(250));
             continue;
         }
-        if (lastPollMs == 0 || (now - lastPollMs) >= (uint32_t)CHRONOSERVE_POLL_INTERVAL_SEC * 1000UL) {
+        lastWifiWaitMs = 0;
+
+        // Back off poll interval when max failures reached
+        uint32_t pollIntervalMs = (uint32_t)CHRONOSERVE_POLL_INTERVAL_SEC * 1000UL;
+        if (_retryFailCount >= CHRONOSERVE_MAX_FAILURES) {
+            pollIntervalMs *= 60; // ~10 min instead of 10 sec
+        }
+
+        if (lastPollMs == 0 || (now - lastPollMs) >= pollIntervalMs) {
             lastPollMs = now;
             while (true) {
                 String dismissId;
@@ -941,6 +958,11 @@ void MessageClient::taskLoop() {
             uint8_t count = 0;
             if (pollOnce(parsed, count)) {
                 mergeMessages(parsed, count);
+                _retryFailCount = 0;
+            } else {
+                if (_retryFailCount < CHRONOSERVE_MAX_FAILURES) {
+                    _retryFailCount++;
+                }
             }
         }
         vTaskDelay(pdMS_TO_TICKS(250));

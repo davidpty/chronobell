@@ -167,6 +167,13 @@
 #define LOCAL_HTTP_TOTAL_TIMEOUT_MS                 3000                                       // Total HTTP fetch budget for router-local background tasks
 #define LOCAL_NETWORK_TASK_PRIORITY                 1                                          // Lower than display/input timing work
 
+// Shared retry boundaries for background HTTP tasks (WiFiSync, GuestWifi,
+// ChronoServe).  Per-system #defines below default to these; uncomment a
+// per-system define to override individually.
+#define NET_RETRY_MAX_FAILURES                      10                                         // Consecutive failures before subsystem backs off
+#define NET_RETRY_BASE_INTERVAL_SEC                 5                                          // Base retry cadence (seconds)
+#define NET_RETRY_WIFI_WAIT_MAX_MS                  10000                                      // Max ms to wait for WiFi before skipping cycle
+
 // Internal text limit for short non-ChronoServe local text.
 #define LOCAL_DISPLAY_TEXT_MAX_LEN                  64                                         // Max short text displayed from guest WiFi and other local services
 
@@ -183,8 +190,9 @@
 #define GUEST_WIFI_FETCH_MINUTE                     1                                          // Minute of hour to fetch guest Wi-Fi (0-59)
 
 // Guest WiFi fetch implementation limits. Usually left alone.
-#define GUEST_WIFI_FETCH_TIMEOUT_SECONDS            60                                         // HTTP timeout and retry cadence for guest Wi-Fi fetch attempts
-#define GUEST_WIFI_FETCH_MAX_FAILURES               10                                         // Stop retrying after this many failed fetches
+// Defaults to NET_RETRY_* shared values; override here if needed.
+#define GUEST_WIFI_FETCH_TIMEOUT_SECONDS            60                                         // Retry cadence (defaults to NET_RETRY_BASE_INTERVAL_SEC)
+#define GUEST_WIFI_FETCH_MAX_FAILURES               NET_RETRY_MAX_FAILURES                     // Consecutive failures before giving up
 #define GUEST_WIFI_TASK_STACK_WORDS                 4096                                       // FreeRTOS stack for background guest Wi-Fi fetch
 
 #define GUEST_WIFI_VIEW_TIMEOUT_SECONDS             60                                         // Time before the guest Wi-Fi view hides
@@ -205,6 +213,8 @@
 
 #define CHRONOSERVE_URL                               "http://192.168.8.1/cgi-bin/chronoserve"   // Router-side CGI endpoint for ChronoServe
 #define CHRONOSERVE_POLL_INTERVAL_SEC                 10                                         // Background poll interval in seconds
+#define CHRONOSERVE_MAX_FAILURES                      NET_RETRY_MAX_FAILURES                     // Consecutive poll failures before backing off
+#define CHRONOSERVE_WIFI_WAIT_MAX_MS                  NET_RETRY_WIFI_WAIT_MAX_MS                 // Max ms to wait for WiFi before skipping poll cycle
 #define CHRONOSERVE_MIN_DURATION_SEC                  10                                         // Minimum message lifetime; scrolling extends beyond this as needed
 #define CHRONOSERVE_SONG_REPEAT_SEC                   120                                        // Default repeat interval for MPD / repeat-policy messages
 #define CHRONOSERVE_MIN_SCROLL_CYCLES                 1                                          // Minimum complete scroll passes before firmware may time out

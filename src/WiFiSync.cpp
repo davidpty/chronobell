@@ -121,9 +121,17 @@ void WiFiSync::tickPeriodic() {
         return;
     }
 
-    unsigned long interval = _lastSyncSucceeded
-        ? (unsigned long)NTP_RETRY_SUCCESS_MINUTES * 60000UL
-        : (unsigned long)NTP_RETRY_FAILED_MINUTES * 60000UL;
+    unsigned long interval;
+    if (_lastSyncSucceeded) {
+        interval = (unsigned long)NTP_RETRY_SUCCESS_MINUTES * 60000UL;
+    } else if (_consecutiveFailures >= NET_RETRY_MAX_FAILURES) {
+        interval = (unsigned long)NTP_RETRY_SUCCESS_MINUTES * 60000UL;
+        LOG("Consecutive failures (");
+        LOG(_consecutiveFailures);
+        LOGLN(") >= max — backing off to success interval");
+    } else {
+        interval = (unsigned long)NTP_RETRY_FAILED_MINUTES * 60000UL;
+    }
 
     if (millis() - _lastSyncAttemptMs >= interval) {
         LOGLN("\n=== Periodic WiFi sync ===");
@@ -213,6 +221,7 @@ void WiFiSync::finishSync(bool succeeded) {
     _firstSyncPending = false;
     _lastSyncSucceeded = succeeded;
     _lastSyncAttemptMs = millis();
+    _consecutiveFailures = succeeded ? 0 : _consecutiveFailures + 1;
 
     if (succeeded) {
         LOGLN("Time sync completed");

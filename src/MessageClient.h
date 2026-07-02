@@ -112,6 +112,7 @@ private:
     TaskHandle_t _task = nullptr;
     volatile bool _taskStop = false;
     bool _started = false;
+    uint8_t _retryFailCount = 0;
 
     String _pendingDismissalIds[CHRONOSERVE_MAX_MESSAGES];
     uint8_t _pendingDismissalCount = 0;

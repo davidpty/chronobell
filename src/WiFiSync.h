@@ -50,6 +50,7 @@ private:
 
     unsigned long _lastSyncAttemptMs = 0;
     bool _lastSyncSucceeded = false;
+    uint8_t _consecutiveFailures = 0;
     bool _firstSyncPending = true;
 
     Phase _phase = Phase::Idle;
