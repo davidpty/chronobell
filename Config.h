@@ -244,6 +244,8 @@
 #define DISPLAY_TEST                                0                                           // Seconds to show boot test pattern (0 = skip)
 #define DISPLAY_TEST_BLINK_MS                       10                                          // Inverted text blink interval during test (0 = steady)
 
+#define DISPLAY_RECOVERY_INTERVAL_MINUTES           360                                         // Periodic MAX7219 hard refresh interval (0 = disable); recovers from transient display-driver glitches
+
 // ---------------------------------------------------------------------------
 // Touch sensor tuning (CAP1188)
 // ---------------------------------------------------------------------------

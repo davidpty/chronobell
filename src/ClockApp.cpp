@@ -229,6 +229,7 @@ void ClockApp::initSerialAndPins() {
 
 void ClockApp::initDisplay() {
     _display.begin();
+    _display.displayHardRefresh();
 }
 
 void ClockApp::initI2cAndRtc() {
@@ -383,6 +384,9 @@ void ClockApp::applyManualTime() {
 }
 
 void ClockApp::render() {
+#if DISPLAY_RECOVERY_INTERVAL_MINUTES > 0
+    checkDisplayRecovery();
+#endif
     updateNewYearState();
     syncDisplayModeSelection();
     syncDateStyleSelection();
@@ -910,6 +914,18 @@ void ClockApp::refreshPongOnEntry() {
     LOG("Pong re-entry reset to fresh serve\n");
 }
 
+void ClockApp::checkDisplayRecovery() {
+    if (!_display.isEnabled()) return;
+    unsigned long intervalMs = (unsigned long)DISPLAY_RECOVERY_INTERVAL_MINUTES * 60000UL;
+    unsigned long now = millis();
+    if (_lastDisplayRecoveryMs == 0 ||
+        (int32_t)(now - _lastDisplayRecoveryMs) >= (int32_t)intervalMs) {
+        _display.displayHardRefresh();
+        _lastDisplayRecoveryMs = now;
+        LOGF("Display hard refresh at uptime %lu ms\n", now);
+    }
+}
+
 // =============================================================================
 // Callback handlers (invoked from .ino trampolines)
 // =============================================================================
@@ -945,6 +961,24 @@ void ClockApp::onTouchLeft(uint8_t pad) {
         }
     }
     _timerController.onLeft();
+}
+
+void ClockApp::onTouchLeftHold(uint8_t pad) {
+    (void)pad;
+    if (_menuController.isActive()) return;
+    if (_timerController.isDateView()) return;
+    if (_timerController.isStopwatchView()) return;
+    if (_timerController.isCountdownView()) return;
+    if (_timerController.isCountdownExpired()) return;
+#if GUEST_WIFI_ENABLED
+    if (_timerController.isGuestWifiView()) return;
+#endif
+#if CHRONOSERVE_ENABLED
+    if (_messageClient.isPreviewVisible()) return;
+#endif
+    LOGLN("Manual display hard refresh triggered via touch hold");
+    _display.displayHardRefresh();
+    _lastDisplayRecoveryMs = millis();
 }
 
 void ClockApp::onTouchRight(uint8_t pad) {
@@ -1064,6 +1098,10 @@ void ClockApp::wireGuestWifiCallback(TimerController::GuestWifiAvailableFn fn) {
 
 void ClockApp::configureTouchRepeat(uint8_t pad, OnTouchFn onRepeat, uint32_t initialDelayMs, uint32_t rateMs) {
     _touchController.setPadRepeat(pad, onRepeat, initialDelayMs, rateMs);
+}
+
+void ClockApp::configureTouchHold(uint8_t pad, OnTouchFn onHold, uint32_t holdMs) {
+    _touchController.setPadHold(pad, onHold, holdMs);
 }
 
 void ClockApp::onTouchLeftRepeat(uint8_t pad) {
@@ -1200,6 +1238,8 @@ bool ClockApp::onSettingsSaved(bool wifiChanged, bool tzChanged, bool manualTime
     }
 
     applyDisplayBrightness();
+
+    _display.displayHardRefresh();
 
     if (wifiChanged) {
         LOGLN("WiFi changed, start bg test");

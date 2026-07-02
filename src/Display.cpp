@@ -65,6 +65,26 @@ void Display::begin() {
     }
 }
 
+void Display::displayHardRefresh() {
+    // Put all modules into shutdown so no glitching is visible while we
+    // re-send every configuration register to each MAX7219 in the chain.
+    _leds.control(MD_MAX72XX::SHUTDOWN, MD_MAX72XX::ON);
+
+    // Re-send all MAX7219 control registers to every module.
+    _leds.control(MD_MAX72XX::TEST, MD_MAX72XX::OFF);       // display test off
+    _leds.control(MD_MAX72XX::DECODE, MD_MAX72XX::OFF);     // no BCD decode
+    _leds.control(MD_MAX72XX::SCANLIMIT, 7);                 // all 8 rows enabled
+    _leds.control(MD_MAX72XX::INTENSITY, _brightness);       // current effective brightness
+    _leds.control(MD_MAX72XX::SHUTDOWN, MD_MAX72XX::OFF);   // normal operation
+
+    // Clear internal MAX7219 display RAM on all modules.
+    _leds.clear();
+    _leds.update();
+
+    // Force a full redraw from the software framebuffer.
+    flushBufferToLeds();
+}
+
 void Display::setUserBrightness(int8_t v) {
     if (v < 0) v = 0;
     if (v > 15) v = 15;

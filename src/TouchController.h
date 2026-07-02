@@ -19,6 +19,7 @@ public:
     bool begin();
     void setHandler(uint8_t pad, const TouchPadConfig& config);
     void setPadRepeat(uint8_t pad, void (*onRepeat)(uint8_t), uint32_t initialDelayMs, uint32_t rateMs);
+    void setPadHold(uint8_t pad, void (*onHold)(uint8_t), uint32_t holdMs);
     void update();
     bool isPressed(uint8_t pad) const;
     uint32_t heldMs(uint8_t pad) const;

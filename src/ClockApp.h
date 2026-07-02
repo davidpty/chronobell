@@ -110,6 +110,7 @@ public:
 
     // -- Callback handlers (called from the .ino's trampolines) -------------
     void onTouchLeft(uint8_t pad);
+    void onTouchLeftHold(uint8_t pad);
     void onTouchRight(uint8_t pad);
     void onTouchMiddleShort(uint8_t pad);
     void onTouchMiddleLong(uint8_t pad);
@@ -129,6 +130,7 @@ public:
     bool isBellBusy() const;
     void stopBell();
     void configureTouchRepeat(uint8_t pad, OnTouchFn onRepeat, uint32_t initialDelayMs, uint32_t rateMs);
+    void configureTouchHold(uint8_t pad, OnTouchFn onHold, uint32_t holdMs);
 #if GUEST_WIFI_ENABLED
     void wireGuestWifiCallback(TimerController::GuestWifiAvailableFn fn);
 #endif
@@ -212,6 +214,8 @@ private:
     bool          _buttonWasPressed = false;
     bool          _t4LongPressHandled = false;
 
+    unsigned long _lastDisplayRecoveryMs = 0;
+
     // --- Private helpers ---
     void syncRuntimeSettingsFromLoaded(bool forceDateStyleReset);
     void logLoadedSettings() const;
@@ -224,6 +228,7 @@ private:
     void cycleTemporaryDisplayMode(int direction);
     void cycleTemporaryDateStyle(int direction);
     void refreshPongOnEntry();
+    void checkDisplayRecovery();
     DisplayMode pickRandomConcreteDisplayMode(DisplayMode avoid) const;
     bool getCurrentClockTime(int& h, int& m, int& s) const;
     void onTouchMenuPrev(uint8_t pad);

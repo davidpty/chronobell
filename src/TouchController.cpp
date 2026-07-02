@@ -82,6 +82,12 @@ void TouchController::setPadRepeat(uint8_t pad, void (*onRepeat)(uint8_t), uint3
     _configs[pad - 1].repeatRateMs = rateMs;
 }
 
+void TouchController::setPadHold(uint8_t pad, void (*onHold)(uint8_t), uint32_t holdMs) {
+    if (pad < 1 || pad > CAP1188_NUM_TOUCHES) return;
+    _configs[pad - 1].onHold = onHold;
+    _configs[pad - 1].holdMs = holdMs;
+}
+
 void TouchController::update() {
     if (!_available) return;
 

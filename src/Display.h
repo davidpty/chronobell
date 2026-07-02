@@ -97,6 +97,14 @@ public:
     void renderBuffer();
     void applyBurstBoost(int8_t boost);
     void requestScreenTransition();
+
+    // Reinitializes the MAX7219 display chain without touching any other
+    // system state.  Sends all control registers, clears MAX7219 internal
+    // RAM, and force-redraws the current framebuffer.
+    // Use this to recover from transient MAX7219 glitches (shutdown, test
+    // mode, wrong scan limit, corrupt RAM, etc.) without rebooting.
+    void displayHardRefresh();
+
 #if DIGIT_TRANSITIONS || SCREEN_TRANSITION
     bool animationsEnabled() const;
 #endif
