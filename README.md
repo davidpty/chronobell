@@ -356,33 +356,37 @@ chronosend --dry-run TEST "MESSAGE"
 
 ### MPD mode
 
-`chronosend mpd` watches MPD for song changes and posts now-playing messages using the same general ChronoServe preview path as custom messages.
+`chronosend mpd` watches MPD and posts now-playing messages using the same general ChronoServe preview path as custom messages.
 
 ```sh
 chronosend mpd
 ```
 
-It uses `mpc` to fetch the current song. On each song change, it gets the song duration from `mpc status "%totaltime%"` and sets the message TTL to match (song length + 10s buffer). The firmware always lets scrolling titles complete a full pass from a blank screen back to a blank screen.
+It uses `mpc` to fetch the current song. On each song change it sends `NOW PLAYING <track by artist>`. While the same song continues, it sends `<track by artist>` again every repeat interval. MPD repetition is sender-owned: the firmware only sees new message revisions and renders each one once, while still letting scrolling titles complete a full pass from a blank screen back to a blank screen.
 
-When playback stops, the message expires on its own — no stale data. When the next song starts, a new message replaces the old one.
+When playback stops, the watcher clears the message. TTL is still used as stale cleanup if the watcher exits or loses network before it can clear or refresh the message.
 
 Configure via environment variables:
 
 | Env var | Default | Description |
 |---------|---------|-------------|
 | `CHRONOSEND_MPD_FORMAT` | `%title% BY %artist%` | `mpc current -f` format string |
-| `CHRONOSEND_MPD_MODE` | `""` | Display mode: empty=firmware default(medium/1), `0`=small, `1`=medium, `2`=big |
+| `CHRONOSEND_MPD_REPEAT_SEC` | `120` | Seconds between sender-owned repeated now-playing updates; `0` disables repeats |
+| `CHRONOSEND_MPD_TTL_BUFFER` | `10` | Extra stale-cleanup seconds beyond the next expected update or song end |
+| `CHRONOSEND_MPD_FALLBACK_TTL` | `300` | Maximum repeat window when MPD does not report a song duration |
 
 Or edit the header constants in `cli/chronosend`:
 
 | Constant | Default | Description |
 |----------|---------|-------------|
+| `DEFAULT_MPD_REPEAT_SEC` | `120` | Default repeat interval for MPD now-playing updates |
 | `DEFAULT_MPD_TTL_BUFFER` | `10` | Extra seconds beyond song duration |
+| `DEFAULT_MPD_FALLBACK_TTL` | `300` | Fallback lifetime when duration is unknown |
 
 Set env vars at runtime or in the systemd service:
 
 ```sh
-CHRONOSEND_MPD_MODE=0 chronosend mpd
+CHRONOSEND_MPD_REPEAT_SEC=60 chronosend mpd
 ```
 
 Install as a systemd user service:
@@ -399,7 +403,7 @@ systemctl --user edit chronosend-mpd
 
 ```ini
 [Service]
-Environment=CHRONOSEND_MPD_MODE=0
+Environment=CHRONOSEND_MPD_REPEAT_SEC=60
 ```
 
 ## Bell Modes

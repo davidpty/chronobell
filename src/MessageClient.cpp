@@ -309,7 +309,7 @@ bool parseChronoMessageObject(const String& obj, ChronoMessage& msg, TimeProvide
     msg.dismissible = jsonBoolField(policy, "dismissible", msg.policy == MessagePolicyKind::Inbox);
     msg.repeatSec = (uint16_t)constrain(jsonIntField(policy, "repeatSec", 0), 0, 3600);
     if (msg.policy == MessagePolicyKind::Repeat && msg.repeatSec == 0) {
-        msg.repeatSec = CHRONOSERVE_SONG_REPEAT_SEC;
+        msg.repeatSec = CHRONOSERVE_DEFAULT_REPEAT_SEC;
     }
 
     String display = jsonObjectField(obj, "display");
@@ -505,7 +505,7 @@ void MessageClient::update() {
             if (!s.firstPreviewShown) {
                 due = s.firstPreviewDueMs > 0 && (int32_t)(nowMs - s.firstPreviewDueMs) >= 0;
             } else if (s.msg.policy == MessagePolicyKind::Repeat) {
-                uint32_t repeatMs = (uint32_t)(s.msg.repeatSec > 0 ? s.msg.repeatSec : CHRONOSERVE_SONG_REPEAT_SEC) * 1000UL;
+                uint32_t repeatMs = (uint32_t)(s.msg.repeatSec > 0 ? s.msg.repeatSec : CHRONOSERVE_DEFAULT_REPEAT_SEC) * 1000UL;
                 uint32_t basis = s.lastPreviewEndMs > 0 ? s.lastPreviewEndMs : s.lastPreviewMs;
                 due = basis > 0 && (int32_t)(nowMs - (basis + repeatMs)) >= 0;
             }

@@ -216,7 +216,7 @@
 #define CHRONOSERVE_MAX_FAILURES                      NET_RETRY_MAX_FAILURES                     // Consecutive poll failures before backing off
 #define CHRONOSERVE_WIFI_WAIT_MAX_MS                  NET_RETRY_WIFI_WAIT_MAX_MS                 // Max ms to wait for WiFi before skipping poll cycle
 #define CHRONOSERVE_MIN_DURATION_SEC                  10                                         // Minimum message lifetime; scrolling extends beyond this as needed
-#define CHRONOSERVE_SONG_REPEAT_SEC                   120                                        // Default repeat interval for MPD / repeat-policy messages
+#define CHRONOSERVE_DEFAULT_REPEAT_SEC                120                                        // Default repeat interval for repeat-policy messages
 #define CHRONOSERVE_MIN_SCROLL_CYCLES                 1                                          // Minimum complete scroll passes before firmware may time out
 #define CHRONOSERVE_SCROLL_STEP_MS                    180                                        // Firmware scroll animation step in milliseconds
 #define CHRONOSERVE_SCROLL_WORD_GAP_PX                4                                          // Gap between words in ChronoServe scroll text
