@@ -1239,13 +1239,6 @@ const char* ClockRenderer::getMoonState(double ageDays, double illuminationPerce
     return (ageDays < (MOON_SYNODIC_MONTH / 2.0)) ? "WAXING" : "WANING";
 }
 
-static char moonStateGlyph(const char* state) {
-    if (strcmp(state, "WAXING") == 0) return '^';
-    if (strcmp(state, "WANING") == 0) return 'v';
-    if (strcmp(state, "FULL") == 0) return '@';
-    return 'o';
-}
-
 const char* ClockRenderer::getWesternZodiacSign(int month, int day) {
     struct Range {
         int month;
@@ -1362,9 +1355,7 @@ void ClockRenderer::drawDateStyleMoon(const ClockDate& currentDate) {
     double illumination = getMoonIlluminationPercent(age);
     const char* state = getMoonState(age, illumination);
 
-    char line1[20];
-    snprintf(line1, sizeof(line1), "MOON %c", moonStateGlyph(state));
-    _display->drawCenteredSmallText(line1, 0);
+    _display->drawCenteredSmallText(state, 0);
 
     char line2[20];
     if (age < MOON_SYNODIC_MONTH / 2.0) {
