@@ -307,7 +307,7 @@ bool parseChronoMessageObject(const String& obj, ChronoMessage& msg, TimeProvide
     msg.policy = policyKindFromString(jsonStringField(policy, "kind", "temporary", LOCAL_DISPLAY_TEXT_MAX_LEN));
     msg.indicator = jsonBoolField(policy, "indicator", msg.policy == MessagePolicyKind::Inbox);
     msg.dismissible = jsonBoolField(policy, "dismissible", msg.policy == MessagePolicyKind::Inbox);
-    msg.repeatSec = (uint16_t)constrain(jsonIntField(policy, "repeatSec", 0), 0, 3600);
+    msg.repeatSec = (uint16_t)constrain(jsonIntField(policy, "repeatSec", 0), 0, 21600);
     if (msg.policy == MessagePolicyKind::Repeat && msg.repeatSec == 0) {
         msg.repeatSec = CHRONOSERVE_DEFAULT_REPEAT_SEC;
     }

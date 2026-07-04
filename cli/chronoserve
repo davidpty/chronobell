@@ -825,8 +825,12 @@ have_cmd() {
 
 interpret_whois_file() {
     body="$1"
-    if grep -Eqi 'redemptionPeriod|pendingDelete|REACTIVATION PERIOD' "$body"; then
+    if grep -Eqi 'redemptionPeriod|REACTIVATION PERIOD' "$body"; then
         printf 'REDEMPTION\n'
+        return
+    fi
+    if grep -Eqi 'pendingDelete' "$body"; then
+        printf 'PENDING_DELETE\n'
         return
     fi
     if grep -Eqi 'clientTransferProhibited|Registry Domain ID:|Domain Name:|Registrar:|Creation Date:|Registry Expiry Date:|Registrar Registration Expiration Date:|Name Server:' "$body"; then
@@ -857,76 +861,67 @@ check_whois() {
     rm -f "$body"
 }
 
-publish_available() {
+log_transition() {
+    previous="$1"
+    state="$2"
+    ensure_base
+    printf '[%s] Domain state:\n%s\n↓\n%s\n' "$(date '+%Y-%m-%d %H:%M:%S' 2>/dev/null || printf '?')" "$previous" "$state" >> "$LOG_FILE"
+}
+
+remove_domain_messages() {
+    suffix="$1"
+    rm -f "$(message_file_for_id "domain-state-$suffix")" \
+          "$(message_file_for_id "domain-drop-$suffix")" \
+          "$(message_file_for_id "domain-registered-$suffix")" \
+          "$(message_file_for_id "domain-check-$suffix")" \
+          "$(message_file_for_id "domain-redemption-$suffix")" \
+          "$(message_file_for_id "domain-error-$suffix")"
+}
+
+publish_domain_state() {
+    domain="$1"
+    suffix="$2"
+    priority="$3"
+    body="$4"
+    detail="$5"
+    repeat_sec="${6:-0}"
+    if [ "$repeat_sec" -gt 0 ]; then
+        add_message \
+            --id "domain-state-$suffix" \
+            --source domain-watch \
+            --type alert \
+            --repeat "$repeat_sec" \
+            --priority "$priority" \
+            --title DOMAIN \
+            --body "$body" \
+            --forever \
+            --detail "$detail" >/dev/null
+    else
+        add_message \
+            --id "domain-state-$suffix" \
+            --source domain-watch \
+            --type alert \
+            --inbox \
+            --priority "$priority" \
+            --title DOMAIN \
+            --body "$body" \
+            --forever \
+            --detail "$detail" >/dev/null
+    fi
+}
+
+publish_domain_drop() {
     domain="$1"
     suffix="$2"
     add_message \
         --id "domain-drop-$suffix" \
         --source domain-watch \
         --type alert \
-        --inbox \
+        --repeat 60 \
         --priority 9 \
         --title DOMAIN \
-        --body "$suffix IS AVAILABLE" \
-        --ttl 86400 \
-        --detail "$domain may be available" >/dev/null
-}
-
-publish_ambiguous() {
-    domain="$1"
-    suffix="$2"
-    add_message \
-        --id "domain-check-$suffix" \
-        --source domain-watch \
-        --type alert \
-        --inbox \
-        --priority 7 \
-        --title DOMAIN \
-        --body "$suffix NEEDS CHECK" \
-        --detail "Domain status changed: check manually" >/dev/null
-}
-
-publish_registered() {
-    domain="$1"
-    suffix="$2"
-    add_message \
-        --id "domain-registered-$suffix" \
-        --source domain-watch \
-        --type info \
-        --inbox \
-        --priority 5 \
-        --title DOMAIN \
-        --body "$suffix IS REGISTERED" \
-        --detail "$domain is registered" >/dev/null
-}
-
-publish_error() {
-    domain="$1"
-    suffix="$2"
-    add_message \
-        --id "domain-error-$suffix" \
-        --source domain-watch \
-        --type alert \
-        --inbox \
-        --priority 5 \
-        --title DOMAIN \
-        --body "$suffix CHECK FAILED" \
-        --detail "$domain check failed" >/dev/null
-}
-
-publish_redemption() {
-    domain="$1"
-    suffix="$2"
-    add_message \
-        --id "domain-redemption-$suffix" \
-        --source domain-watch \
-        --type alert \
-        --inbox \
-        --priority 7 \
-        --title DOMAIN \
-        --body "$suffix IS IN REDEMPTION" \
-        --ttl 86400 \
-        --detail "$domain may be expiring" >/dev/null
+        --body "BUY NOW" \
+        --forever >/dev/null
 }
 
 check_domain() {
@@ -960,62 +955,39 @@ check_domain() {
     fi
 
     previous="$(read_state)"
+
+    if [ "$state" = "$previous" ] && [ "$force" != true ]; then
+        release_lock
+        trap - EXIT HUP INT TERM
+        return 0
+    fi
+
+    log_transition "$previous" "$state"
     write_state "$state"
+    remove_domain_messages "$suffix"
 
     case "$state" in
+        REDEMPTION)
+            publish_domain_state "$domain" "$suffix" 5 "REDEMPTION" \
+                "Domain can still be restored by the previous owner." 21600
+            ;;
+        PENDING_DELETE)
+            publish_domain_state "$domain" "$suffix" 7 "PENDING DELETE" \
+                "Deletion scheduled. Watch closely." 3600
+            ;;
         AVAILABLE)
-            file="$(message_file_for_id "domain-drop-$suffix")"
-            if [ "$force" = true ] || [ "$previous" != AVAILABLE ] || [ ! -f "$file" ]; then
-                rm -f "$(message_file_for_id "domain-registered-$suffix")" \
-                      "$(message_file_for_id "domain-check-$suffix")" \
-                      "$(message_file_for_id "domain-redemption-$suffix")" \
-                      "$(message_file_for_id "domain-error-$suffix")"
-                publish_available "$domain" "$suffix"
-            fi
+            publish_domain_drop "$domain" "$suffix"
             ;;
         AMBIGUOUS)
-            file="$(message_file_for_id "domain-check-$suffix")"
-            if [ "$force" = true ] || [ "$previous" != AMBIGUOUS ] || [ ! -f "$file" ]; then
-                rm -f "$(message_file_for_id "domain-drop-$suffix")" \
-                      "$(message_file_for_id "domain-registered-$suffix")" \
-                      "$(message_file_for_id "domain-redemption-$suffix")" \
-                      "$(message_file_for_id "domain-error-$suffix")"
-                publish_ambiguous "$domain" "$suffix"
-            fi
+            publish_domain_state "$domain" "$suffix" 6 "CHECK" "" 0
             ;;
         REGISTERED)
-            file="$(message_file_for_id "domain-registered-$suffix")"
-            if [ "$force" = true ] || [ "$previous" != REGISTERED ] || [ ! -f "$file" ]; then
-                rm -f "$(message_file_for_id "domain-drop-$suffix")" \
-                      "$(message_file_for_id "domain-check-$suffix")" \
-                      "$(message_file_for_id "domain-redemption-$suffix")" \
-                      "$(message_file_for_id "domain-error-$suffix")"
-                publish_registered "$domain" "$suffix"
-            fi
-            ;;
-        REDEMPTION)
-            file="$(message_file_for_id "domain-redemption-$suffix")"
-            if [ "$force" = true ] || [ "$previous" != REDEMPTION ] || [ ! -f "$file" ]; then
-                rm -f "$(message_file_for_id "domain-drop-$suffix")" \
-                      "$(message_file_for_id "domain-check-$suffix")" \
-                      "$(message_file_for_id "domain-registered-$suffix")" \
-                      "$(message_file_for_id "domain-error-$suffix")"
-                publish_redemption "$domain" "$suffix"
-            fi
             ;;
         ERROR|UNKNOWN)
-            file="$(message_file_for_id "domain-error-$suffix")"
-            if [ "$force" = true ] || [ "$previous" != ERROR ] || [ ! -f "$file" ]; then
-                rm -f "$(message_file_for_id "domain-drop-$suffix")" \
-                      "$(message_file_for_id "domain-check-$suffix")" \
-                      "$(message_file_for_id "domain-registered-$suffix")" \
-                      "$(message_file_for_id "domain-redemption-$suffix")"
-                publish_error "$domain" "$suffix"
-            fi
             ;;
         *)
             write_state AMBIGUOUS
-            [ "$force" = true ] && publish_ambiguous "$domain" "$suffix"
+            [ "$force" = true ] && publish_domain_state "$domain" "$suffix" 6 "CHECK" "" 0
             ;;
     esac
     release_lock
@@ -1058,30 +1030,40 @@ test_domain() {
     printf 'Source:     %s\n' "${method:-NONE}"
     printf 'Result:     %s\n' "$state"
     case "$state" in
+        REDEMPTION)
+            printf 'Message:    domain-state-%s\n' "$suffix"
+            printf 'Display:    "DOMAIN" / "REDEMPTION"\n'
+            printf 'Policy:     repeat 21600s (6h)\n'
+            printf 'Priority:   5\n'
+            printf 'Detail:     Domain can still be restored by the previous owner.\n'
+            ;;
+        PENDING_DELETE)
+            printf 'Message:    domain-state-%s\n' "$suffix"
+            printf 'Display:    "DOMAIN" / "PENDING DELETE"\n'
+            printf 'Policy:     repeat 3600s (1h)\n'
+            printf 'Priority:   7\n'
+            printf 'Detail:     Deletion scheduled. Watch closely.\n'
+            ;;
         AVAILABLE)
-            printf 'Display:    "DOMAIN" / "%s IS AVAILABLE"\n' "$suffix"
+            printf 'Message:    domain-drop-%s\n' "$suffix"
+            printf 'Display:    "DOMAIN" / "BUY NOW"\n'
             printf 'Mode:       flash (blinking)\n'
+            printf 'Policy:     repeat 60s\n'
             printf 'Priority:   9\n'
             ;;
-        AMBIGUOUS)
-            printf 'Display:    "DOMAIN" / "%s NEEDS CHECK"\n' "$suffix"
-            printf 'Mode:       plain\n'
-            printf 'Priority:   7\n'
-            ;;
         REGISTERED)
-            printf 'Display:    "DOMAIN" / "%s IS REGISTERED"\n' "$suffix"
-            printf 'Mode:       plain\n'
-            printf 'Priority:   5\n'
+            printf 'Action:     no message (silent)\n'
+            printf 'Priority:   -\n'
             ;;
-        REDEMPTION)
-            printf 'Display:    "DOMAIN" / "%s IS IN REDEMPTION"\n' "$suffix"
-            printf 'Mode:       flash\n'
-            printf 'Priority:   7\n'
+        AMBIGUOUS)
+            printf 'Message:    domain-state-%s\n' "$suffix"
+            printf 'Display:    "DOMAIN" / "CHECK"\n'
+            printf 'Policy:     inbox\n'
+            printf 'Priority:   6\n'
             ;;
         ERROR)
-            printf 'Display:    "DOMAIN" / "%s CHECK FAILED"\n' "$suffix"
-            printf 'Mode:       plain\n'
-            printf 'Priority:   5\n'
+            printf 'Action:     no message (log only)\n'
+            printf 'Priority:   -\n'
             ;;
     esac
     printf -- '─────────────────────────────────\n'
