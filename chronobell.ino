@@ -42,6 +42,7 @@ static void onTouchPad4Release(uint8_t pad)  { app.onTouchMiddleShort(pad); }
 static void onTouchPad1Repeat(uint8_t pad)   { app.onTouchRightRepeat(pad); }
 static void onTouchPad8Repeat(uint8_t pad)   { app.onTouchLeftRepeat(pad); }
 static void onTouchPad8Hold(uint8_t pad)     { app.onTouchLeftHold(pad); }
+static void onTouchPad4Hold(uint8_t pad)     { app.onTouchRightExtraHold(pad); }
 
 // TimerController callbacks: persist the chosen preset, ring the bell on a
 // countdown alert, allow ClockApp to query / stop the bell as needed.
@@ -94,8 +95,8 @@ void setup() {
                              MENU_LONG_PRESS_MS, MENU_REPEAT_RATE_MS);
     app.configureTouchRepeat(8, onTouchPad8Repeat,
                              MENU_LONG_PRESS_MS, MENU_REPEAT_RATE_MS);
-    // 5-second hold on left pad (pad 8) triggers display hard refresh.
-    app.configureTouchHold(8, onTouchPad8Hold, 5000);
+    app.configureTouchHold(8, onTouchPad8Hold, DISPLAY_RESET_HOLD_MS);
+    app.configureTouchHold(4, onTouchPad4Hold, DISPLAY_RESET_HOLD_MS);
 #if GUEST_WIFI_ENABLED
     app.wireGuestWifiCallback(onGuestWifiAvailable);
 #endif

@@ -460,6 +460,8 @@ Press the **BOOT** button or toggle **HOTSPOT** to ON in the menu.
 | Tap | Right | Next menu item / next display style / cycle countdown preset |
 | Hold 1.5s | Center | Enter the menu |
 | Hold (auto-repeat) | Left or Right | Scroll fast through menu items or countdown presets |
+| Hold 5s | Left | Force a full MAX7219 display driver reset (recovers from transient glitches) |
+| Hold 5s | Right | Reboot the ESP32 |
 
 When night mode turns the display off, any touch wakes it for a minute.
 

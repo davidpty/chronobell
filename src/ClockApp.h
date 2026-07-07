@@ -112,6 +112,7 @@ public:
     void onTouchLeft(uint8_t pad);
     void onTouchLeftHold(uint8_t pad);
     void onTouchRight(uint8_t pad);
+    void onTouchRightExtraHold(uint8_t pad);
     void onTouchMiddleShort(uint8_t pad);
     void onTouchMiddleLong(uint8_t pad);
     void saveCountdownPreset(uint8_t presetIndex);
@@ -214,7 +215,7 @@ private:
     bool          _buttonWasPressed = false;
     bool          _t4LongPressHandled = false;
 
-    unsigned long _lastDisplayRecoveryMs = 0;
+    uint8_t _lastRecoveryBucket = 0xFF;
 
     // --- Private helpers ---
     void syncRuntimeSettingsFromLoaded(bool forceDateStyleReset);

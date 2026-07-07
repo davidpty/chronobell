@@ -916,13 +916,16 @@ void ClockApp::refreshPongOnEntry() {
 
 void ClockApp::checkDisplayRecovery() {
     if (!_display.isEnabled()) return;
-    unsigned long intervalMs = (unsigned long)DISPLAY_RECOVERY_INTERVAL_MINUTES * 60000UL;
-    unsigned long now = millis();
-    if (_lastDisplayRecoveryMs == 0 ||
-        (int32_t)(now - _lastDisplayRecoveryMs) >= (int32_t)intervalMs) {
+
+    int h, m, s;
+    if (!getCurrentClockTime(h, m, s)) return;
+
+    unsigned long minsToday = (unsigned long)h * 60 + m;
+    uint8_t bucket = minsToday / DISPLAY_RECOVERY_INTERVAL_MINUTES;
+
+    if (bucket != _lastRecoveryBucket) {
         _display.displayHardRefresh();
-        _lastDisplayRecoveryMs = now;
-        LOGF("Display hard refresh at uptime %lu ms\n", now);
+        _lastRecoveryBucket = bucket;
     }
 }
 
@@ -966,19 +969,17 @@ void ClockApp::onTouchLeft(uint8_t pad) {
 void ClockApp::onTouchLeftHold(uint8_t pad) {
     (void)pad;
     if (_menuController.isActive()) return;
-    if (_timerController.isDateView()) return;
-    if (_timerController.isStopwatchView()) return;
-    if (_timerController.isCountdownView()) return;
-    if (_timerController.isCountdownExpired()) return;
-#if GUEST_WIFI_ENABLED
-    if (_timerController.isGuestWifiView()) return;
-#endif
-#if CHRONOSERVE_ENABLED
-    if (_messageClient.isPreviewVisible()) return;
-#endif
+    if (!_timerController.isClockView()) return;
     LOGLN("Manual display hard refresh triggered via touch hold");
     _display.displayHardRefresh();
-    _lastDisplayRecoveryMs = millis();
+}
+
+void ClockApp::onTouchRightExtraHold(uint8_t pad) {
+    (void)pad;
+    if (_menuController.isActive()) return;
+    if (!_timerController.isClockView()) return;
+    LOGLN("Reboot triggered via right pad hold");
+    ESP.restart();
 }
 
 void ClockApp::onTouchRight(uint8_t pad) {

@@ -88,6 +88,8 @@
 #define MENU_LONG_PRESS_MS                          1500                                       // 1.5 s hold → context menu / exit timer / cancel
 #define MENU_REPEAT_RATE_MS                         500                                        // Repeat rate for held touch input
 
+#define DISPLAY_RESET_HOLD_MS                       5000                                       // Left/right pad hold (ms) for display hard refresh / reboot (clock view only)
+
 #define MENU_TIMEOUT_SHORT_SECONDS                  15                                         // Auto-exit short-lived views after this much inactivity
 #define MENU_TIMEOUT_LONG_SECONDS                   30                                         // Auto-cancel longer edit flows after this much inactivity
 
