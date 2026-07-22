@@ -581,13 +581,11 @@ add_message() {
     while [ "$#" -gt 0 ]; do
         case "$1" in
             -i|--inbox)
-                [ "$policy" = temporary ] || { printf 'choose only one policy: default temporary, --inbox, or --repeat\n' >&2; return 2; }
                 policy=inbox
                 shift ;;
             -r|--repeat)
-                [ "$policy" != inbox ] || { printf 'choose only one policy: default temporary, --inbox, or --repeat\n' >&2; return 2; }
-                policy=repeat
                 repeat="${2:-0}"
+                [ "$policy" = temporary ] && policy=repeat
                 shift 2 ;;
             --id) id="${2:-}"; shift 2 ;;
             --source) source="${2:-}"; shift 2 ;;
@@ -673,7 +671,7 @@ add_message() {
         else
             printf '"indicator":false,"dismissible":false'
         fi
-        [ "$policy" = repeat ] && printf ',"repeatSec":%s' "$repeat"
+        [ "$repeat" -gt 0 ] && printf ',"repeatSec":%s' "$repeat"
         printf '},'
         printf '"display":{'
         printf '"size":"%s",' "$size"
@@ -930,6 +928,7 @@ publish_domain_status() {
         --source domain-watch \
         --type alert \
         --inbox \
+        --repeat 900 \
         --priority "$priority" \
         --title "$domainpart" \
         --body "$body" \
@@ -1527,7 +1526,7 @@ Domain watcher states (published as inbox messages on transition):
 
 Add options:
   -i, --inbox         Keep in message view until dismissed
-  -r, --repeat SEC   Repeat preview until TTL expires
+  -r, --repeat SEC   Repeat preview at interval (combine with --inbox for re-previewing inbox messages)
   --id ID              Message identifier (auto-generated if omitted)
   --source SOURCE      Source label (default: manual)
   --type TYPE          Message type (default: alert)

@@ -504,7 +504,7 @@ void MessageClient::update() {
             bool due = false;
             if (!s.firstPreviewShown) {
                 due = s.firstPreviewDueMs > 0 && (int32_t)(nowMs - s.firstPreviewDueMs) >= 0;
-            } else if (s.msg.policy == MessagePolicyKind::Repeat) {
+            } else if (s.msg.policy == MessagePolicyKind::Repeat || (s.msg.policy == MessagePolicyKind::Inbox && s.msg.repeatSec > 0)) {
                 uint32_t repeatMs = (uint32_t)(s.msg.repeatSec > 0 ? s.msg.repeatSec : CHRONOSERVE_DEFAULT_REPEAT_SEC) * 1000UL;
                 uint32_t basis = s.lastPreviewEndMs > 0 ? s.lastPreviewEndMs : s.lastPreviewMs;
                 due = basis > 0 && (int32_t)(nowMs - (basis + repeatMs)) >= 0;
