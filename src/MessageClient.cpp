@@ -505,9 +505,20 @@ void MessageClient::update() {
             if (!s.firstPreviewShown) {
                 due = s.firstPreviewDueMs > 0 && (int32_t)(nowMs - s.firstPreviewDueMs) >= 0;
             } else if (s.msg.policy == MessagePolicyKind::Repeat || (s.msg.policy == MessagePolicyKind::Inbox && s.msg.repeatSec > 0)) {
-                uint32_t repeatMs = (uint32_t)(s.msg.repeatSec > 0 ? s.msg.repeatSec : CHRONOSERVE_DEFAULT_REPEAT_SEC) * 1000UL;
-                uint32_t basis = s.lastPreviewEndMs > 0 ? s.lastPreviewEndMs : s.lastPreviewMs;
-                due = basis > 0 && (int32_t)(nowMs - (basis + repeatMs)) >= 0;
+                uint32_t repeatSec = s.msg.repeatSec > 0 ? s.msg.repeatSec : CHRONOSERVE_DEFAULT_REPEAT_SEC;
+                uint32_t basisMs = s.lastPreviewEndMs > 0 ? s.lastPreviewEndMs : s.lastPreviewMs;
+                if (basisMs > 0) {
+                    if (validTime) {
+                        int64_t bootEpoch = (int64_t)nowEpoch - (int64_t)(nowMs / 1000);
+                        int64_t basisEpoch = (int64_t)(basisMs / 1000) + bootEpoch;
+                        uint32_t lastBlock = (uint32_t)(basisEpoch / repeatSec);
+                        uint32_t nowBlock = (uint32_t)nowEpoch / repeatSec;
+                        due = nowBlock > lastBlock;
+                    } else {
+                        uint32_t repeatMs = repeatSec * 1000UL;
+                        due = (int32_t)(nowMs - (basisMs + repeatMs)) >= 0;
+                    }
+                }
             }
             if (!due) continue;
             if (bestIdx < 0 ||
