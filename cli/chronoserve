@@ -921,16 +921,17 @@ undismiss_domain_messages() {
 publish_domain_status() {
     suffix="$1"
     state="$2"
-    priority="$3"
-    body="$4"
-    detail="$5"
+    domainpart="$3"
+    priority="$4"
+    body="$5"
+    detail="$6"
     add_message \
         --id "domain-$state-$suffix" \
         --source domain-watch \
         --type alert \
         --inbox \
         --priority "$priority" \
-        --title DOMAIN \
+        --title "$domainpart" \
         --body "$body" \
         --forever \
         --detail "$detail" >/dev/null
@@ -954,6 +955,7 @@ check_domain() {
     domain="$(printf '%s' "$domain" | tr 'A-Z' 'a-z')"
     [ -n "$suffix" ] || suffix="$(domain_suffix "$domain")"
     [ -n "$suffix" ] || suffix=domain
+    domainpart="$(printf '%s' "$domain" | sed 's/\..*//' | tr 'a-z' 'A-Z')"
 
     lock_file="$(lock_file_for_suffix "$suffix")"
     state_file="$(state_file_for_suffix "$suffix")"
@@ -984,31 +986,31 @@ check_domain() {
 
     case "$state" in
         REDEMPTION)
-            publish_domain_status "$suffix" redemption 5 "REDEMPTION" \
+            publish_domain_status "$suffix" redemption "$domainpart" 5 "REDEMPTION" \
                 "Domain can still be restored by the previous owner."
             ;;
         PENDING_DELETE)
-            publish_domain_status "$suffix" pending-delete 7 "PENDING DELETE" \
+            publish_domain_status "$suffix" pending-delete "$domainpart" 7 "PENDING DELETE" \
                 "Deletion scheduled. Watch closely."
             ;;
         PENDING_RESTORE)
-            publish_domain_status "$suffix" restoring 6 "RESTORING" \
+            publish_domain_status "$suffix" restoring "$domainpart" 6 "RESTORING" \
                 "Previous owner is restoring the domain. Drop unlikely."
             ;;
         HOLD)
-            publish_domain_status "$suffix" hold 6 "HOLD" \
+            publish_domain_status "$suffix" hold "$domainpart" 6 "HOLD" \
                 "Domain is on hold and not resolving in DNS."
             ;;
         PENDING_TRANSFER)
-            publish_domain_status "$suffix" transfer 5 "TRANSFER" \
+            publish_domain_status "$suffix" transfer "$domainpart" 5 "TRANSFER" \
                 "Registrar transfer in progress."
             ;;
         AVAILABLE)
-            publish_domain_status "$suffix" available 9 "BUY NOW" \
+            publish_domain_status "$suffix" available "$domainpart" 9 "BUY NOW" \
                 "Domain is available for registration."
             ;;
         AMBIGUOUS)
-            publish_domain_status "$suffix" check 6 "CHECK" ""
+            publish_domain_status "$suffix" check "$domainpart" 6 "CHECK" ""
             ;;
         REGISTERED)
             ;;
@@ -1016,7 +1018,7 @@ check_domain() {
             ;;
         *)
             write_state "$state_file" AMBIGUOUS
-            [ "$force" = true ] && publish_domain_status "$suffix" check 6 "CHECK" ""
+            [ "$force" = true ] && publish_domain_status "$suffix" check "$domainpart" 6 "CHECK" ""
             ;;
     esac
     release_lock "$lock_file"
