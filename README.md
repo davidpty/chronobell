@@ -444,8 +444,11 @@ Timer alerts are separate from scheduled bell modes: when a countdown expires, C
 ### Build and upload
 
 ```bash
-# PlatformIO
-pio run --target upload
+# PlatformIO - serial (USB)
+pio run -e esp32dev --target upload
+
+# PlatformIO - OTA (wireless, password in platformio.ini)
+pio run -e esp32dev-ota --target upload
 
 # Arduino CLI
 arduino-cli compile --fqbn esp32:esp32:esp32
@@ -576,10 +579,12 @@ Open `Config.h` to adjust these:
 
 ## OTA Updates
 
-Once the clock is on your network, find it at `chronobell.local` and push firmware wirelessly:
+Once the clock is on your network, push firmware wirelessly:
 
 ```bash
-pio run --target upload --upload-port chronobell.local
+pio run -e esp32dev-ota --target upload
 ```
 
-You can also upload a `.bin` file through the web config portal - no cables needed.
+The OTA environment (`esp32dev-ota`) in `platformio.ini` uses `espota` protocol with the password `chronobell`.
+
+You can also upload a `.bin` file through the web config portal (`http://chronobell.local`) - no cables needed.
