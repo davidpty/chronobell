@@ -3,8 +3,8 @@
 BASE="${CHRONOSERVE_BASE:-/etc/chronoserve}"
 MSG_DIR="${CHRONOSERVE_MSG_DIR:-$BASE/messages.d}"
 OUT="${CHRONOSERVE_OUT:-$BASE/messages.json}"
-STATE_FILE="${CHRONOSERVE_STATE_FILE:-$BASE/domain-state}"
-LOCK_FILE="${CHRONOSERVE_LOCK_FILE:-$BASE/check-domain.lock}"
+STATE_BASE="${CHRONOSERVE_STATE_FILE:-$BASE/domain-state}"
+LOCK_BASE="${CHRONOSERVE_LOCK_FILE:-$BASE/check-domain.lock}"
 LOG_FILE="${CHRONOSERVE_LOG_FILE:-$BASE/chronoserve.log}"
 CRON_FILE="${CHRONOSERVE_CRON_FILE:-/etc/crontabs/root}"
 GQR_STATE="${CHRONOSERVE_GQR_STATE:-$BASE/guestqr-state}"
@@ -40,6 +40,14 @@ domain_suffix() {
     domain="$(printf '%s' "$1" | tr 'A-Z' 'a-z')"
     first="${domain%%.*}"
     safe_id "${first:-$domain}"
+}
+
+state_file_for_suffix() {
+    printf '%s-%s' "$STATE_BASE" "$(safe_id "$1")"
+}
+
+lock_file_for_suffix() {
+    printf '%s-%s' "$LOCK_BASE" "$(safe_id "$1")"
 }
 
 json_escape() {
@@ -781,8 +789,8 @@ list_messages() {
 }
 
 read_state() {
-    if [ -f "$STATE_FILE" ]; then
-        sed -n '1p' "$STATE_FILE"
+    if [ -f "$1" ]; then
+        sed -n '1p' "$1"
     else
         printf 'UNKNOWN\n'
     fi
@@ -790,12 +798,12 @@ read_state() {
 
 write_state() {
     ensure_base
-    printf '%s\n' "$1" > "$STATE_FILE"
+    printf '%s\n' "$2" > "$1"
 }
 
 lock_age() {
     now="$(now_epoch)"
-    ts="$(sed -n '1p' "$LOCK_FILE" 2>/dev/null)"
+    ts="$(sed -n '1p' "$1" 2>/dev/null)"
     case "$ts" in
         ''|*[!0-9]*) printf '%s\n' "$LOCK_STALE_SEC" ;;
         *) printf '%s\n' $((now - ts)) ;;
@@ -804,19 +812,19 @@ lock_age() {
 
 acquire_lock() {
     ensure_base
-    if [ -f "$LOCK_FILE" ]; then
-        age="$(lock_age)"
+    if [ -f "$1" ]; then
+        age="$(lock_age "$1")"
         if [ "$age" -lt "$LOCK_STALE_SEC" ]; then
             return 1
         fi
-        rm -f "$LOCK_FILE"
+        rm -f "$1"
     fi
-    now_epoch > "$LOCK_FILE"
+    now_epoch > "$1"
     return 0
 }
 
 release_lock() {
-    rm -f "$LOCK_FILE"
+    rm -f "$1"
 }
 
 have_cmd() {
@@ -825,22 +833,32 @@ have_cmd() {
 
 interpret_whois_file() {
     body="$1"
-    if grep -Eqi 'redemptionPeriod|REACTIVATION PERIOD' "$body"; then
-        printf 'REDEMPTION\n'
-        return
+    # ---------- EPP status lines ----------
+    # Collect normalised status tokens from "Domain Status:" / "Status:" lines,
+    # lowercase, strip non-alpha so both "pendingDelete" and "pending delete" work.
+    statuses=$(sed -n 's/^[[:space:]]*[Dd]omain[[:space:]][Ss]tatus[[:space:]]*:[[:space:]]*//p
+                s/^[[:space:]]*[Ss]tatus[[:space:]]*:[[:space:]]*//p' "$body" \
+               | sed 's/[[:space:]].*//; s/[^A-Za-z]//g' | tr 'A-Z' 'a-z')
+    if [ -n "$statuses" ]; then
+        # Precedence: worst first.
+        if printf '%s\n' "$statuses" | grep -qx 'redemptionperiod'; then printf 'REDEMPTION\n'; return; fi
+        if printf '%s\n' "$statuses" | grep -qx 'pendingdelete'; then printf 'PENDING_DELETE\n'; return; fi
+        if printf '%s\n' "$statuses" | grep -qx 'pendingrestore'; then printf 'PENDING_RESTORE\n'; return; fi
+        if printf '%s\n' "$statuses" | grep -Eqx '(server|client)hold'; then printf 'HOLD\n'; return; fi
+        if printf '%s\n' "$statuses" | grep -qx 'pendingtransfer'; then printf 'PENDING_TRANSFER\n'; return; fi
+        if printf '%s\n' "$statuses" | grep -Eqx 'ok|inactive|addperiod|autorenewperiod|renewperiod|transferperiod|pendingcreate|pendingrenew|pendingupdate|(server|client)(delete|renew|transfer|update)prohibited'; then
+            printf 'REGISTERED\n'; return
+        fi
+        # Status lines present but unrecognised -> safe fallback to CHECK alert.
+        printf 'AMBIGUOUS\n'; return
     fi
-    if grep -Eqi 'pendingDelete' "$body"; then
-        printf 'PENDING_DELETE\n'
-        return
-    fi
+    # ---------- Free-text fallbacks (for whois without EPP lines) ----------
+    if grep -Eqi 'redemptionPeriod|REACTIVATION PERIOD' "$body"; then printf 'REDEMPTION\n'; return; fi
+    if grep -Eqi 'pendingDelete' "$body"; then printf 'PENDING_DELETE\n'; return; fi
     if grep -Eqi 'clientTransferProhibited|Registry Domain ID:|Domain Name:|Registrar:|Creation Date:|Registry Expiry Date:|Registrar Registration Expiration Date:|Name Server:' "$body"; then
-        printf 'REGISTERED\n'
-        return
+        printf 'REGISTERED\n'; return
     fi
-    if grep -Eqi 'No match|NOT FOUND|No Data Found|No entries found' "$body"; then
-        printf 'AVAILABLE\n'
-        return
-    fi
+    if grep -Eqi 'No match|NOT FOUND|No Data Found|No entries found' "$body"; then printf 'AVAILABLE\n'; return; fi
     printf 'AMBIGUOUS\n'
 }
 
@@ -875,53 +893,47 @@ remove_domain_messages() {
           "$(message_file_for_id "domain-registered-$suffix")" \
           "$(message_file_for_id "domain-check-$suffix")" \
           "$(message_file_for_id "domain-redemption-$suffix")" \
-          "$(message_file_for_id "domain-error-$suffix")"
+          "$(message_file_for_id "domain-error-$suffix")" \
+          "$(message_file_for_id "domain-available-$suffix")" \
+          "$(message_file_for_id "domain-pending-delete-$suffix")" \
+          "$(message_file_for_id "domain-restoring-$suffix")" \
+          "$(message_file_for_id "domain-hold-$suffix")" \
+          "$(message_file_for_id "domain-transfer-$suffix")"
 }
 
-publish_domain_state() {
-    domain="$1"
-    suffix="$2"
+# Remove this domain's dismissed entries so a new (or re-appearing) status
+# always surfaces, even if a previous status message was dismissed.
+undismiss_domain_messages() {
+    suffix="$1"
+    [ -f "$DISMISSED_FILE" ] || return 0
+    tmp="$BASE/undismiss-domain.$$"
+    while IFS= read -r line; do
+        set -- $line
+        id="${1:-}"
+        case "$id" in
+            domain-*"-$suffix") continue ;;
+        esac
+        [ -n "$id" ] && printf '%s\n' "$line"
+    done < "$DISMISSED_FILE" > "$tmp" 2>/dev/null || true
+    mv "$tmp" "$DISMISSED_FILE"
+}
+
+publish_domain_status() {
+    suffix="$1"
+    state="$2"
     priority="$3"
     body="$4"
     detail="$5"
-    repeat_sec="${6:-0}"
-    if [ "$repeat_sec" -gt 0 ]; then
-        add_message \
-            --id "domain-state-$suffix" \
-            --source domain-watch \
-            --type alert \
-            --repeat "$repeat_sec" \
-            --priority "$priority" \
-            --title DOMAIN \
-            --body "$body" \
-            --forever \
-            --detail "$detail" >/dev/null
-    else
-        add_message \
-            --id "domain-state-$suffix" \
-            --source domain-watch \
-            --type alert \
-            --inbox \
-            --priority "$priority" \
-            --title DOMAIN \
-            --body "$body" \
-            --forever \
-            --detail "$detail" >/dev/null
-    fi
-}
-
-publish_domain_drop() {
-    domain="$1"
-    suffix="$2"
     add_message \
-        --id "domain-drop-$suffix" \
+        --id "domain-$state-$suffix" \
         --source domain-watch \
         --type alert \
-        --repeat 60 \
-        --priority 9 \
+        --inbox \
+        --priority "$priority" \
         --title DOMAIN \
-        --body "BUY NOW" \
-        --forever >/dev/null
+        --body "$body" \
+        --forever \
+        --detail "$detail" >/dev/null
 }
 
 check_domain() {
@@ -943,8 +955,11 @@ check_domain() {
     [ -n "$suffix" ] || suffix="$(domain_suffix "$domain")"
     [ -n "$suffix" ] || suffix=domain
 
-    acquire_lock || return 0
-    trap 'release_lock' EXIT HUP INT TERM
+    lock_file="$(lock_file_for_suffix "$suffix")"
+    state_file="$(state_file_for_suffix "$suffix")"
+
+    acquire_lock "$lock_file" || return 0
+    trap 'release_lock "$lock_file"' EXIT HUP INT TERM
     result=""
     if result="$(check_whois "$domain")"; then
         method="${result%% *}"
@@ -954,43 +969,57 @@ check_domain() {
         state=ERROR
     fi
 
-    previous="$(read_state)"
+    previous="$(read_state "$state_file")"
 
     if [ "$state" = "$previous" ] && [ "$force" != true ]; then
-        release_lock
+        release_lock "$lock_file"
         trap - EXIT HUP INT TERM
         return 0
     fi
 
     log_transition "$previous" "$state"
-    write_state "$state"
+    write_state "$state_file" "$state"
     remove_domain_messages "$suffix"
+    undismiss_domain_messages "$suffix"
 
     case "$state" in
         REDEMPTION)
-            publish_domain_state "$domain" "$suffix" 5 "REDEMPTION" \
-                "Domain can still be restored by the previous owner." 21600
+            publish_domain_status "$suffix" redemption 5 "REDEMPTION" \
+                "Domain can still be restored by the previous owner."
             ;;
         PENDING_DELETE)
-            publish_domain_state "$domain" "$suffix" 7 "PENDING DELETE" \
-                "Deletion scheduled. Watch closely." 3600
+            publish_domain_status "$suffix" pending-delete 7 "PENDING DELETE" \
+                "Deletion scheduled. Watch closely."
+            ;;
+        PENDING_RESTORE)
+            publish_domain_status "$suffix" restoring 6 "RESTORING" \
+                "Previous owner is restoring the domain. Drop unlikely."
+            ;;
+        HOLD)
+            publish_domain_status "$suffix" hold 6 "HOLD" \
+                "Domain is on hold and not resolving in DNS."
+            ;;
+        PENDING_TRANSFER)
+            publish_domain_status "$suffix" transfer 5 "TRANSFER" \
+                "Registrar transfer in progress."
             ;;
         AVAILABLE)
-            publish_domain_drop "$domain" "$suffix"
+            publish_domain_status "$suffix" available 9 "BUY NOW" \
+                "Domain is available for registration."
             ;;
         AMBIGUOUS)
-            publish_domain_state "$domain" "$suffix" 6 "CHECK" "" 0
+            publish_domain_status "$suffix" check 6 "CHECK" ""
             ;;
         REGISTERED)
             ;;
         ERROR|UNKNOWN)
             ;;
         *)
-            write_state AMBIGUOUS
-            [ "$force" = true ] && publish_domain_state "$domain" "$suffix" 6 "CHECK" "" 0
+            write_state "$state_file" AMBIGUOUS
+            [ "$force" = true ] && publish_domain_status "$suffix" check 6 "CHECK" ""
             ;;
     esac
-    release_lock
+    release_lock "$lock_file"
     trap - EXIT HUP INT TERM
 }
 
@@ -1031,24 +1060,44 @@ test_domain() {
     printf 'Result:     %s\n' "$state"
     case "$state" in
         REDEMPTION)
-            printf 'Message:    domain-state-%s\n' "$suffix"
+            printf 'Message:    domain-redemption-%s\n' "$suffix"
             printf 'Display:    "DOMAIN" / "REDEMPTION"\n'
-            printf 'Policy:     repeat 21600s (6h)\n'
+            printf 'Policy:     inbox (recall via center tap, hold center to dismiss)\n'
             printf 'Priority:   5\n'
             printf 'Detail:     Domain can still be restored by the previous owner.\n'
             ;;
         PENDING_DELETE)
-            printf 'Message:    domain-state-%s\n' "$suffix"
+            printf 'Message:    domain-pending-delete-%s\n' "$suffix"
             printf 'Display:    "DOMAIN" / "PENDING DELETE"\n'
-            printf 'Policy:     repeat 3600s (1h)\n'
+            printf 'Policy:     inbox (recall via center tap, hold center to dismiss)\n'
             printf 'Priority:   7\n'
             printf 'Detail:     Deletion scheduled. Watch closely.\n'
             ;;
+        PENDING_RESTORE)
+            printf 'Message:    domain-restoring-%s\n' "$suffix"
+            printf 'Display:    "DOMAIN" / "RESTORING"\n'
+            printf 'Policy:     inbox (recall via center tap, hold center to dismiss)\n'
+            printf 'Priority:   6\n'
+            printf 'Detail:     Previous owner is restoring the domain.\n'
+            ;;
+        HOLD)
+            printf 'Message:    domain-hold-%s\n' "$suffix"
+            printf 'Display:    "DOMAIN" / "HOLD"\n'
+            printf 'Policy:     inbox (recall via center tap, hold center to dismiss)\n'
+            printf 'Priority:   6\n'
+            printf 'Detail:     Domain is on hold and not resolving in DNS.\n'
+            ;;
+        PENDING_TRANSFER)
+            printf 'Message:    domain-transfer-%s\n' "$suffix"
+            printf 'Display:    "DOMAIN" / "TRANSFER"\n'
+            printf 'Policy:     inbox (recall via center tap, hold center to dismiss)\n'
+            printf 'Priority:   5\n'
+            printf 'Detail:     Registrar transfer in progress.\n'
+            ;;
         AVAILABLE)
-            printf 'Message:    domain-drop-%s\n' "$suffix"
+            printf 'Message:    domain-available-%s\n' "$suffix"
             printf 'Display:    "DOMAIN" / "BUY NOW"\n'
-            printf 'Mode:       flash (blinking)\n'
-            printf 'Policy:     repeat 60s\n'
+            printf 'Policy:     inbox (recall via center tap, hold center to dismiss)\n'
             printf 'Priority:   9\n'
             ;;
         REGISTERED)
@@ -1056,9 +1105,9 @@ test_domain() {
             printf 'Priority:   -\n'
             ;;
         AMBIGUOUS)
-            printf 'Message:    domain-state-%s\n' "$suffix"
+            printf 'Message:    domain-check-%s\n' "$suffix"
             printf 'Display:    "DOMAIN" / "CHECK"\n'
-            printf 'Policy:     inbox\n'
+            printf 'Policy:     inbox (recall via center tap, hold center to dismiss)\n'
             printf 'Priority:   6\n'
             ;;
         ERROR)
@@ -1462,8 +1511,13 @@ Usage:
   chronoserve undismiss ID
   chronoserve dismissed
   chronoserve check-domain <domain> [--id suffix] [--force]
-  chronoserve test-domain <domain>
-  chronoserve guestqr [options]
+   chronoserve test-domain <domain>
+   chronoserve guestqr [options]
+
+Domain watcher states (published as inbox messages on transition):
+  AVAILABLE(9)/BUY NOW  PENDING_DELETE(7)/PENDING DELETE  RESTORING(6)  HOLD(6)
+  REDEMPTION(5)  TRANSFER(5)  CHECK(6)   Silent: REGISTERED ERROR UNKNOWN
+  Recall via center tap, dismiss with center hold.
    chronoserve cron list|add|remove|uninstall
   chronoserve install [/www/cgi-bin]
   chronoserve uninstall [/www/cgi-bin]

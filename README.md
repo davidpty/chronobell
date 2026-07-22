@@ -271,7 +271,7 @@ curl -G "http://192.168.8.1/cgi-bin/chronoserve?check-domain" \
 
 `?guestqr` supports `rotate`, `seed`, `ssid`, `section`, `length`, `alphabet`, `outdir`, `no-apply=true`, and `no-html=true`. Without `no-apply=true`, it may update the router's live guest WiFi password.
 
-`?check-domain` supports `domain`, optional `id`, and `force=true`. It runs WHOIS/RDAP synchronously and can block while the registrar lookup completes. ChronoBell polling with `?msg` and `?wifi` never runs RDAP, WHOIS, `curl`, or `wget`, so a slow registrar or network error cannot block the display.
+`?check-domain` supports `domain`, optional `id`, and `force=true`. It runs WHOIS synchronously. ChronoBell polling with `?msg` and `?wifi` never runs WHOIS, `curl`, or `wget`, so a slow registrar or network error cannot block the display.
 
 Domain checks run from cron or manually:
 
@@ -280,7 +280,22 @@ Domain checks run from cron or manually:
 /usr/bin/chronoserve check-domain comonoclaroquesi.com
 ```
 
-The domain checker is conservative. It tries WHOIS first, then falls back to RDAP if WHOIS fails or returns ambiguous results. WHOIS `redemptionPeriod` or `pendingDelete` creates a priority 7 `DOMAIN / REDEMPTION` alert. WHOIS or RDAP no-match creates a priority 9 `DOMAIN / AVAILABLE` alert. Registered domains with name servers or registrar fields create no alert. Ambiguous status creates a lower-priority `DOMAIN / CHECK` alert. Network errors update state to `ERROR`.
+The domain checker parses `Domain Status:` lines from WHOIS to classify the domain against all ICANN EPP status codes, with free-text fallbacks for registries that do not use EPP status lines. Network errors update state to `ERROR`.
+
+| EPP status(es) | State | Priority | Display | Behavior |
+|---|---|---|---|---|
+| WHOIS no-match | AVAILABLE | 9 | `DOMAIN / BUY NOW` | Immediate auto-preview, 200ms blinking dot |
+| `pendingDelete` | PENDING_DELETE | 7 | `DOMAIN / PENDING DELETE` | Auto-preview after 5s, 1200ms blink |
+| `pendingRestore` | PENDING_RESTORE | 6 | `DOMAIN / RESTORING` | Auto-preview after 1s |
+| `serverHold`, `clientHold` | HOLD | 6 | `DOMAIN / HOLD` | Auto-preview after 1s |
+| `redemptionPeriod` | REDEMPTION | 5 | `DOMAIN / REDEMPTION` | Auto-preview after 1s |
+| `pendingTransfer` | PENDING_TRANSFER | 5 | `DOMAIN / TRANSFER` | Auto-preview after 1s |
+| Ambiguous / unknown | CHECK | 6 | `DOMAIN / CHECK` | Auto-preview after 1s |
+| `ok`, `inactive`, grace periods, client/server prohibitions | REGISTERED | — | silent | State tracked; no message |
+
+Multiple statuses are evaluated in the order above — `pendingDelete` takes precedence over a concurrent `clientTransferProhibited`.
+
+Every status change produces an **inbox-persistent** message. The blinking unread dot appears on the clock face; tap center to recall the full-screen preview, hold center 1.5s to dismiss it permanently (the next status change will re-surface it). Registered domains, grace periods, and client/server lock codes are tracked silently. Dismissals expire after one year. When the domain state changes, any previously dismissed messages for that domain are automatically un-dismissed so the new status always alerts.
 
 Manual tests:
 
@@ -298,7 +313,7 @@ grep chronoserve /etc/crontabs/root
 /usr/bin/chronoserve cron remove check-domain
 ```
 
-Troubleshooting starts with `$BASE/chronoserve.log` and `$BASE/domain-state`. Set `CHRONOSERVE_BASE` to change the state directory. If neither `whois` nor `curl`/`wget` exists on the router, `check-domain` enters the safe `ERROR` state and does not create alerts.
+Troubleshooting starts with `$BASE/chronoserve.log` and `$BASE/domain-state-<domain>` (per-domain state files). Set `CHRONOSERVE_BASE` to change the state directory. If `whois` is not installed on the router, `check-domain` enters the safe `ERROR` state and does not create alerts.
 
 ---
 
