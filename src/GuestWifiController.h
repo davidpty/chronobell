@@ -17,6 +17,7 @@ public:
     const char* password() const { return _password; }
     bool copyText(char* ssidOut, size_t ssidLen, char* passwordOut, size_t passwordLen) const;
     bool bootFetchDone() const;
+    bool requestRefresh();
 
     bool isDisabled() const { return _disabled; }
 

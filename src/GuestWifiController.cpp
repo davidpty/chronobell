@@ -464,6 +464,26 @@ bool GuestWifiController::requestFetch(FetchReason reason, unsigned long nowMs) 
     return true;
 }
 
+bool GuestWifiController::requestRefresh() {
+    if (_disabled || !_mutex) return false;
+    unsigned long nowMs = millis();
+    if (xSemaphoreTake(_mutex, 0) != pdTRUE) return false;
+    if (_fetchRequested || _fetchInProgress) {
+        xSemaphoreGive(_mutex);
+        return false;
+    }
+    uint32_t minInterval = 30000;
+    if (_lastFetchMs != 0 && nowMs - _lastFetchMs < minInterval) {
+        xSemaphoreGive(_mutex);
+        return false;
+    }
+    _fetchReason = FetchReason::Daily;
+    _fetchRequested = true;
+    _lastFetchMs = nowMs;
+    xSemaphoreGive(_mutex);
+    return true;
+}
+
 void GuestWifiController::taskEntry(void* arg) {
     static_cast<GuestWifiController*>(arg)->taskLoop();
 }

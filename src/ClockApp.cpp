@@ -561,8 +561,14 @@ void ClockApp::tickGuestWifi() {
     }
 
     if (!_guestWifi.bootFetchDone()) {
-        _guestWifi.tick(0, 0, 0, 0, 0);
+        if (WiFi.status() == WL_CONNECTED) {
+            _guestWifi.tick(0, 0, 0, 0, 0);
+        }
         return;
+    }
+
+    if (_timerController.isGuestWifiView()) {
+        _guestWifi.requestRefresh();
     }
 
     int h = 0, m = 0, s = 0;
