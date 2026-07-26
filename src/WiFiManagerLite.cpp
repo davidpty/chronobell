@@ -484,6 +484,7 @@ void WiFiManagerLite::startConnect(const String& ssid, const String& password, i
         WiFi.disconnect(true);
         WiFi.mode(WIFI_STA);
     }
+    WiFi.setHostname(_mdnsHostname.c_str());
     WiFi.begin(ssid.c_str(), password.c_str());
     _connState = ConnState::Connecting;
     _connStartMs = millis();
