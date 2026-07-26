@@ -7,7 +7,8 @@ static const char CONFIG_PORTAL_PAGE_TEMPLATE[] = R"rawliteral(
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ChronoBell Setup</title>
+    <title>ChronoBell</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23000' rx='4'/%3E%3Ctext x='16' y='23' text-anchor='middle' font-size='22' font-family='sans-serif' font-weight='bold' fill='%23f00'%3EC%3C/text%3E%3C/svg%3E">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         html { font-size: clamp(16px, min(2.4vw, 2.35vh), 24px); }
