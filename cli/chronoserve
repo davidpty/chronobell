@@ -866,8 +866,10 @@ check_whois() {
     body="$BASE/whois.$$"
     rm -f "$body"
     whois "$domain" > "$body" 2>/dev/null
-    rc=$?
-    if [ "$rc" -ne 0 ] || [ ! -s "$body" ]; then
+    # WHOIS clients commonly return a nonzero status for a valid "no match"
+    # response, so classify any non-empty response before treating the lookup
+    # as an error.
+    if [ ! -s "$body" ]; then
         rm -f "$body"
         printf 'WHOIS ERROR\n'
         return 0

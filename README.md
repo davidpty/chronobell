@@ -293,7 +293,7 @@ The domain checker parses `Domain Status:` lines from WHOIS to classify the doma
 | Ambiguous / unknown | CHECK | 6 | `DOMAIN / CHECK` | Auto-preview after 1s |
 | `ok`, `inactive`, grace periods, client/server prohibitions | REGISTERED | — | silent | State tracked; no message |
 
-Multiple statuses are evaluated in the order above — `pendingDelete` takes precedence over a concurrent `clientTransferProhibited`.
+When `redemptionPeriod` appears together with `pendingDelete`, `REDEMPTION` takes precedence because the domain is still restorable. `PENDING DELETE` applies when `pendingDelete` appears alone; client/server prohibition codes do not override these lifecycle states.
 
 Every status change produces an **inbox-persistent** message. The blinking unread dot appears on the clock face; tap center to recall the full-screen preview, hold center 1.5s to dismiss it permanently (the next status change will re-surface it). Registered domains, grace periods, and client/server lock codes are tracked silently. Dismissals expire after one year. When the domain state changes, any previously dismissed messages for that domain are automatically un-dismissed so the new status always alerts.
 
