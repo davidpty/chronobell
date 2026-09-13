@@ -46,7 +46,7 @@
 
 #define NIGHT_DISPLAY_WAKE_MINUTES                  1                                          // First press consumed as wake; window extends on each touch
 
-#define NIGHT_DIM_START_HOUR                        19                                         // Dimmed display starts
+#define NIGHT_DIM_START_HOUR                        18                                         // Dimmed display starts
 #define NIGHT_DIM_END_HOUR                          6                                          // Dimmed display ends
 
 #define NIGHT_DARK_START_HOUR                       22                                         // Display-off period starts

@@ -551,7 +551,7 @@ Open `Config.h` to adjust these:
 |----------|---------|-------------|
 | `DISPLAY_FLIP` | `0` | Set to `1` if your display is mounted upside-down |
 | `CAP1188_TOUCH_THRESHOLD` | `0x35` | Touch sensitivity - lower numbers trip more easily |
-| `NIGHT_DIM_START_HOUR` | `19` (7 PM) | When night dimming starts |
+| `NIGHT_DIM_START_HOUR` | `18` (6 PM) | When night dimming starts |
 | `GUEST_WIFI_ENABLED` | `1` | Set to `0` to compile guest WiFi out |
 | `CHRONOSERVE_URL` | `http://192.168.8.1/cgi-bin/chronoserve` | Base CGI endpoint; append `?msg` or `?wifi` |
 | `CHRONOSERVE_POLL_INTERVAL_SEC` | `60` | Message poll interval in seconds |
