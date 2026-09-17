@@ -17,9 +17,9 @@
 #define FONT_SMALL_COLS            4
 #define FONT_MEDIUM_COLS           6   // FONT_MEDIUM and FONT_BIG share this width
 
-extern const uint8_t FONT_BIG[43][TIME_FONT_BIG_HEIGHT][6];
-extern const uint8_t FONT_MEDIUM[44][TIME_FONT_MEDIUM_HEIGHT][6];
-extern const uint8_t FONT_SMALL[44][SEC_FONT_HEIGHT][4];
+extern const uint8_t FONT_BIG[45][TIME_FONT_BIG_HEIGHT][6];
+extern const uint8_t FONT_MEDIUM[45][TIME_FONT_MEDIUM_HEIGHT][6];
+extern const uint8_t FONT_SMALL[45][SEC_FONT_HEIGHT][4];
 
 int charToGlyphIndex(char c);
 

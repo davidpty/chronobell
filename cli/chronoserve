@@ -956,7 +956,7 @@ check_domain() {
     domain="$(printf '%s' "$domain" | tr 'A-Z' 'a-z')"
     [ -n "$suffix" ] || suffix="$(domain_suffix "$domain")"
     [ -n "$suffix" ] || suffix=domain
-    domainpart="$(printf '%s' "$domain" | sed 's/\..*//' | tr 'a-z' 'A-Z')"
+    domainpart="$(printf '%s' "$domain" | tr 'a-z' 'A-Z')"
 
     lock_file="$(lock_file_for_suffix "$suffix")"
     state_file="$(state_file_for_suffix "$suffix")"

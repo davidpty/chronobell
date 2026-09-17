@@ -387,9 +387,9 @@ String normalizeMessageText(const String& text) {
         if (c < 0x80) {
             if (c >= 'a' && c <= 'z') c = (unsigned char)(c - 'a' + 'A');
             if ((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
-                c == '%' || c == '-' || c == '+' || c == '@' || c == '^' || c == 'v') {
+                c == '%' || c == '-' || c == '+' || c == '@' || c == '^' || c == 'v' || c == '.') {
                 mapped = (char)c;
-            } else if (c == '.' || c == '_' || c == '/' || c == ':' || c == ',' ||
+            } else if (c == '_' || c == '/' || c == ':' || c == ',' ||
                        c == ';' || c == '!' || c == '?' || isspace(c)) {
                 mapped = ' ';
             } else {
