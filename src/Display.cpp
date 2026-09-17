@@ -1179,17 +1179,18 @@ bool Display::drawChronoMessage(const ChronoMessage& message, unsigned long nowM
 }
 
 void Display::drawUnreadMessageIndicator(int count, int priority, unsigned long nowMs) {
-    if (priority < 0 || count <= 0) return;
-    unsigned long blinkPeriod = priority >= 9 ? 200UL : (priority >= 7 ? 1200UL : 2400UL);
-    unsigned long halfPeriod = blinkPeriod / 2;
-    unsigned long burstLen = count * blinkPeriod;
-    unsigned long pauseLen = 1500UL;
+    (void)priority;
+    if (count <= 0) return;
+
+    int blinkCount = min(count, CHRONOSERVE_MAX_MESSAGES);
+    unsigned long blinkPeriod = CHRONOSERVE_INDICATOR_ON_MS + CHRONOSERVE_INDICATOR_OFF_MS;
+    unsigned long burstLen = (unsigned long)blinkCount * blinkPeriod;
+    unsigned long pauseLen = CHRONOSERVE_INDICATOR_PAUSE_MS;
     unsigned long totalLen = burstLen + pauseLen;
     unsigned long t = nowMs % totalLen;
     if (t >= burstLen) return;
-    unsigned long blinkIdx = t / blinkPeriod;
     unsigned long posInBlink = t % blinkPeriod;
-    if (posInBlink >= halfPeriod) return;
+    if (posInBlink >= CHRONOSERVE_INDICATOR_ON_MS) return;
     int bx = 0, by = TOTAL_ROWS - 1;
     if (getPixel(bx, by)) return;
     setPixel(bx, by, true);

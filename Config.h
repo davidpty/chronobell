@@ -223,6 +223,9 @@
 #define CHRONOSERVE_SCROLL_STEP_MS                    180                                        // Firmware scroll animation step in milliseconds
 #define CHRONOSERVE_SCROLL_WORD_GAP_PX                4                                          // Gap between words in ChronoServe scroll text
 #define CHRONOSERVE_SCROLL_EXIT_PAD_PX                5                                          // Extra blank pixels after the last glyph before finish
+#define CHRONOSERVE_INDICATOR_ON_MS                  500                                        // Unread-message indicator on time
+#define CHRONOSERVE_INDICATOR_OFF_MS                 500                                        // Unread-message indicator off time between blinks
+#define CHRONOSERVE_INDICATOR_PAUSE_MS             1000                                        // Pause after the unread-count blink burst
 
 // Internal ChronoServe engine limits. These rarely need tuning.
 #define CHRONOSERVE_MAX_MESSAGES                      5                                          // Max cached messages kept in memory
